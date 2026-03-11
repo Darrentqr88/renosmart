@@ -4221,8 +4221,10 @@ ${getRegionPriceNote()}
 
     let result;
     try {
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-      result = JSON.parse(jsonMatch ? jsonMatch[0] : rawText);
+      // Strip ```json fences if present
+      const cleaned = rawText.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      result = JSON.parse(jsonMatch ? jsonMatch[0] : cleaned);
     } catch {
       console.error('JSON parse failed, raw:', rawText.substring(0, 200));
       result = buildMockResult(quotationText);
