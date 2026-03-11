@@ -2189,13 +2189,13 @@ code {
       <div class="sidebar-label" data-i18n="sidebar_settings">设置</div>
       <div class="sidebar-section">
         <div class="nav-item" onclick="showPanel('dashboard');setTimeout(renderDashboard,80)">
-          <span class="nav-icon">📊</span> 我的后台
+          <span class="nav-icon">📊</span> <span data-i18n="nav_dashboard">我的后台</span>
         </div>
         <div class="nav-item" onclick="showPanel('pricelibrary');setTimeout(checkPriceLibAccess,80)">
           <span class="nav-icon">💰</span> <span data-i18n="nav_pricelist">价格数据库</span>
         </div>
         <div class="nav-item" onclick="showPanel('mysettings')">
-          <span class="nav-icon">⚙️</span> 我的设定
+          <span class="nav-icon">⚙️</span> <span data-i18n="nav_settings">我的设定</span>
         </div>
       </div>
 
@@ -2583,26 +2583,34 @@ code {
         <div class="panel-title">导出 & 分享</div>
         <div class="panel-sub">将审核报告和工程进度以专业格式发送给业主</div>
 
-        <div class="two-col">
-          <div class="info-card" style="cursor:pointer" onclick="showToast('📄','PDF报告生成中...')">
-            <div style="font-size: 36px; margin-bottom: 12px;">📄</div>
-            <div style="font-size: 15px; font-weight:600; margin-bottom: 8px;">AI 审核报告 (PDF)</div>
-            <div style="font-size: 12px; color:var(--text2);">含评分、漏项警告、价格分析，专业格式可直接给业主签署。</div>
+        <div id="export-no-data" style="display:none;padding:32px;text-align:center;color:var(--text3);font-size:14px;">
+          ⚠️ 请先上传报价单并完成 AI 分析，才能导出报告
+        </div>
+
+        <div class="two-col" id="export-cards">
+          <div class="info-card" style="cursor:pointer" onclick="exportAIPDF()">
+            <div style="font-size:36px;margin-bottom:12px;">📄</div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:8px;">AI 审核报告 (PDF)</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">含评分、漏项警告、价格分析，专业格式可直接给业主签署。</div>
+            <div style="background:var(--gold);color:#fff;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;display:inline-block;">⬇ 下载 PDF</div>
           </div>
-          <div class="info-card" style="cursor:pointer" onclick="showToast('📊','Excel进度表生成中...')">
-            <div style="font-size: 36px; margin-bottom: 12px;">📊</div>
-            <div style="font-size: 15px; font-weight:600; margin-bottom: 8px;">工程进度表 (Excel)</div>
-            <div style="font-size: 12px; color:var(--text2);">含甘特图、工序分组、负责人分配，可在工地使用。</div>
+          <div class="info-card" style="cursor:pointer" onclick="exportScheduleExcel()">
+            <div style="font-size:36px;margin-bottom:12px;">📊</div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:8px;">工程进度表 (Excel)</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">含工序分组、负责人分配、金额，可在工地使用。</div>
+            <div style="background:var(--green);color:#fff;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;display:inline-block;">⬇ 下载 Excel</div>
           </div>
-          <div class="info-card" style="cursor:pointer" onclick="showToast('📱','WhatsApp链接已复制！')">
-            <div style="font-size: 36px; margin-bottom: 12px;">💬</div>
-            <div style="font-size: 15px; font-weight:600; margin-bottom: 8px;">WhatsApp 分享链接</div>
-            <div style="font-size: 12px; color:var(--text2);">生成业主专属链接，通过 WhatsApp 直接分享进度，适合 MY/SG 使用习惯。</div>
+          <div class="info-card" style="cursor:pointer" onclick="shareViaWhatsApp()">
+            <div style="font-size:36px;margin-bottom:12px;">💬</div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:8px;">WhatsApp 发给业主</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">直接发送报告摘要给业主，适合 MY/SG 使用习惯。</div>
+            <div style="background:#25D366;color:#fff;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;display:inline-block;">📱 发送 WhatsApp</div>
           </div>
-          <div class="info-card" style="cursor:pointer" onclick="showToast('👷','工人任务包已发送！')">
-            <div style="font-size: 36px; margin-bottom: 12px;">👷</div>
-            <div style="font-size: 15px; font-weight:600; margin-bottom: 8px;">工人任务包</div>
-            <div style="font-size: 12px; color:var(--text2);">将每位工人的任务单独推送，含完工拍照要求和时间节点。</div>
+          <div class="info-card" style="cursor:pointer" onclick="exportWorkerTasks()">
+            <div style="font-size:36px;margin-bottom:12px;">👷</div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:8px;">工人任务包 (Excel)</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">将每位工人的任务单独列出，含时间节点。</div>
+            <div style="background:var(--teal);color:#fff;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;display:inline-block;">⬇ 下载任务包</div>
           </div>
         </div>
       </div>
@@ -4086,8 +4094,8 @@ function setAIProgress(pct, text) {
 
 async function analyzeWithClaude(quotationText, fileName) {
   // Use up to 14000 chars to cover multi-page PDFs (7 pages ≈ 12,000–18,000 chars)
-  const textForAI = quotationText.length > 6000
-    ? quotationText.substring(0, 6000) + '\n\n[...内容已截断，以上为前 6000 字符...]'
+  const textForAI = quotationText.length > 4000
+    ? quotationText.substring(0, 4000) + '\n\n[...已截断至前 4000 字符...]'
     : quotationText;
 
   const prompt = `你是马来西亚和新加坡装修行业的专业报价审核 AI（RenoSmart）。
@@ -4188,8 +4196,8 @@ ${getRegionPriceNote()}
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 8000,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 3000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -5575,6 +5583,8 @@ const TRANSLATIONS = {
     sidebar_projects: 'PROJECTS',
     sidebar_team: 'TEAM',
     sidebar_settings: 'SETTINGS',
+    nav_dashboard: 'My Dashboard',
+    nav_settings: 'My Settings',
     sidebar_new_project: 'New Project',
     nav_quotation: 'Quotation Import',
     nav_ai_review: 'AI Review',
@@ -5636,6 +5646,8 @@ const TRANSLATIONS = {
     sidebar_projects: 'PROJEK',
     sidebar_team: 'PASUKAN',
     sidebar_settings: 'TETAPAN',
+    nav_dashboard: 'Papan Pemuka',
+    nav_settings: 'Tetapan Saya',
     sidebar_new_project: 'Projek Baru',
     nav_quotation: 'Import Sebut Harga',
     nav_ai_review: 'Semakan AI',
@@ -5693,6 +5705,8 @@ const TRANSLATIONS = {
     sidebar_projects: '项目',
     sidebar_team: '团队',
     sidebar_settings: '设置',
+    nav_dashboard: '我的后台',
+    nav_settings: '我的设定',
     sidebar_new_project: '新建项目',
     nav_quotation: '报价单导入',
     nav_ai_review: 'AI 审核结果',
@@ -9354,6 +9368,331 @@ initWorkerPortal();
 initScheduleControls();
 rebuildGantt();
 syncUsageUI();
+
+// ══════════════════════════════════════════════════════════════════
+// EXPORT FUNCTIONS
+// ══════════════════════════════════════════════════════════════════
+
+function exportAIPDF() {
+  if (!lastAnalysisResult) {
+    showToast('⚠️','请先上传报价单完成 AI 分析');
+    showPanel('upload'); return;
+  }
+  const r = lastAnalysisResult;
+  const c = window.lastExtractedClient || {};
+  const s = r.score || {};
+  const cur = getRegionCurrency();
+  const now = new Date().toLocaleDateString('zh-MY');
+
+  const printWin = window.open('','_blank','width=900,height=700');
+  printWin.document.write(`<!DOCTYPE html><html><head>
+  <meta charset="UTF-8">
+  <title>RenoSmart AI 审核报告</title>
+  <style>
+    body{font-family:'DM Sans',Arial,sans-serif;max-width:800px;margin:0 auto;padding:32px;color:#1B2336;font-size:13px;}
+    h1{color:#C89B09;font-size:22px;margin-bottom:4px;}
+    .sub{color:#6B7A94;font-size:12px;margin-bottom:24px;}
+    table{width:100%;border-collapse:collapse;margin-bottom:20px;}
+    th{background:#F0B90B;color:#fff;padding:8px;text-align:left;font-size:11px;}
+    td{padding:7px 8px;border-bottom:1px solid #eee;font-size:11px;}
+    tr:nth-child(even){background:#F7F8FA;}
+    .score-box{display:inline-block;background:#FFF8DC;border:2px solid #F0B90B;border-radius:50%;width:60px;height:60px;line-height:60px;text-align:center;font-size:24px;font-weight:700;color:#C89B09;}
+    .alert-critical{background:#FEE2E2;border-left:4px solid #E53935;padding:8px 12px;margin:6px 0;border-radius:4px;}
+    .alert-warning{background:#FEF9C3;border-left:4px solid #F97316;padding:8px 12px;margin:6px 0;border-radius:4px;}
+    .alert-info{background:#E0FAF5;border-left:4px solid #00C9A7;padding:8px 12px;margin:6px 0;border-radius:4px;}
+    .section{margin-bottom:24px;}
+    .logo{font-size:18px;font-weight:700;color:#C89B09;letter-spacing:2px;}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+    .field{background:#F7F8FA;padding:8px;border-radius:6px;}
+    .field-label{font-size:10px;color:#6B7A94;text-transform:uppercase;letter-spacing:1px;}
+    .field-val{font-size:13px;font-weight:600;margin-top:2px;}
+    .score-row{display:flex;align-items:center;gap:16px;margin-bottom:20px;}
+    .bar-wrap{flex:1;}
+    .bar-item{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:11px;}
+    .bar-bg{flex:1;height:8px;background:#E4E7F0;border-radius:4px;overflow:hidden;}
+    .bar-fill{height:100%;border-radius:4px;}
+    @media print{button{display:none!important;}}
+  </style></head><body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;border-bottom:2px solid #F0B90B;padding-bottom:16px;">
+    <div>
+      <div class="logo">RenoSmart</div>
+      <div style="font-size:10px;color:#6B7A94;margin-top:2px;">AI 智能装修审核平台 · MY/SG</div>
+    </div>
+    <div style="text-align:right;font-size:11px;color:#6B7A94;">
+      <div>报告生成日期：${now}</div>
+      <div>基于 MY/SG 2025 市场数据</div>
+    </div>
+  </div>
+
+  <h1>AI 智能审核报告</h1>
+  <div class="sub">${r.summary || ''}</div>
+
+  ${c.company || c.attention ? `
+  <div class="section">
+    <div style="font-size:12px;font-weight:700;color:#3D4A60;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">客户资料</div>
+    <div class="grid2">
+      ${c.company ? `<div class="field"><div class="field-label">公司</div><div class="field-val">${c.company}</div></div>` : ''}
+      ${c.attention ? `<div class="field"><div class="field-label">联系人</div><div class="field-val">${c.attention}</div></div>` : ''}
+      ${c.tel ? `<div class="field"><div class="field-label">电话</div><div class="field-val">${c.tel}</div></div>` : ''}
+      ${c.email ? `<div class="field"><div class="field-label">邮箱</div><div class="field-val">${c.email}</div></div>` : ''}
+      ${c.address ? `<div class="field" style="grid-column:1/-1"><div class="field-label">地址</div><div class="field-val">${c.address}</div></div>` : ''}
+      ${c.projectRef ? `<div class="field"><div class="field-label">报价单编号</div><div class="field-val">${c.projectRef}</div></div>` : ''}
+      ${r.totalAmount ? `<div class="field"><div class="field-label">报价总额</div><div class="field-val" style="color:#16A34A;font-size:16px;">${cur} ${Number(r.totalAmount).toLocaleString()}</div></div>` : ''}
+    </div>
+  </div>` : ''}
+
+  <div class="section">
+    <div style="font-size:12px;font-weight:700;color:#3D4A60;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;">综合评分</div>
+    <div class="score-row">
+      <div class="score-box">${s.total||'–'}</div>
+      <div class="bar-wrap">
+        ${[['项目完整性',s.completeness,'#F97316'],['单价合理性',s.price,'#16A34A'],['工序逻辑性',s.logic,'#16A34A'],['漏项风险',s.risk,'#E53935']].map(([l,v,c2])=>`
+        <div class="bar-item"><span style="width:80px">${l}</span><div class="bar-bg"><div class="bar-fill" style="width:${v||0}%;background:${c2}"></div></div><span>${v||0}</span></div>`).join('')}
+      </div>
+    </div>
+  </div>
+
+  ${(r.alerts||[]).length ? `
+  <div class="section">
+    <div style="font-size:12px;font-weight:700;color:#3D4A60;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">风险提示</div>
+    ${(r.alerts||[]).map(a=>`<div class="alert-${a.level||'info'}"><strong>${a.title||''}</strong><div style="margin-top:4px;font-size:11px;">${a.desc||''}</div></div>`).join('')}
+  </div>` : ''}
+
+  ${(r.missing||[]).length ? `
+  <div class="section">
+    <div style="font-size:12px;font-weight:700;color:#3D4A60;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">⚠️ 疑似漏项</div>
+    ${(r.missing||[]).map(m=>`<div style="padding:5px 10px;background:#FEF9C3;border-radius:4px;margin-bottom:4px;font-size:12px;">• ${m}</div>`).join('')}
+  </div>` : ''}
+
+  <div class="section">
+    <div style="font-size:12px;font-weight:700;color:#3D4A60;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">工程项目明细 (${(r.items||[]).length} 项)</div>
+    <table>
+      <thead><tr><th>#</th><th>分节</th><th>工程描述</th><th>单位</th><th>数量</th><th>单价 (${cur})</th><th>总价 (${cur})</th><th>状态</th></tr></thead>
+      <tbody>
+        ${(r.items||[]).map((item,i)=>`<tr>
+          <td>${item.no||i+1}</td>
+          <td style="font-size:10px;color:#6B7A94;">${item.section||''}</td>
+          <td>${item.name||''}</td>
+          <td>${item.unit||''}</td>
+          <td>${item.qty!=null?item.qty:''}</td>
+          <td>${item.unitPrice!=null?Number(item.unitPrice).toLocaleString():''}</td>
+          <td style="font-weight:600">${item.total!=null?Number(item.total).toLocaleString():''}</td>
+          <td style="color:${item.status==='flag'?'#E53935':item.status==='warn'?'#F97316':'#16A34A'}">${item.status==='flag'?'⚠':item.status==='warn'?'!':'✓'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    ${r.totalAmount?`<div style="text-align:right;font-weight:700;font-size:14px;padding:8px;background:#FFF8DC;border-radius:6px;">报价总额：${cur} ${Number(r.totalAmount).toLocaleString()}</div>`:''}
+  </div>
+
+  <div style="margin-top:32px;border-top:1px solid #eee;padding-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:32px;">
+    <div><div style="font-size:11px;color:#6B7A94;margin-bottom:40px;">设计师签名</div><div style="border-top:1px solid #ccc;padding-top:4px;font-size:10px;color:#6B7A94;">姓名 / 日期</div></div>
+    <div><div style="font-size:11px;color:#6B7A94;margin-bottom:40px;">业主确认签名</div><div style="border-top:1px solid #ccc;padding-top:4px;font-size:10px;color:#6B7A94;">姓名 / 日期</div></div>
+  </div>
+  <div style="margin-top:16px;font-size:10px;color:#9CA3AF;text-align:center;">由 RenoSmart AI 平台自动生成 · renosmart.vercel.app · 仅供参考，以合同为准</div>
+
+  <div style="margin-top:16px;text-align:center;"><button onclick="window.print()" style="background:#F0B90B;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">🖨️ 打印 / 保存 PDF</button></div>
+  </body></html>`);
+  printWin.document.close();
+  setTimeout(() => printWin.focus(), 500);
+  showToast('📄','PDF 报告已生成，请选择「打印→另存为PDF」');
+}
+
+function exportScheduleExcel() {
+  if (!lastAnalysisResult && (!scheduleItems || scheduleItems.length === 0)) {
+    showToast('⚠️','请先上传报价单或编排工程进度');
+    return;
+  }
+  const c = window.lastExtractedClient || {};
+  const r = lastAnalysisResult || {};
+  const cur = getRegionCurrency();
+
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: AI Report Items
+  if (r.items && r.items.length > 0) {
+    const data = [['#','分节','工程描述','单位','数量','单价('+cur+')','总价('+cur+')','状态','AI备注']];
+    (r.items||[]).forEach((item,i) => {
+      data.push([item.no||i+1, item.section||'', item.name||'', item.unit||'', item.qty||'', item.unitPrice||'', item.total||'', item.status||'', item.note||'']);
+    });
+    if (r.totalAmount) data.push(['','','','','','','报价总额：'+cur+' '+Number(r.totalAmount).toLocaleString(),'','']);
+    const ws1 = XLSX.utils.aoa_to_sheet(data);
+    ws1['!cols'] = [{wch:5},{wch:18},{wch:40},{wch:8},{wch:8},{wch:12},{wch:12},{wch:8},{wch:30}];
+    XLSX.utils.book_append_sheet(wb, ws1, 'AI报价审核');
+  }
+
+  // Sheet 2: Schedule
+  const items = (scheduleItems && scheduleItems.length > 0) ? scheduleItems : (r.items||[]).slice(0,20).map((it,i)=>({
+    id:i+1, task: it.name, trade: it.section||'综合工程', duration: 3, start: projectStartDate||new Date().toISOString().split('T')[0], end: projectStartDate||new Date().toISOString().split('T')[0], notes:''
+  }));
+
+  const data2 = [
+    ['RenoSmart 工程进度表'],
+    ['项目', c.projectName || c.company || '装修项目'],
+    ['业主', c.attention || c.company || ''],
+    ['地址', c.address || ''],
+    ['报告日期', new Date().toLocaleDateString('zh-MY')],
+    [],
+    ['序号','工程项目','工种','开始日期','结束日期','天数','负责人','状态','备注']
+  ];
+  items.forEach((item,i) => {
+    data2.push([i+1, item.task||item.name||'', item.trade||'', item.start||'', item.end||'', item.duration||'', item.worker||'', item.status||'待开始', item.notes||'']);
+  });
+
+  const ws2 = XLSX.utils.aoa_to_sheet(data2);
+  ws2['!cols'] = [{wch:6},{wch:35},{wch:15},{wch:12},{wch:12},{wch:8},{wch:15},{wch:10},{wch:25}];
+  ws2['!merges'] = [{s:{r:0,c:0},e:{r:0,c:8}}];
+  XLSX.utils.book_append_sheet(wb, ws2, '工程进度表');
+
+  const filename = `RenoSmart_进度表_${(c.company||'项目').replace(/[^a-zA-Z0-9一-龥]/g,'_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  showToast('📊','Excel 进度表已下载');
+}
+
+function shareViaWhatsApp() {
+  const r = lastAnalysisResult;
+  const c = window.lastExtractedClient || {};
+  const cur = getRegionCurrency();
+
+  let msg = `*RenoSmart 报价审核报告* 🏠
+
+`;
+
+  if (c.company || c.attention) {
+    msg += `*业主：* ${c.attention || c.company || ''}
+`;
+    if (c.address) msg += `*地址：* ${c.address}
+`;
+  }
+
+  if (r) {
+    const s = r.score || {};
+    msg += `
+*综合评分：${s.total||'–'}/100*
+`;
+    msg += `• 项目完整性：${s.completeness||0}/100
+`;
+    msg += `• 单价合理性：${s.price||0}/100
+`;
+    msg += `• 工序逻辑性：${s.logic||0}/100
+`;
+    msg += `• 漏项风险：${s.risk||0}/100
+`;
+
+    if (r.totalAmount) {
+      msg += `
+*报价总额：${cur} ${Number(r.totalAmount).toLocaleString()}*
+`;
+    }
+
+    if (r.summary) msg += `
+📋 ${r.summary}
+`;
+
+    const criticals = (r.alerts||[]).filter(a=>a.level==='critical');
+    if (criticals.length > 0) {
+      msg += `
+*⚠️ 需注意事项：*
+`;
+      criticals.slice(0,3).forEach(a => { msg += `• ${a.title}：${a.desc}
+`; });
+    }
+  } else {
+    msg += `请查看完整装修进度报告。
+`;
+  }
+
+  msg += `
+---
+由 RenoSmart AI 平台生成
+renosmart.vercel.app`;
+
+  // Get owner phone from client data
+  const ownerPhone = (c.tel||'').replace(/[^0-9+]/g,'');
+  const encoded = encodeURIComponent(msg);
+
+  if (ownerPhone && ownerPhone.length > 8) {
+    // Open WhatsApp with specific contact
+    const phone = ownerPhone.startsWith('+') ? ownerPhone.slice(1) : ownerPhone.startsWith('0') ? '6'+ownerPhone : ownerPhone;
+    window.open('https://wa.me/' + phone + '?text=' + encoded, '_blank');
+    showToast('💬','正在打开 WhatsApp...');
+  } else {
+    // Copy to clipboard and open WhatsApp
+    navigator.clipboard.writeText(msg).then(() => {
+      window.open('https://wa.me/?text=' + encoded, '_blank');
+      showToast('💬','WhatsApp 已打开，报告已复制到剪贴板');
+    }).catch(() => {
+      window.open('https://wa.me/?text=' + encoded, '_blank');
+      showToast('💬','正在打开 WhatsApp...');
+    });
+  }
+}
+
+function exportWorkerTasks() {
+  const r = lastAnalysisResult;
+  if (!r && (!scheduleItems || scheduleItems.length === 0)) {
+    showToast('⚠️','请先上传报价单或编排工程进度');
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+  const workers = workerData || [];
+
+  // Group items by trade/section
+  const items = r ? (r.items||[]) : [];
+  const sections = {};
+  items.forEach(item => {
+    const sec = item.section || '综合工程';
+    if (!sections[sec]) sections[sec] = [];
+    sections[sec].push(item);
+  });
+
+  if (workers.length > 0) {
+    workers.forEach(worker => {
+      const data = [
+        [`工人任务单 — ${worker.name}`],
+        ['工种', worker.trades ? worker.trades.join(', ') : ''],
+        ['联系', worker.phone || ''],
+        ['日期', new Date().toLocaleDateString('zh-MY')],
+        [],
+        ['序号','工程描述','单位','数量','完成日期','备注','完成签名']
+      ];
+      items.filter(it => {
+        const sec = (it.section||'').toLowerCase();
+        return (worker.trades||[]).some(t => sec.includes(t.toLowerCase()) || it.name.toLowerCase().includes(t.toLowerCase()));
+      }).forEach((item, i) => {
+        data.push([i+1, item.name||'', item.unit||'', item.qty||'', '', '', '']);
+      });
+      if (data.length <= 6) {
+        items.slice(0,10).forEach((item,i) => {
+          data.push([i+1, item.name||'', item.unit||'', item.qty||'', '', '', '']);
+        });
+      }
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      ws['!cols'] = [{wch:5},{wch:40},{wch:8},{wch:8},{wch:12},{wch:20},{wch:12}];
+      XLSX.utils.book_append_sheet(wb, ws, worker.name.substring(0,31));
+    });
+  } else {
+    // No workers - export by section
+    Object.entries(sections).forEach(([sec, secItems]) => {
+      const data = [
+        [`工人任务单 — ${sec}`],
+        ['日期', new Date().toLocaleDateString('zh-MY')],
+        [],
+        ['序号','工程描述','单位','数量','完成日期','备注','完成签名']
+      ];
+      secItems.forEach((item,i) => {
+        data.push([i+1, item.name||'', item.unit||'', item.qty||'', '', '', '']);
+      });
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      ws['!cols'] = [{wch:5},{wch:40},{wch:8},{wch:8},{wch:12},{wch:20},{wch:12}];
+      XLSX.utils.book_append_sheet(wb, ws, sec.substring(0,31));
+    });
+  }
+
+  const filename = `RenoSmart_工人任务包_${new Date().toISOString().split('T')[0]}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  showToast('👷','工人任务包已下载');
+}
 </script>
 
 
