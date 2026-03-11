@@ -4189,7 +4189,7 @@ ${getRegionPriceNote()}
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -4221,12 +4221,40 @@ ${getRegionPriceNote()}
 
     let result;
     try {
-      // Strip ```json fences if present
-      const cleaned = rawText.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-      result = JSON.parse(jsonMatch ? jsonMatch[0] : cleaned);
-    } catch {
-      console.error('JSON parse failed, raw:', rawText.substring(0, 200));
+      // Strip markdown fences
+      let cleaned = rawText
+        .replace(/^\s*```json\s*/i, '')
+        .replace(/^\s*```\s*/i, '')
+        .replace(/\s*```\s*$/g, '')
+        .trim();
+
+      // Find JSON object - handle truncated responses by auto-closing
+      const startIdx = cleaned.indexOf('{');
+      if (startIdx >= 0) {
+        let jsonStr = cleaned.slice(startIdx);
+        try {
+          result = JSON.parse(jsonStr);
+        } catch {
+          // Try to auto-repair truncated JSON by closing open brackets
+          let open = 0, openStr = 0, inStr = false, escaped = false;
+          for (const ch of jsonStr) {
+            if (escaped) { escaped = false; continue; }
+            if (ch === '\\' && inStr) { escaped = true; continue; }
+            if (ch === '"') inStr = !inStr;
+            if (!inStr) {
+              if (ch === '{') open++;
+              if (ch === '}') open--;
+            }
+          }
+          if (inStr) jsonStr += '"';
+          while (open > 0) { jsonStr += '}'; open--; }
+          result = JSON.parse(jsonStr);
+        }
+      } else {
+        throw new Error('No JSON object found');
+      }
+    } catch (e) {
+      console.error('JSON parse failed:', e.message, '\nRaw:', rawText.substring(0, 300));
       result = buildMockResult(quotationText);
     }
 
