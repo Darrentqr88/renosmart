@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RenoSmart — 智能装修管理平台 MY/SG</title>
+<title>RenoSmart — Smart Renovation Platform MY/SG</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='16' fill='%23F0B90B'/><text y='.9em' font-size='72' x='12'>🏠</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 // ══ SUPABASE CLIENT ════════════════════════════════════════════
 const SUPABASE_URL = 'https://obwcntliainlbxuzfeew.supabase.co';
@@ -4093,55 +4094,49 @@ function setAIProgress(pct, text) {
 }
 
 async function analyzeWithClaude(quotationText, fileName) {
-  // Use up to 14000 chars to cover multi-page PDFs (7 pages ≈ 12,000–18,000 chars)
   const textForAI = quotationText.length > 4000
-    ? quotationText.substring(0, 4000) + '\n\n[...已截断至前 4000 字符...]'
+    ? quotationText.substring(0, 4000) + '\n\n[...truncated to 4000 chars...]'
     : quotationText;
 
-  const prompt = `你是马来西亚和新加坡装修行业的专业报价审核 AI（RenoSmart）。
+  // Language for AI output follows UI language
+  const isZH = currentLang === 'zh';
+  const isBM = currentLang === 'ms';
+  const outputLang = isZH ? 'Chinese (Simplified)' : isBM ? 'Bahasa Melayu' : 'English';
+  const summaryNote = isZH ? '一句话中文总结' : isBM ? 'Satu ayat ringkasan dalam BM' : 'One-line summary in English';
+  const alertNote = isZH ? '中文标题和描述' : isBM ? 'tajuk dan desc dalam BM' : 'title and desc in English';
 
-请仔细分析以下报价单，严格按 JSON 格式输出。只返回 JSON，不要任何其他文字或 markdown。
+  const prompt = `You are a professional renovation quotation audit AI for Malaysia and Singapore (RenoSmart).
 
-报价单原始内容：
+Analyze the quotation below. Return ONLY valid JSON. No markdown, no extra text.
+Output language for summary, alerts, missing items, and item notes: ${outputLang}
+
+Quotation content:
 \`\`\`
 ${textForAI}
 \`\`\`
 
-═══ 极重要规则 ═══
+=== CRITICAL RULES ===
 
-【规则0 — 区分"出单方"与"收单方"★★★最重要★★★】
-报价单结构通常是：
-  - 页眉/信头 = 出单的【承包商/设计公司】（如 NEUF DESIGN SDN BHD、ABC RENOVATION SDN BHD）
-  - 页面主体左上角 = 【客户】，即收到报价的公司/个人（通常有 ATTENTION: 某人）
-  - 关键识别：客户是报价单**寄送给/地址给**的那一方，通常在 "TO:" 或直接列出公司名+地址+ATTENTION+TEL
+【RULE 0 — Identify CLIENT vs CONTRACTOR ★ MOST IMPORTANT ★】
+Quotation structure:
+  - Header/letterhead = the CONTRACTOR issuing the quote (e.g. NEUF DESIGN SDN BHD) — IGNORE this
+  - Top-left body = the CLIENT receiving the quote (has ATTENTION:, address, TEL)
+  - Client = the party the quote is ADDRESSED TO
 
-正确识别示例（来自本报价单格式）：
-  - 承包商（出单方）= 信头公司，忽略，不放入 client
-  - 客户（收单方）= 报价单正文开头列出的公司+地址+ATTENTION 那一行组合
-    如："ITS ASSET MANAGEMENT SDN BHD / 21 JALAN BUKIT IMPIAN 18/2 / JOHOR BAHRU / ATTENTION: DATO CATHERINE / TEL: +6019-710 2676"
-    则 company="ITS ASSET MANAGEMENT SDN BHD", attention="Dato Catherine", tel="+6019-710 2676", address="21 Jalan Bukit Impian 18/2, Taman Bukit Impian, Johor Bahru"
+Example: "ITS ASSET MANAGEMENT SDN BHD / 21 JALAN BUKIT IMPIAN / ATTENTION: DATO CATHERINE / TEL: +6019-710 2676"
+→ company="ITS ASSET MANAGEMENT SDN BHD", attention="Dato Catherine", tel="+6019-710 2676"
 
-【规则1 — 客户资料识别】
-报价单正文上方通常有客户资料区，包含：公司名、地址、收件人（ATTENTION/ATT/DATO/TAN/MS/MR）、电话（TEL/HP/+60）、邮箱。
-这些行【绝对不是工程项目】，必须抽取到 "client" 字段，不得出现在 "items" 中。
-"DESCRIPTION"、"NO"、"ITEM"、空白行、分节标题（如 GROUND FLOOR、FIRST FLOOR、CEILING WORK 等）均不是工程项目。
+【RULE 1 — Client Info】
+Extract company, address, attention (ATTENTION/DATO/MR/MS), tel (TEL/HP/+60), email into "client". These are NOT work items. Section headers (GROUND FLOOR, CEILING WORK etc) are not items either.
 
-【规则2 — 分节小计处理】
-报价单中有形如 "GROUND FLOOR RM 27,510.00"、"FLOORING WORK RM 36,666.00" 的分节合计行。
-这些是小计标题，放入 "subtotals" 数组，不放入 "items"。
+【RULE 2 — Subtotals】
+Section totals like "GROUND FLOOR RM 27,510.00" go into "subtotals" array, NOT "items".
 
-【规则3 — 数字黄金定律】
-- ★★ 每一行里最大的数字 = 小计(total)
-- 若原文某列为空，对应字段填 null
-- 若只有 qty 和 total，无 unitPrice → 计算 unitPrice = total ÷ qty，unitPriceDerived=true
-- 总价必须与原文完全一致，不得用 qty × unitPrice 替换
-- 单位照抄原文（sqft/sqm/nos/lot/set/ft/sq/L/sum 等）
+【RULE 3 — Numbers】Largest number in row = total. Missing columns = null. If only qty+total: unitPrice=total÷qty, unitPriceDerived=true. Copy unit exactly from source.
 
-【规则4 — 工程项目判断标准】
-只有描述施工动作的行才是工程项目：Hack / Supply / Install / Lay / Paint / Plaster / Replace / Remove / Construct / Demolish 等动词开头，或中文施工动词（铺设/安装/批土/粉刷/拆除/防水等）。
+【RULE 4 — Work Items Only】Only rows with construction verbs: Hack/Supply/Install/Lay/Paint/Plaster/Replace/Remove/Construct/Demolish or Chinese equivalents.
 
-【规则5 — 提取前25个最重要项目】
-若项目超过25个，优先保留金额最大的25项。工程描述控制在30字以内。每个字段尽量简短。
+【RULE 5 — Max 20 items】If >20 items, keep the 20 highest-value ones. Keep name ≤20 chars. Keep JSON compact.
 
 返回格式（极度精简，每个字段越短越好）：
 {"client":{"company":"公司名","address":"地址","attention":"联系人","tel":"电话","email":null,"projectRef":"编号","projectName":"项目名"},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"一句话总结","items":[{"no":"1","section":"分节名","name":"工程描述(20字内)","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"status":"ok"}],"subtotals":[{"label":"分节","amount":1000}],"totalAmount":50000,"missing":["缺失项1"],"alerts":[{"level":"critical","title":"标题","desc":"说明(30字内)"}]}
@@ -4154,7 +4149,8 @@ ${textForAI}
 MY/SG 2025 价格参考：
 ${getRegionPriceNote()}
 若无单价数据 status 填 "nodata"，不要乱填 ok/warn。
-必查漏项：防水工程(湿区)、水电暗槽布线、清洁及废料处理。`;
+Common missing items to check: waterproofing (wet areas), M&E conduit wiring, cleaning & disposal.
+alerts title and desc must be in ${outputLang}.`;
 
   try {
     const resp = await fetch('/api/claude', {
@@ -5538,7 +5534,7 @@ let dayOverrides   = {};
 const TODAY_DATE   = (() => { const d=new Date(); d.setHours(0,0,0,0); return d; })();
 
 let currentRegion = 'MY';
-let currentLang   = 'zh';
+let currentLang   = 'en';
 
 const dateKey  = d => d.toISOString().slice(0,10);
 const addDays  = (d,n)=>{ const r=new Date(d); r.setDate(r.getDate()+n); return r; };
@@ -8673,7 +8669,7 @@ function buildItemBreakdown(lr) {
 // ── Initially show ROLE SELECT overlay (first entry point) ──────
 document.addEventListener('DOMContentLoaded', () => {
   // Apply Chinese language on load
-  if (typeof applyI18n === 'function') applyI18n('zh');
+  if (typeof applyI18n === 'function') applyI18n('en');
 
   // Role select is visible by default (not hidden in HTML)
   if (AUTH_STATE.designer || AUTH_STATE.owner || AUTH_STATE.worker) {
