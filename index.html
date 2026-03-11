@@ -4086,8 +4086,8 @@ function setAIProgress(pct, text) {
 
 async function analyzeWithClaude(quotationText, fileName) {
   // Use up to 14000 chars to cover multi-page PDFs (7 pages ≈ 12,000–18,000 chars)
-  const textForAI = quotationText.length > 14000
-    ? quotationText.substring(0, 14000) + '\n\n[...内容已截断，以上为前 14000 字符...]'
+  const textForAI = quotationText.length > 6000
+    ? quotationText.substring(0, 6000) + '\n\n[...内容已截断，以上为前 6000 字符...]'
     : quotationText;
 
   const prompt = `你是马来西亚和新加坡装修行业的专业报价审核 AI（RenoSmart）。
@@ -4189,7 +4189,7 @@ ${getRegionPriceNote()}
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 12000,
+        max_tokens: 4000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
