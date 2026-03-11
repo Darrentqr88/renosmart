@@ -4140,8 +4140,8 @@ ${textForAI}
 【规则4 — 工程项目判断标准】
 只有描述施工动作的行才是工程项目：Hack / Supply / Install / Lay / Paint / Plaster / Replace / Remove / Construct / Demolish 等动词开头，或中文施工动词（铺设/安装/批土/粉刷/拆除/防水等）。
 
-【规则5 — 提取所有项目，不遗漏】
-报价单可能跨多页、多楼层。必须提取每一个工程项目，不得因数量多而省略。
+【规则5 — 提取前25个最重要项目】
+若项目超过25个，优先保留金额最大的25项。工程描述控制在30字以内。每个字段尽量简短。
 
 返回格式：
 {
@@ -4197,7 +4197,7 @@ ${getRegionPriceNote()}
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 3000,
+        max_tokens: 5000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -4835,6 +4835,9 @@ function renderAnalysisResult(r, fileName, rawText) {
     `已识别 ${workItems.length} 项工程 · ${r.totalAmount ? cur+' '+Number(r.totalAmount).toLocaleString() : '总额待确认'}`;
 
   // ── CLIENT INFO CARD ──────────────────────────────────────
+  // Remove any existing client card first
+  const existingCard = document.getElementById('client-extract-card');
+  if (existingCard) existingCard.remove();
   const c = r.client || {};
   const hasClient = c.company || c.attention || c.tel || c.address;
   const clientHTML = hasClient ? `
