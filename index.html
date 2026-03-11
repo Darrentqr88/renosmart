@@ -4143,48 +4143,13 @@ ${textForAI}
 【规则5 — 提取前25个最重要项目】
 若项目超过25个，优先保留金额最大的25项。工程描述控制在30字以内。每个字段尽量简短。
 
-返回格式：
-{
-  "client": {
-    "company": "客户公司名（非承包商）",
-    "address": "完整地址",
-    "attention": "联系人姓名",
-    "tel": "电话",
-    "email": "邮箱或 null",
-    "projectRef": "报价单编号",
-    "projectName": "项目名称/地点"
-  },
-  "score": {
-    "total": 整体评分0-100,
-    "completeness": 项目完整性0-100,
-    "price": 单价合理性0-100,
-    "logic": 工序逻辑性0-100,
-    "risk": 漏项风险0-100
-  },
-  "summary": "一句话总结（中文，提及项目地点和类型）",
-  "items": [
-    {
-      "no": "原文序号",
-      "section": "所属分节（如 Ground Floor Construction / Flooring Work / Ceiling Work 等）",
-      "name": "完整工程描述",
-      "unit": "单位或 null",
-      "qty": 数量或 null,
-      "unitPrice": 单价或 null,
-      "unitPriceDerived": true或false,
-      "total": 小计（必须与原文完全一致）或 null,
-      "status": "ok|warn|flag|nodata",
-      "note": "AI备注（中文）"
-    }
-  ],
-  "subtotals": [
-    { "label": "分节标题", "amount": 金额 }
-  ],
-  "totalAmount": 报价总额或 null,
-  "missing": ["缺失项目1", "缺失项目2"],
-  "alerts": [
-    { "level": "critical|warning|info", "title": "标题", "desc": "详细说明（中文）" }
-  ]
-}
+返回格式（极度精简，每个字段越短越好）：
+{"client":{"company":"公司名","address":"地址","attention":"联系人","tel":"电话","email":null,"projectRef":"编号","projectName":"项目名"},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"一句话总结","items":[{"no":"1","section":"分节名","name":"工程描述(20字内)","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"status":"ok"}],"subtotals":[{"label":"分节","amount":1000}],"totalAmount":50000,"missing":["缺失项1"],"alerts":[{"level":"critical","title":"标题","desc":"说明(30字内)"}]}
+
+规则：
+- items最多20项，每项name控制在20字内，不要note字段
+- desc控制在30字内
+- section用缩写：GF/1F/2F/Ceiling/Floor/Carpentry/M&E
 
 MY/SG 2025 价格参考：
 ${getRegionPriceNote()}
@@ -4197,7 +4162,7 @@ ${getRegionPriceNote()}
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 5000,
+        max_tokens: 6000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -4229,37 +4194,47 @@ ${getRegionPriceNote()}
 
     let result;
     try {
-      // Strip markdown fences
+      // Step 1: Strip markdown fences
       let cleaned = rawText
         .replace(/^\s*```json\s*/i, '')
         .replace(/^\s*```\s*/i, '')
         .replace(/\s*```\s*$/g, '')
         .trim();
 
-      // Find JSON object - handle truncated responses by auto-closing
+      // Step 2: Extract JSON object
       const startIdx = cleaned.indexOf('{');
-      if (startIdx >= 0) {
-        let jsonStr = cleaned.slice(startIdx);
-        try {
-          result = JSON.parse(jsonStr);
-        } catch {
-          // Try to auto-repair truncated JSON by closing open brackets
-          let open = 0, openStr = 0, inStr = false, escaped = false;
-          for (const ch of jsonStr) {
-            if (escaped) { escaped = false; continue; }
-            if (ch === '\\' && inStr) { escaped = true; continue; }
-            if (ch === '"') inStr = !inStr;
-            if (!inStr) {
-              if (ch === '{') open++;
-              if (ch === '}') open--;
-            }
+      if (startIdx < 0) throw new Error('No JSON object found');
+      let jsonStr = cleaned.slice(startIdx);
+
+      // Step 3: Clean common AI JSON mistakes
+      function repairJSON(s) {
+        // Remove trailing commas before } or ]
+        s = s.replace(/,\s*([}\]])/g, '$1');
+        // Fix unquoted null/true/false (already valid JSON, skip)
+        return s;
+      }
+
+      // Step 4: Try parse → repair → auto-close truncated JSON
+      try {
+        result = JSON.parse(repairJSON(jsonStr));
+      } catch {
+        // Auto-close truncated JSON
+        let s = repairJSON(jsonStr);
+        let open = 0, inStr = false, escaped = false;
+        for (const ch of s) {
+          if (escaped) { escaped = false; continue; }
+          if (ch === '\\' && inStr) { escaped = true; continue; }
+          if (ch === '"') inStr = !inStr;
+          if (!inStr) {
+            if (ch === '{') open++;
+            else if (ch === '}') open--;
           }
-          if (inStr) jsonStr += '"';
-          while (open > 0) { jsonStr += '}'; open--; }
-          result = JSON.parse(jsonStr);
         }
-      } else {
-        throw new Error('No JSON object found');
+        if (inStr) s += '"';
+        // Close any unclosed arrays/objects
+        s = s.replace(/,\s*$/, ''); // remove trailing comma at end
+        while (open > 0) { s += '}'; open--; }
+        result = JSON.parse(s);
       }
     } catch (e) {
       console.error('JSON parse failed:', e.message, '\nRaw:', rawText.substring(0, 300));
