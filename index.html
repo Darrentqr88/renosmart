@@ -9487,7 +9487,163 @@ function exportAIPDF() {
   <div style="margin-top:16px;font-size:10px;color:#9CA3AF;text-align:center;">由 RenoSmart AI 平台自动生成 · renosmart.vercel.app · 仅供参考，以合同为准</div>
 
   <div style="margin-top:16px;text-align:center;"><button onclick="window.print()" style="background:#F0B90B;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">🖨️ 打印 / 保存 PDF</button></div>
-  </body></html>`);
+  
+<!-- RenoSmart Patch: Supabase fixes + quotation parser improvement -->
+<script>
+const SUPABASE_URL = "https://obwcntliainlbxuzfeew.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_PUBLIC_KEY";
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function getCurrentUser(){
+  const { data } = await supabaseClient.auth.getUser();
+  return data.user;
+}
+
+async function createProjectFixed(project){
+  const user = await getCurrentUser();
+
+  const { data, error } = await supabaseClient
+    .from("projects")
+    .insert({
+      user_id: user.id,
+      project_name: project.name,
+      owner_name: project.owner,
+      location: project.location,
+      status: "active"
+    })
+    .select();
+
+  if(error){
+    console.error("Project create error", error);
+    alert("Create project failed");
+    return null;
+  }
+
+  return data[0];
+}
+
+async function uploadQuotationFixed(file){
+
+  const user = await getCurrentUser();
+  const filePath = `${user.id}/${Date.now()}_${file.name}`;
+
+  const { error } = await supabaseClient.storage
+    .from("quotations")
+    .upload(filePath, file);
+
+  if(error){
+    console.error("Upload failed", error);
+    alert("Upload failed");
+    return null;
+  }
+
+  const { data } = supabaseClient.storage
+    .from("quotations")
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+}
+
+async function callAI(prompt){
+
+  const res = await fetch("/api/claude",{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json"
+    },
+    body:JSON.stringify({prompt})
+  });
+
+  const data = await res.json();
+  return data;
+}
+
+/* Improved quotation parsing pipeline */
+
+async function parseQuotationText(text){
+
+const prompt = `
+You are a professional quantity surveyor.
+
+Extract renovation items from the quotation text.
+
+Return JSON only.
+
+Format:
+
+[
+{
+"item":"",
+"trade":"",
+"unit":"",
+"qty":0,
+"unit_price":0,
+"total_price":0
+}
+]
+
+Trades:
+tiling
+plumbing
+electrical
+carpentry
+painting
+demolition
+
+Quotation text:
+${text}
+`;
+
+const ai = await callAI(prompt);
+
+try{
+return JSON.parse(ai.content[0].text);
+}catch(e){
+console.error("AI parse failed",e);
+return [];
+}
+
+}
+
+/* Fix incomplete PDF extraction */
+
+async function extractPDFText(file){
+
+const reader = new FileReader();
+
+return new Promise((resolve)=>{
+
+reader.onload = async function(){
+
+const typedarray = new Uint8Array(this.result);
+const pdf = await pdfjsLib.getDocument(typedarray).promise;
+
+let text = "";
+
+for(let i=1;i<=pdf.numPages;i++){
+
+const page = await pdf.getPage(i);
+const content = await page.getTextContent();
+
+const strings = content.items.map(i=>i.str).join(" ");
+text += strings + "\n";
+
+}
+
+resolve(text);
+
+};
+
+reader.readAsArrayBuffer(file);
+
+});
+
+}
+
+</script>
+
+</body></html>`);
   printWin.document.close();
   setTimeout(() => printWin.focus(), 500);
   showToast('📄','PDF 报告已生成，请选择「打印→另存为PDF」');
@@ -10052,6 +10208,162 @@ function exportWorkerTasks() {
     </div>
   </div>
 </div>
+
+
+<!-- RenoSmart Patch: Supabase fixes + quotation parser improvement -->
+<script>
+const SUPABASE_URL = "https://obwcntliainlbxuzfeew.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_PUBLIC_KEY";
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function getCurrentUser(){
+  const { data } = await supabaseClient.auth.getUser();
+  return data.user;
+}
+
+async function createProjectFixed(project){
+  const user = await getCurrentUser();
+
+  const { data, error } = await supabaseClient
+    .from("projects")
+    .insert({
+      user_id: user.id,
+      project_name: project.name,
+      owner_name: project.owner,
+      location: project.location,
+      status: "active"
+    })
+    .select();
+
+  if(error){
+    console.error("Project create error", error);
+    alert("Create project failed");
+    return null;
+  }
+
+  return data[0];
+}
+
+async function uploadQuotationFixed(file){
+
+  const user = await getCurrentUser();
+  const filePath = `${user.id}/${Date.now()}_${file.name}`;
+
+  const { error } = await supabaseClient.storage
+    .from("quotations")
+    .upload(filePath, file);
+
+  if(error){
+    console.error("Upload failed", error);
+    alert("Upload failed");
+    return null;
+  }
+
+  const { data } = supabaseClient.storage
+    .from("quotations")
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+}
+
+async function callAI(prompt){
+
+  const res = await fetch("/api/claude",{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json"
+    },
+    body:JSON.stringify({prompt})
+  });
+
+  const data = await res.json();
+  return data;
+}
+
+/* Improved quotation parsing pipeline */
+
+async function parseQuotationText(text){
+
+const prompt = `
+You are a professional quantity surveyor.
+
+Extract renovation items from the quotation text.
+
+Return JSON only.
+
+Format:
+
+[
+{
+"item":"",
+"trade":"",
+"unit":"",
+"qty":0,
+"unit_price":0,
+"total_price":0
+}
+]
+
+Trades:
+tiling
+plumbing
+electrical
+carpentry
+painting
+demolition
+
+Quotation text:
+${text}
+`;
+
+const ai = await callAI(prompt);
+
+try{
+return JSON.parse(ai.content[0].text);
+}catch(e){
+console.error("AI parse failed",e);
+return [];
+}
+
+}
+
+/* Fix incomplete PDF extraction */
+
+async function extractPDFText(file){
+
+const reader = new FileReader();
+
+return new Promise((resolve)=>{
+
+reader.onload = async function(){
+
+const typedarray = new Uint8Array(this.result);
+const pdf = await pdfjsLib.getDocument(typedarray).promise;
+
+let text = "";
+
+for(let i=1;i<=pdf.numPages;i++){
+
+const page = await pdf.getPage(i);
+const content = await page.getTextContent();
+
+const strings = content.items.map(i=>i.str).join(" ");
+text += strings + "\n";
+
+}
+
+resolve(text);
+
+};
+
+reader.readAsArrayBuffer(file);
+
+});
+
+}
+
+</script>
 
 </body>
 </html>
