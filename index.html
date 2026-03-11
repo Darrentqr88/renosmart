@@ -8075,16 +8075,8 @@ async function authLoginWithPhone(portal) {
 
   showToast('✅', `欢迎！${phone}`);
 
-  // Save to Supabase anonymously (phone as identifier)
-  _supa.from('profiles').upsert({
-    id: btoa(phone).replace(/[^a-z0-9]/gi,'').substring(0,36).padEnd(36,'0')
-      .replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5'),
-    role: portal,
-    phone: phone,
-    name: AUTH_STATE.currentUser[portal]?.name || '',
-  }, { onConflict: 'phone' }).then(({ error }) => {
-    if (error) console.warn('Profile upsert:', error.message);
-  });
+  // Save phone to localStorage for persistence
+  try { localStorage.setItem('rs_phone_' + portal, phone); } catch(e) {}
 
   authDemoLogin(portal);
   if (portal === 'designer') loadProjectsFromSupabase();
