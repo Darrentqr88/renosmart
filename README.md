@@ -1,7 +1,7 @@
 # renosmart
 Ai driven smart renovation schedule 
 
-[renovation-platform-demo (3).html](https://github.com/user-attachments/files/25894727/renovation-platform-demo.3.html)
+index.html(https://github.com/user-attachments/files/25894727/renovation-platform-demo.3.html)
 <!DOCTYPE html>
 <html lang="zh">
 <head>
