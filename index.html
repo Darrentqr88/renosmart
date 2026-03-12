@@ -15,17 +15,54 @@ const _supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ── Current logged-in Supabase user ─────────────────────────────
 let _supaUser = null;
+// Generate a stable UUID v5-style from a phone string
+// Same phone → same UUID always. Used for phone-only (no OTP) mode.
+function phoneToUUID(phone) {
+  // Simple deterministic hash → UUID-shaped string
+  let hash = 0;
+  const str = 'renosmart:' + phone;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const h = Math.abs(hash).toString(16).padStart(8,'0');
+  const phone64 = btoa(phone).replace(/[^a-f0-9]/g,'').padEnd(12,'0').slice(0,12);
+  return `${h}-${phone64.slice(0,4)}-4${phone64.slice(4,7)}-a${phone64.slice(7,10)}-${phone64.slice(0,12)}`;
+}
+
 async function getSupaUser() {
   if (_supaUser) return _supaUser;
-  const { data } = await _supa.auth.getUser();
-  _supaUser = data?.user || null;
-  return _supaUser;
+
+  // Try real Supabase auth first
+  try {
+    const { data } = await _supa.auth.getUser();
+    if (data?.user) {
+      _supaUser = data.user;
+      return _supaUser;
+    }
+  } catch(e) {}
+
+  // Phone-only fallback: create synthetic user object from stored phone
+  const phone = localStorage.getItem('rs_phone_designer') ||
+                localStorage.getItem('rs_phone_owner') ||
+                localStorage.getItem('rs_phone_worker');
+  if (phone) {
+    _supaUser = {
+      id: phoneToUUID(phone),
+      phone: phone,
+      isPhoneOnly: true // flag so we know this is not a real Supabase user
+    };
+    return _supaUser;
+  }
+  return null;
 }
 
 // ── Load projects from Supabase on login ────────────────────────
 async function loadProjectsFromSupabase() {
   const user = await getSupaUser();
   if (!user) return;
+  // Phone-only users: no real Supabase auth → skip remote load (use localStorage)
+  if (user.isPhoneOnly) return;
   const { data, error } = await _supa.from('projects').select('*').order('created_at', { ascending: false });
   if (error) { console.warn('Load projects error:', error.message); return; }
   PROJECTS_DB.length = 0;
@@ -2322,6 +2359,8 @@ code {
           <!-- Action buttons -->
           <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
             <button class="btn btn-gold" onclick="showPanel('review')" data-i18n="btn_full_report">View Full AI Report →</button>
+            <button class="btn btn-ghost" id="btn-view-pdf" onclick="viewUploadedPDF()" style="display:none">📄 View PDF</button>
+            <button class="btn" id="btn-share-owner" onclick="shareDocumentWithOwner()" style="display:none;background:var(--teal);color:#fff;">📤 Share with Owner</button>
             <button class="btn btn-ghost" onclick="showPanel('schedule');setTimeout(generateAISchedule,300)" data-i18n="btn_gen_schedule">Generate Schedule</button>
             <button class="btn btn-ghost" onclick="exportReport()" data-i18n="btn_export_pdf">Export PDF Report</button>
             <div style="margin-left:auto;">
@@ -3049,6 +3088,26 @@ code {
       </div>
 
       <!-- Notification banner -->
+      <!-- Documents Tab Bar -->
+      <div style="margin:0 12px 12px;display:flex;gap:6px;overflow-x:auto;" id="owner-mobile-tabs">
+        <button onclick="showOwnerTab('progress')" class="owner-tab-btn active" id="otab-progress" style="background:var(--gold);color:#000;border:none;border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif">📊 Progress</button>
+        <button onclick="showOwnerTab('documents')" class="owner-tab-btn" id="otab-documents" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border2);border-radius:20px;padding:6px 14px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif">📄 Documents</button>
+        <button onclick="showOwnerTab('payments')" class="owner-tab-btn" id="otab-payments" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border2);border-radius:20px;padding:6px 14px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif">💰 Payments</button>
+      </div>
+
+      <!-- Owner: Documents tab content -->
+      <div id="owner-tab-documents" style="display:none;padding:0 12px 12px;">
+        <div id="owner-docs-slot">
+          <div style="text-align:center;padding:40px 20px;color:var(--text3);">
+            <div style="font-size:40px;margin-bottom:12px">📂</div>
+            <div style="font-size:13px;">No documents yet.</div>
+            <div style="font-size:11px;margin-top:6px">Designer will share quotation PDFs here.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Owner: Progress tab content (existing notification) -->
+      <div id="owner-tab-progress">
       <div onclick="showToast('🔔','审核报告已确认！设计师将收到通知。')" style="margin: 0 16px 12px; background: rgba(240,185,11,0.1); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor:pointer; display:flex; align-items:center; gap: 10px;">
         <span style="font-size: 20px;">📋</span>
         <div style="flex:1;">
@@ -3807,6 +3866,121 @@ function ownerTab(el, name) {
 }
 
 // ── Toast ─────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// PDF Viewer & Document Share System
+// ══════════════════════════════════════════════════════════════
+function openPDFViewer(base64Data, filename, readOnly) {
+  const existing = document.getElementById('pdf-viewer-overlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'pdf-viewer-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;flex-direction:column;';
+  overlay.innerHTML = `
+    <div style="background:var(--surface);border-bottom:1px solid var(--border2);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:20px">📄</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${filename||'Document'}</div>
+          <div style="font-size:11px;color:var(--text3)">${readOnly?'Owner read-only view':'Uploaded quotation document'}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <a href="${base64Data}" download="${filename||'document.pdf'}" style="background:var(--teal);color:#fff;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:600;text-decoration:none;font-family:'DM Sans',sans-serif;">⬇ Download PDF</a>
+        <button onclick="document.getElementById('pdf-viewer-overlay').remove()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:8px;padding:8px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">✕ Close</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow:hidden;background:#525659">
+      <iframe src="${base64Data}" style="width:100%;height:100%;border:none;" title="PDF Viewer"></iframe>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function viewUploadedPDF() {
+  if (!window._uploadedPDFBase64) {
+    showToast('⚠️', 'No PDF uploaded. Please upload a PDF quotation first.');
+    return;
+  }
+  openPDFViewer(window._uploadedPDFBase64, window._uploadedPDFName, false);
+}
+
+function shareDocumentWithOwner() {
+  if (!window._uploadedPDFBase64) {
+    showToast('⚠️', 'Please upload a PDF quotation first before sharing with owner.');
+    return;
+  }
+  window._ownerSharedDoc = {
+    base64: window._uploadedPDFBase64,
+    filename: window._uploadedPDFName,
+    size: window._uploadedPDFSize,
+    sharedAt: new Date().toISOString(),
+    sharedBy: localStorage.getItem('rs_phone_designer') || 'Designer',
+    totalAmount: window._qTotalAmount || 0,
+    clientName: window.lastExtractedClient?.company || window.lastExtractedClient?.attention || ''
+  };
+  showToast('✅', 'Quotation document shared with owner portal!');
+  setTimeout(() => {
+    switchPortal('owner');
+    setTimeout(() => renderOwnerDocuments(), 400);
+  }, 800);
+}
+
+function renderOwnerDocuments() {
+  const slot = document.getElementById('owner-docs-slot');
+  if (!slot) return;
+  const doc = window._ownerSharedDoc;
+  if (!doc) {
+    slot.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text3);">
+      <div style="font-size:40px;margin-bottom:12px">📂</div>
+      <div style="font-size:13px;">No documents shared yet.</div>
+      <div style="font-size:12px;margin-top:6px;color:var(--text3)">Designer will share quotation documents here.</div>
+    </div>`;
+    return;
+  }
+  const sharedDate = new Date(doc.sharedAt).toLocaleDateString('en-MY', {day:'numeric',month:'short',year:'numeric'});
+  const fileSizeKB = doc.size ? Math.round(doc.size/1024) : '?';
+  slot.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:12px;overflow:hidden;">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.8px;text-transform:uppercase;">📄 Shared Documents</div>
+        <div style="font-size:11px;color:var(--text3)">From Designer</div>
+      </div>
+      <div style="padding:16px;">
+        <div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--surface2);border-radius:10px;border:1px solid var(--border2);">
+          <div style="width:44px;height:44px;background:rgba(248,113,113,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📄</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${doc.filename}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">Shared ${sharedDate} · ${fileSizeKB} KB${doc.totalAmount ? ' · RM '+doc.totalAmount.toLocaleString() : ''}</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0">
+            <button onclick="openPDFViewer(window._ownerSharedDoc.base64, window._ownerSharedDoc.filename, true)" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">👁 View</button>
+            <a href="${doc.base64}" download="${doc.filename}" style="background:var(--surface3);color:var(--text);border:1px solid var(--border2);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;text-decoration:none;font-family:'DM Sans',sans-serif;">⬇</a>
+          </div>
+        </div>
+        <div style="margin-top:10px;padding:10px 12px;background:rgba(0,201,167,0.07);border-radius:8px;border:1px solid rgba(0,201,167,0.2);font-size:11px;color:var(--text2);">
+          ℹ️ This is the original quotation PDF uploaded by your designer. For questions, contact your designer directly.
+        </div>
+      </div>
+    </div>`;
+}
+
+function showOwnerTab(tab) {
+  ['progress','documents','payments'].forEach(t => {
+    const el = document.getElementById('owner-tab-'+t);
+    const btn = document.getElementById('otab-'+t);
+    if (el) el.style.display = t === tab ? '' : 'none';
+    if (btn) {
+      if (t === tab) {
+        btn.style.background = 'var(--gold)'; btn.style.color = '#000';
+        btn.style.border = 'none';
+      } else {
+        btn.style.background = 'var(--surface2)'; btn.style.color = 'var(--text2)';
+        btn.style.border = '1px solid var(--border2)';
+      }
+    }
+  });
+  if (tab === 'documents') renderOwnerDocuments();
+}
+
 function showToast(icon, text) {
   const t = document.getElementById('toast');
   document.getElementById('toast-icon').textContent = icon;
@@ -3835,6 +4009,7 @@ function completeTask3() {
 // ══════════════════════════════════════════
 
 let lastQuotationText = '';
+let quotationArchive = []; // Archive: [{id, filename, uploadedAt, result, totalAmount, fileSize}]
 
 function handleFileDrop(e) {
   e.preventDefault();
@@ -3883,13 +4058,43 @@ async function processFile(file) {
     return;
   }
 
-  // Clear all previous data before processing new file
+  // ── Clear all previous analysis state for new upload ────────
   lastQuotationText = '';
   lastAnalysisResult = null;
   window.lastExtractedClient = null;
   window.projectClientData   = null;
   window.lastDiff            = null;
   window.previousQuotationItems = null;
+  window._qAllItems    = null;
+  window._uploadedPDFBase64 = null;
+  window._uploadedPDFName = null;
+  const bvp = document.getElementById('btn-view-pdf');
+  if (bvp) bvp.style.display = 'none';
+  const bso = document.getElementById('btn-share-owner');
+  if (bso) bso.style.display = 'none';
+  window._qSubtotals   = null;
+  window._qTotalAmount = null;
+  // Clear DOM display areas
+  const q_rows = document.getElementById('q-table-rows');
+  if (q_rows) q_rows.innerHTML = '';
+  const q_tabs = document.getElementById('q-page-tabs');
+  if (q_tabs) { q_tabs.innerHTML = ''; q_tabs.style.display='none'; }
+  const scoreBody = document.getElementById('ai-score-body');
+  if (scoreBody) scoreBody.innerHTML = '';
+  const alertsSec = document.getElementById('ai-alerts-section');
+  if (alertsSec) alertsSec.innerHTML = '';
+  const missingSec = document.getElementById('missing-items-section');
+  if (missingSec) missingSec.innerHTML = '';
+  const reviewWrapper = document.getElementById('ai-score-card-wrapper');
+  if (reviewWrapper) reviewWrapper.innerHTML = '';
+  const reviewAlerts = document.getElementById('review-alerts-body');
+  if (reviewAlerts) reviewAlerts.innerHTML = '';
+  const reviewItems = document.getElementById('review-items-table-slot');
+  if (reviewItems) reviewItems.innerHTML = '';
+  const reviewClient = document.getElementById('review-client-slot');
+  if (reviewClient) reviewClient.innerHTML = '';
+  const oldCard = document.getElementById('client-extract-card');
+  if (oldCard) oldCard.remove();
   const ext = file.name.split('.').pop().toLowerCase();
   document.getElementById('upload-zone').style.display = 'none';
   document.getElementById('ai-loading-state').style.display = 'block';
@@ -3905,6 +4110,14 @@ async function processFile(file) {
     } else if (ext === 'pdf') {
       setAIProgress(15, 'PDF 解析中 (PDF.js)...');
       text = await readPDF(file);
+      // Store original PDF as base64 for viewer (in-memory, no server needed)
+      const pdfReader = new FileReader();
+      pdfReader.onload = (e) => {
+        window._uploadedPDFBase64 = e.target.result; // data:application/pdf;base64,...
+        window._uploadedPDFName = file.name;
+        window._uploadedPDFSize = file.size;
+      };
+      pdfReader.readAsDataURL(file);
     } else {
       text = await file.text();
     }
@@ -4020,7 +4233,7 @@ async function readPDF(file) {
     const allLines = fullText.split('\n');
     const clientLines = [];
     const pageBlocks = []; // array of { page, lines[] }
-    let seenHeaders = new Set();
+    let seenHeaders = new Map(); // key=line text, value=count
     let currentBlock = null;
 
     for (const rawLine of allLines) {
@@ -5061,6 +5274,26 @@ function renderAnalysisResult(r, fileName, rawText) {
 
   lastAnalysisResult = r;
 
+  // ── Archive this quotation (keyed by filename+timestamp) ─────
+  const archiveEntry = {
+    id: Date.now(),
+    filename: fileName,
+    uploadedAt: new Date().toISOString(),
+    result: r,
+    totalAmount: r.totalAmount || 0,
+    clientName: r.client?.company || r.client?.attention || '',
+    projectRef: r.client?.projectRef || '',
+    rawTextLength: (rawText||'').length
+  };
+  quotationArchive.unshift(archiveEntry); // newest first
+  if (quotationArchive.length > 20) quotationArchive = quotationArchive.slice(0, 20);
+  // Persist archive to localStorage (excluding rawText for size)
+  try {
+    const phone = localStorage.getItem('rs_phone_designer') || 'anon';
+    const toSave = quotationArchive.map(e => ({ ...e, result: null })); // no full result in LS
+    localStorage.setItem('rs_qarchive_' + phone, JSON.stringify(toSave.slice(0,10)));
+  } catch(e) {}
+
   // ── Run diff if re-upload ──────────────────────────────────
   if (window.previousQuotationItems && window.previousQuotationItems.length > 0) {
     const diff = buildQuotationDiff(workItems, window.previousQuotationItems);
@@ -5070,6 +5303,14 @@ function renderAnalysisResult(r, fileName, rawText) {
   }
 
   showToast('🤖', `分析完成：${workItems.length} 项工程 · ${alerts.length} 项问题 · ${missing.length} 项漏算`);
+
+  // Show PDF viewer buttons if PDF was uploaded
+  if (window._uploadedPDFBase64) {
+    const btnViewPDF = document.getElementById('btn-view-pdf');
+    const btnShareOwner = document.getElementById('btn-share-owner');
+    if (btnViewPDF) btnViewPDF.style.display = '';
+    if (btnShareOwner) btnShareOwner.style.display = '';
+  }
 
   // ── FIX 5: Auto-sync Gantt from latest quotation ─────────────
   if (workItems.length > 0) {
@@ -8257,8 +8498,9 @@ async function authLoginWithPhone(portal) {
 
   showToast('✅', `欢迎！${phone}`);
 
-  // Save phone to localStorage for persistence
+  // Save phone to localStorage + reset user cache
   try { localStorage.setItem('rs_phone_' + portal, phone); } catch(e) {}
+  _supaUser = null; // force getSupaUser() to re-evaluate with new phone
 
   authDemoLogin(portal);
   if (portal === 'designer') loadProjectsFromSupabase();
@@ -8947,24 +9189,31 @@ function confirmSaveProject() {
   showToast('✅', `「${name}」已保存到项目列表`);
   openProject(proj.id);
 
-  // 同步保存到 Supabase
+  // ── Sync to Supabase (RLS-compliant) ──────────────────────
   getSupaUser().then(user => {
     if (!user) return;
+    // Phone-only users: skip Supabase (no real auth session for RLS)
+    if (user.isPhoneOnly) {
+      // Already saved in localStorage via PROJECTS_DB serialization
+      return;
+    }
     _supa.from('projects').insert({
       id: proj.id,
-      designer_id: user.id,
+      user_id: user.id,        // ← MUST match RLS policy (user_id = auth.uid())
       project_name: name,
-      owner_name: client.attention,
-      owner_phone: client.tel,
-      address: client.address,
-      contract_amount: client.contractAmt || null,
-      schedule_items: proj.scheduleItems,
-      task_assignments: proj.taskAssignments,
-      status: 'draft',
-      published: false,
+      client_name: client.company || client.attention || '',
+      location: client.address || '',
+      total_amount: client.contractAmt || null,
+      status: 'active',
+      data: {                  // full JSON backup in JSONB column
+        client,
+        scheduleItems: proj.scheduleItems,
+        taskAssignments: proj.taskAssignments,
+        published: false,
+      }
     }).then(({ error }) => {
-      if (error) console.warn('Save project error:', error.message);
-      else showToast('☁️','已同步到云端');
+      if (error) console.warn('Supabase save error:', error.message);
+      else showToast('☁️', 'Synced to cloud');
     });
   });
 }
