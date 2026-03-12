@@ -2337,7 +2337,8 @@ code {
         <div class="panel-sub" id="ai-report-subtitle"><span class="live-dot"></span><span data-i18n="review_sub">Analysed by Claude AI</span></div>
 
         <!-- Score card: fully populated by renderAnalysisResult() -->
-        <div id="ai-score-card-wrapper">
+        <div id="review-client-slot"></div>
+      <div id="ai-score-card-wrapper">
           <div style="text-align:center;padding:48px 0;color:var(--text3);">
             <div style="font-size:32px;margin-bottom:12px;">📋</div>
             <div style="font-size:14px;">Upload a quotation to see AI analysis</div>
@@ -2345,6 +2346,7 @@ code {
         </div>
 
         <!-- Alerts body: fully populated by renderAnalysisResult() -->
+        <div id="review-items-table-slot"></div>
         <div id="review-alerts-body"></div>
 
         <!-- Action buttons -->
@@ -4007,49 +4009,71 @@ async function readPDF(file) {
       return `[PDF 文件: ${file.name}]\n\n⚠️ 此 PDF 为扫描图片格式（无文字层），无法直接提取文字。\n\n建议操作：\n1. 使用 Adobe Acrobat / Microsoft Lens OCR 扫描后转为可复制文本\n2. 直接将内容复制粘贴到 .txt 文件后上传\n3. 请承包商提供 Excel (.xlsx) 版本的报价单`;
     }
 
-    // Smart compression: keep ALL description/work item lines from every page
-    // Priority: client info → section headers → description lines → amount lines → rest
-    const allLines = fullText.split('\n').filter(l => l.trim().length > 2);
+    // Smart compression: page-by-page, preserve section→item structure
+    // Priority: client info first, then each page's section+items interleaved, skip pure repeat headers
+    const SKIP_RE = /^(NEUF DESIGN|ITS ASSET|No\.01|Tel\s*:|Fax\s*:|E-mail\s*:|Company No\.|Website:|QUOTATION$|Page \d|\d+ of \d|Prepared by|Signature)/i;
+    const CLIENT_RE = /^(MR\.?\s|MS\.?\s|DATO|DATIN|ATTENTION|ATTN|TEL\s*:|HP\s*:|DATE\s*:|QUO NO|REF NO|TERMS\s*:|TO\s*:)/i;
+    const SECTION_RE = /^(CONSTRUCTION|TILING|PLUMBING|CARPENTRY|PAINTING|WIRING|ELECTRICAL|FALSE CEILING|FOLDING|SLIDING|SHOWER|ALUMINIUM|GLASS|CLEANING|DEMOLISH|GROUND FLOOR|FIRST FLOOR|SECOND FLOOR|THIRD FLOOR|MASTER|BEDROOM|LIVING|DINING|KITCHEN|TOILET|BATHROOM|FOYER|STORE|YARD|BALCONY|ROOF|STAIRCASE|TOTAL|SUMMARY)/i;
+    const ITEM_RE = /^(Supply|Install|Hack|Lay|Paint|Plaster|Build|Modify|Touch|Cleaning|Demolish|Remove|Replace|Construct|Provide|Allow|Dismantle|Reinforce|Waterproof|Apply|Erect|Form|Cast|Fix|Hang|Wrap|Cut|Sand|Polish|Seal|Grout|Fill|Top|New|Existing|To |RC |M&E)/i;
+    const AMOUNT_RE = /\b(RM\s?[\d,]+|[\d]{1,3}(,[\d]{3})+\.\d{2}|\d+\.\d{2})\b/;
+
+    const allLines = fullText.split('\n');
     const clientLines = [];
-    const sectionLines = [];
-    const descLines = [];   // "Supply To ..." work description lines — MUST KEEP
-    const amountLines = []; // lines with RM amounts
-    const skipLines = [];   // repeated headers, page numbers, company address
+    const pageBlocks = []; // array of { page, lines[] }
+    let seenHeaders = new Set();
+    let currentBlock = null;
 
-    for (const line of allLines) {
-      const t = line.trim();
-      const isRepeatHeader = /^(NEUF DESIGN|No\.01|Tel\s*:|E-mail\s*:|Company No\.|QUOTATION$)/.test(t);
-      if (isRepeatHeader) { skipLines.push(t); continue; }
+    for (const rawLine of allLines) {
+      const t = rawLine.trim();
+      if (!t || t.length < 2) continue;
 
-      const isClient = /^(MR|MS|DATO|ATTENTION|TEL\s*:|DATE\s*:|QUO NO|TERMS\s*:)/i.test(t);
-      const isSection = /^(CONSTRUCTION|TILING|PLUMBING|CARPENTRY|PAINTING|WIRING|FALSE CEILING|FOLDING|SLIDING|SHOWER|ALUMINIUM|GLASS|CLEANING|CLEAR|WORK|LIVING|DINING|MASTER|BEDROOM|WET KITCHEN|DRY KITCHEN|STORE|FOYER|TOTAL)/i.test(t);
-      const isDesc = /^(Supply|Install|Hack|Lay|Paint|Plaster|Build|Modify|Touch|Aluminium|Cleaning|Demolish|Remove|Replace|Construct)/i.test(t);
-      const hasAmount = /RM\s*[\d,]+|\d{1,3},\d{3}\.\d{2}/.test(t);
+      // Detect page break markers
+      if (/^\[PDF 文件:|^=== PAGE/.test(t)) {
+        if (currentBlock) pageBlocks.push(currentBlock);
+        currentBlock = { lines: [] };
+        continue;
+      }
+      if (!currentBlock) currentBlock = { lines: [] };
 
-      if (isClient) clientLines.push(t);
-      else if (isSection) sectionLines.push(t);
-      else if (isDesc) descLines.push(t);
-      else if (hasAmount) amountLines.push(t);
+      // Skip pure repeat headers (same text seen 3+ times = header)
+      if (SKIP_RE.test(t)) {
+        const cnt = (seenHeaders.get(t) || 0) + 1;
+        seenHeaders.set(t, cnt);
+        if (cnt > 2) continue; // skip after 2 occurrences
+      }
+
+      // Client info: collect separately (non-duplicate)
+      if (CLIENT_RE.test(t)) {
+        if (!clientLines.includes(t)) clientLines.push(t);
+        continue;
+      }
+
+      // Keep section headers, work item lines, amount lines
+      const isSection = SECTION_RE.test(t);
+      const isItem = ITEM_RE.test(t);
+      const hasAmt = AMOUNT_RE.test(t);
+      const isNum = /^\d+\.?\s/.test(t); // numbered items like "1. Supply..."
+
+      if (isSection || isItem || hasAmt || isNum) {
+        currentBlock.lines.push(t);
+      }
     }
+    if (currentBlock && currentBlock.lines.length) pageBlocks.push(currentBlock);
 
-    // Build: client info first, then all sections+descriptions (most important), then amounts
-    const optimized = [
-      '=== CLIENT INFO ===',
-      ...clientLines,
-      '',
-      '=== WORK ITEMS (all pages) ===',
-      ...sectionLines.reduce((acc, sec, i) => {
-        // Interleave: section header then its description lines
-        acc.push(sec);
-        return acc;
-      }, []),
-      ...descLines,
-      '',
-      '=== AMOUNTS ===',
-      ...amountLines
-    ].join('\n');
+    // Build optimized text: client info + all page blocks with structure preserved
+    const parts = ['=== CLIENT / PROJECT INFO ===', ...clientLines, ''];
+    for (let i = 0; i < pageBlocks.length; i++) {
+      const blk = pageBlocks[i];
+      if (blk.lines.length === 0) continue;
+      parts.push(`--- Page ${i+1} ---`);
+      parts.push(...blk.lines);
+      parts.push('');
+    }
+    const optimized = parts.join('\n');
 
-    return optimized.length > 200 ? optimized.substring(0, 12000) : fullText.substring(0, 12000);
+    // Use 20000 chars to cover 10+ page quotations  
+    const finalText = optimized.length > 300 ? optimized : fullText;
+    return finalText.substring(0, 20000);
 
   } catch (err) {
     console.error('PDF.js error:', err);
@@ -4068,9 +4092,8 @@ function setAIProgress(pct, text) {
 }
 
 async function analyzeWithClaude(quotationText, fileName) {
-  const textForAI = quotationText.length > 4000
-    ? quotationText.substring(0, 4000) + '\n\n[...truncated to 4000 chars...]'
-    : quotationText;
+  // Use full extracted text (up to 20000 chars) - smart compression already applied in readPDF()
+  const textForAI = quotationText.substring(0, 20000);
 
   // Language for AI output follows UI language
   const isZH = currentLang === 'zh';
@@ -4110,15 +4133,26 @@ Section totals like "GROUND FLOOR RM 27,510.00" go into "subtotals" array, NOT "
 
 【RULE 4 — Work Items Only】Only rows with construction verbs: Hack/Supply/Install/Lay/Paint/Plaster/Replace/Remove/Construct/Demolish or Chinese equivalents.
 
-【RULE 5 — Max 20 items】If >20 items, keep the 20 highest-value ones. Keep name ≤20 chars. Keep JSON compact.
+【RULE 5 — Items】If >20 items, keep the 20 highest-value ones.
 
-返回格式（极度精简，每个字段越短越好）：
-{"client":{"company":"公司名","address":"地址","attention":"联系人","tel":"电话","email":null,"projectRef":"编号","projectName":"项目名"},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"一句话总结","items":[{"no":"1","section":"分节名","name":"工程描述(20字内)","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"status":"ok"}],"subtotals":[{"label":"分节","amount":1000}],"totalAmount":50000,"missing":["缺失项1"],"alerts":[{"level":"critical","title":"标题","desc":"说明(30字内)"}]}
+【RULE 6 — PRESERVE NAMES EXACTLY ★ CRITICAL ★】
+- Copy item name VERBATIM from the source. DO NOT translate. DO NOT abbreviate.
+- If source says "Supply To Install False Ceiling (750sq)" keep it exactly.
+- Only translate if the ENTIRE quotation is in Chinese/BM.
 
-规则：
-- items最多20项，每项name控制在20字内，不要note字段
-- desc控制在30字内
-- section用缩写：GF/1F/2F/Ceiling/Floor/Carpentry/M&E
+【RULE 7 — Per-item note】
+For items with status "warn" or "flag": add a brief "note" (max 25 chars) explaining the price issue.
+For "ok" or "nodata": note can be omitted or empty string.
+
+Return JSON schema:
+{"client":{"company":"","address":"","attention":"","tel":"","email":null,"projectRef":"","projectName":""},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"one-line summary","items":[{"no":"1","section":"Section Name","name":"EXACT name from source","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"status":"ok","note":""}],"subtotals":[{"label":"Section","amount":1000}],"totalAmount":50000,"missing":["Missing item 1"],"alerts":[{"level":"critical","title":"Title","desc":"Description (max 40 chars)"}]}
+
+Rules:
+- items max 20, highest-value first if >20
+- desc max 40 chars
+- section: use actual section name from source (GF-Kitchen, Master-BR, etc.)
+- status values: "ok" | "warn" | "flag" | "nodata"
+- note: brief price analysis for warn/flag items only (e.g. "22% above market rate")
 
 MY/SG 2025 价格参考：
 ${getRegionPriceNote()}
@@ -4958,11 +4992,67 @@ function renderAnalysisResult(r, fileName, rawText) {
     </div>`).join('');
   document.getElementById('ai-alerts-section').innerHTML = alertsHTML;
 
-  // ── Mirror into panel-review (full report page) ───────────────
-  const scoreCardHTML = document.getElementById('ai-score-card').outerHTML;
+  // ── Mirror into panel-review (full AI report page) ─────────────
+  // Score card
   const reviewWrapper = document.getElementById('ai-score-card-wrapper');
-  if (reviewWrapper) reviewWrapper.innerHTML = scoreCardHTML;
-  
+  if (reviewWrapper) reviewWrapper.innerHTML = document.getElementById('ai-score-card').outerHTML;
+
+  // Client info card
+  const reviewClientSlot = document.getElementById('review-client-slot');
+  if (reviewClientSlot) {
+    const clientCard = document.getElementById('client-extract-card');
+    reviewClientSlot.innerHTML = clientCard ? clientCard.outerHTML : '';
+  }
+
+  // Full items table in review panel
+  const reviewTableSlot = document.getElementById('review-items-table-slot');
+  if (reviewTableSlot) {
+    const allI = window._qAllItems || [];
+    const cur2 = window._qCur || 'RM';
+    const fmtA2 = window._qFmtAmt || (n => n == null ? '–' : n.toLocaleString());
+    const sCfg = window._qStatusCfg || {};
+    let tblRows = '';
+    let lastSec = null;
+    allI.forEach((item, idx2) => {
+      if (item.section && item.section !== lastSec) {
+        lastSec = item.section;
+        tblRows += `<tr><td colspan="7" style="padding:10px 12px 4px;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.8px;text-transform:uppercase;background:rgba(240,185,11,0.04);border-top:1px solid var(--border2);">📁 ${item.section}</td></tr>`;
+      }
+      const sc2 = sCfg[item.status] || { cls:'', icon:'–', label:'–' };
+      const up2 = item.unitPrice != null ? (item.unitPriceDerived ? `${fmtA2(item.unitPrice)}<sup style="font-size:9px;color:var(--text3)">*</sup>` : fmtA2(item.unitPrice)) : '–';
+      tblRows += `<tr>
+        <td style="color:var(--text3);font-size:11px;padding:8px 6px">${item.no||idx2+1}</td>
+        <td style="font-weight:500;color:var(--text);line-height:1.4;min-width:200px;padding:8px 6px">${item.name}</td>
+        <td style="color:var(--text2);text-align:center;padding:8px 6px">${item.unit||''}</td>
+        <td style="font-family:'DM Mono',monospace;text-align:right;padding:8px 6px">${item.qty != null ? item.qty : '–'}</td>
+        <td style="font-family:'DM Mono',monospace;text-align:right;padding:8px 6px">${up2}</td>
+        <td style="font-family:'DM Mono',monospace;font-weight:600;text-align:right;white-space:nowrap;padding:8px 6px">${item.total != null ? cur2+' '+fmtA2(item.total) : '–'}</td>
+        <td class="${sc2.cls}" style="white-space:nowrap;padding:8px 6px;font-size:12px">${sc2.icon} ${sc2.label}${item.note ? `<div style="font-size:10px;color:var(--text2);margin-top:2px">${item.note}</div>` : ''}</td>
+      </tr>`;
+    });
+    const totalAmt2 = window._qTotalAmount;
+    if (totalAmt2) {
+      tblRows += `<tr style="background:rgba(240,185,11,0.07);border-top:2px solid var(--gold)"><td colspan="5" style="text-align:right;font-weight:700;color:var(--text);font-size:13px;padding:10px 6px">Grand Total</td><td style="font-weight:800;color:var(--gold);font-family:'DM Mono',monospace;text-align:right;font-size:15px;padding:10px 6px">${cur2} ${fmtA2(totalAmt2)}</td><td></td></tr>`;
+    }
+    reviewTableSlot.innerHTML = allI.length ? `
+      <div style="margin:20px 0 8px;font-size:12px;font-weight:700;color:var(--text);letter-spacing:.5px;text-transform:uppercase;">Identified Work Items <span style="font-weight:400;color:var(--text3)">(${allI.length} items)</span></div>
+      <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border2)">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="background:var(--surface2)">
+            <th style="padding:8px 6px;text-align:left;font-weight:600;color:var(--text2);font-size:10px;letter-spacing:.8px;text-transform:uppercase">#</th>
+            <th style="padding:8px 6px;text-align:left;font-weight:600;color:var(--text2);font-size:10px;letter-spacing:.8px;text-transform:uppercase">Description</th>
+            <th style="padding:8px 6px;text-align:center;font-weight:600;color:var(--text2);font-size:10px;letter-spacing:.8px;text-transform:uppercase">Unit</th>
+            <th style="padding:8px 6px;text-align:right;font-weight:600;color:var(--text2);font-size:10px;letter-spacing:.8px;text-transform:uppercase">Qty</th>
+            <th style="padding:8px 6px;text-align:right;font-weight:600;color:var(--text2);font-size:10px;letter-spacing:.8px;text-transform:uppercase">Unit Price</th>
+            <th style="padding:8px 6px;text-align:right;font-weight:600;color:var(--text2);font-size:10px;letter-spacing:.8px;text-transform:uppercase">Subtotal</th>
+            <th style="padding:8px 6px;text-align:left;font-weight:600;color:var(--text2);font-size:10px;letter-spacing:.8px;text-transform:uppercase">AI Status</th>
+          </tr></thead>
+          <tbody id="review-items-tbody">${tblRows}</tbody>
+        </table>
+      </div>` : '';
+  }
+
+  // Alerts + missing
   const reviewAlertsBody = document.getElementById('review-alerts-body');
   if (reviewAlertsBody) {
     const missingHTML = document.getElementById('missing-items-section').innerHTML;
@@ -4980,6 +5070,18 @@ function renderAnalysisResult(r, fileName, rawText) {
   }
 
   showToast('🤖', `分析完成：${workItems.length} 项工程 · ${alerts.length} 项问题 · ${missing.length} 项漏算`);
+
+  // ── FIX 5: Auto-sync Gantt from latest quotation ─────────────
+  if (workItems.length > 0) {
+    // Run rule-based schedule immediately (no wait)
+    const autoSched = buildRuleBasedSchedule(workItems, r.totalAmount || 0);
+    applyGeneratedSchedule(autoSched);
+    // Then enhance with AI in background (non-blocking)
+    setTimeout(() => {
+      generateAISchedule().catch(() => {});
+    }, 500);
+    showToast('📅', `进度表已根据报价单自动生成 (${autoSched.length} 项工序)`);
+  }
 }
 
 // ── Trigger re-upload ──────────────────────────────────────
