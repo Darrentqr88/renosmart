@@ -14,48 +14,45 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).end();
 
-  // ── 1. Auth: verify user token sent from frontend ──────────
+  // ── 1. Auth: verify user token ──────────────────────────────
   const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    return res.status(401).json({ error: { message: 'Missing auth token' } });
-  }
+  
+  // Phone-only mode (market testing): token starts with "phone:"
+  // No OTP/JWT — skip DB auth, allow through (localStorage quota is fallback)
+  const isPhoneOnlyMode = !token || token.startsWith('phone:');
+  
+  let user = null;
+  let plan = 'free';
+  let count = 0;
+  const yearMonth = new Date().toISOString().slice(0, 7);
 
-  const { data: { user }, error: authErr } = await supa.auth.getUser(token);
-  if (authErr || !user) {
-    return res.status(401).json({ error: { message: 'Invalid or expired token' } });
-  }
+  if (!isPhoneOnlyMode) {
+    // Full JWT mode: verify token + enforce server-side quota
+    const { data: authData, error: authErr } = await supa.auth.getUser(token);
+    if (authErr || !authData?.user) {
+      // Don't hard-reject — fall through to phone-only mode
+      console.warn('Auth failed, falling back to phone-only mode:', authErr?.message);
+    } else {
+      user = authData.user;
+      // Get plan + usage
+      const { data: profile } = await supa.from('profiles').select('plan').eq('id', user.id).single();
+      plan = profile?.plan || 'free';
+      const limit = LIMITS[plan] ?? 3;
+      const { data: usage } = await supa.from('ai_usage').select('usage_count')
+        .eq('user_id', user.id).eq('year_month', yearMonth).single();
+      count = usage?.usage_count || 0;
 
-  // ── 2. Quota check: read from ai_usage table ────────────────
-  const yearMonth = new Date().toISOString().slice(0, 7); // e.g. '2026-03'
-
-  // Get user's plan from profiles table
-  const { data: profile } = await supa
-    .from('profiles')
-    .select('plan')
-    .eq('id', user.id)
-    .single();
-  const plan = profile?.plan || 'free';
-  const limit = LIMITS[plan] ?? 3;
-
-  // Get current month usage
-  const { data: usage } = await supa
-    .from('ai_usage')
-    .select('usage_count')
-    .eq('user_id', user.id)
-    .eq('year_month', yearMonth)
-    .single();
-  const count = usage?.usage_count || 0;
-
-  if (count >= limit) {
-    return res.status(429).json({
-      error: {
-        message: `Quota exceeded: ${count}/${limit === Infinity ? '∞' : limit} uses this month`,
-        plan,
-        used: count,
-        limit: limit === Infinity ? null : limit,
-        upgrade_required: plan !== 'elite'
+      if (count >= limit) {
+        return res.status(429).json({
+          error: {
+            message: `Quota exceeded: ${count}/${limit === Infinity ? '∞' : limit} uses this month`,
+            plan, used: count,
+            limit: limit === Infinity ? null : limit,
+            upgrade_required: plan !== 'elite'
+          }
+        });
       }
-    });
+    }
   }
 
   // ── 3. Forward request to Anthropic API ────────────────────
@@ -72,15 +69,10 @@ module.exports = async function handler(req, res) {
 
     const data = await response.json();
 
-    // ── 4. Increment usage only on successful response ──────
-    if (response.ok) {
+    // ── 4. Increment usage only on successful response (JWT mode only) ──
+    if (response.ok && user) {
       await supa.from('ai_usage').upsert(
-        {
-          user_id: user.id,
-          year_month: yearMonth,
-          usage_count: count + 1,
-          plan,
-        },
+        { user_id: user.id, year_month: yearMonth, usage_count: count + 1, plan },
         { onConflict: 'user_id,year_month' }
       );
     }
