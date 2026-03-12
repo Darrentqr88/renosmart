@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RenoSmart — 智能装修管理平台 MY/SG</title>
+<title>RenoSmart — Smart Renovation Platform MY/SG</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='16' fill='%23F0B90B'/><text y='.9em' font-size='72' x='12'>🏠</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 // ══ SUPABASE CLIENT ════════════════════════════════════════════
 const SUPABASE_URL = 'https://obwcntliainlbxuzfeew.supabase.co';
@@ -2203,7 +2204,7 @@ code {
       <div style="margin:10px 12px 0;padding:10px 12px;border:1px solid var(--border2);border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="showRoleSelect()">
         <span style="font-size:14px;">🔄</span>
         <div style="flex:1;">
-          <div style="font-size:11px;font-weight:700;color:var(--text2);">切换身份</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text2);" data-i18n="nav_switch">切换身份</div>
           <div style="font-size:10px;color:var(--text3);">业主端 / 工人端</div>
         </div>
         <span style="font-size:14px;color:var(--text3);">›</span>
@@ -2212,7 +2213,7 @@ code {
       <!-- AI Usage Meter -->
       <div id="sidebar-usage-box" style="margin:16px 12px 0;padding:12px 13px;background:rgba(240,185,11,.06);border:1px solid rgba(240,185,11,.2);border-radius:10px;cursor:pointer;" onclick="switchPortal('pricing')">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-          <div style="font-size:11px;font-weight:700;color:var(--gold);">✦ AI 额度</div>
+          <div style="font-size:11px;font-weight:700;color:var(--gold);" data-i18n="nav_ai_quota">✦ AI 额度</div>
           <div style="font-size:10px;color:var(--text3);" id="sidebar-plan-label">免费版</div>
         </div>
         <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:6px;">
@@ -2332,104 +2333,24 @@ code {
 
       <!-- Panel: AI Review -->
       <div class="panel" id="panel-review">
-        <div class="panel-title">AI 智能审核报告</div>
-        <div class="panel-sub"><span class="live-dot"></span>由 Claude AI 分析 · Taman Desa #A22 · 2025年3月</div>
+        <div class="panel-title" data-i18n="review_title">AI Smart Review Report</div>
+        <div class="panel-sub" id="ai-report-subtitle"><span class="live-dot"></span><span data-i18n="review_sub">Analysed by Claude AI</span></div>
 
-        <div class="ai-review-card">
-          <div class="ai-header">
-            <span class="ai-badge">AI REVIEW</span>
-            <div class="ai-title">综合评分 & 风险评估</div>
-            <div style="margin-left:auto; font-size:12px; color:var(--text2);">基于 MY/SG 2025 市场数据</div>
-          </div>
-          <div class="ai-body">
-            <div class="score-row">
-              <div class="score-circle">
-                <div class="score-num">74</div>
-                <div class="score-label">/ 100</div>
-              </div>
-              <div class="score-breakdown">
-                <div class="score-item">
-                  <div class="score-item-label">项目完整性</div>
-                  <div class="score-bar-bg"><div class="score-bar" style="width:62%;background:var(--orange)"></div></div>
-                  <div class="score-item-val">62</div>
-                </div>
-                <div class="score-item">
-                  <div class="score-item-label">单价合理性</div>
-                  <div class="score-bar-bg"><div class="score-bar" style="width:85%;background:var(--green)"></div></div>
-                  <div class="score-item-val">85</div>
-                </div>
-                <div class="score-item">
-                  <div class="score-item-label">工序逻辑性</div>
-                  <div class="score-bar-bg"><div class="score-bar" style="width:90%;background:var(--green)"></div></div>
-                  <div class="score-item-val">90</div>
-                </div>
-                <div class="score-item">
-                  <div class="score-item-label">漏项风险</div>
-                  <div class="score-bar-bg"><div class="score-bar" style="width:58%;background:var(--red)"></div></div>
-                  <div class="score-item-val">58</div>
-                </div>
-              </div>
-            </div>
+        <!-- Score card: fully populated by renderAnalysisResult() -->
+        <div id="ai-score-card-wrapper">
+          <div style="text-align:center;padding:48px 0;color:var(--text3);">
+            <div style="font-size:32px;margin-bottom:12px;">📋</div>
+            <div style="font-size:14px;">Upload a quotation to see AI analysis</div>
           </div>
         </div>
 
-        <div class="section-title">严重问题 (需立即处理)</div>
+        <!-- Alerts body: fully populated by renderAnalysisResult() -->
+        <div id="review-alerts-body"></div>
 
-        <div class="alert alert-critical">
-          <div class="alert-icon">🚨</div>
-          <div class="alert-content">
-            <div class="alert-title">水电暗槽工程完全缺失</div>
-            <div class="alert-desc">报价单中未见任何水电布线项目。按此房型 (1,200 sqft) 估算，水电工程通常需 RM 8,000–14,000。若不列入报价，装修途中将产生严重超支纠纷。</div>
-          </div>
-        </div>
-
-        <div class="alert alert-critical">
-          <div class="alert-icon">🚨</div>
-          <div class="alert-content">
-            <div class="alert-title">厨房/浴室防水层未包含</div>
-            <div class="alert-desc">湿区防水工程 (Kitchen, Bath x2, Utility) 为马来西亚装修法规强制要求项目，估算 RM 2,500–4,500。遗漏将导致日后渗水责任纠纷。</div>
-          </div>
-        </div>
-
-        <div class="section-title">警告 (建议确认)</div>
-
-        <div class="alert alert-warning">
-          <div class="alert-icon">⚠️</div>
-          <div class="alert-content">
-            <div class="alert-title">油漆单价高于市场 22%</div>
-            <div class="alert-desc">报价 RM 2.20/sqft，KL 市场均价 RM 1.80/sqft (Nippon 同系列)。建议与供应商确认是否含2层底漆+2层面漆标准工艺。</div>
-          </div>
-        </div>
-
-        <div class="alert alert-warning">
-          <div class="alert-icon">⚠️</div>
-          <div class="alert-content">
-            <div class="alert-title">主卧室地板数量疑似漏算</div>
-            <div class="alert-desc">报价 180 sqft，但依据户型图主卧约 220–240 sqft。建议重新实地量度，差异约 RM 720–1,080。</div>
-          </div>
-        </div>
-
-        <div class="section-title">提示 (可选考虑)</div>
-
-        <div class="alert alert-info">
-          <div class="alert-icon">💡</div>
-          <div class="alert-content">
-            <div class="alert-title">建议增列清洁及垃圾处理费</div>
-            <div class="alert-desc">2.5个月装修周期预估废料清运费 RM 800–1,500。建议在合同中明确责任方，避免双方日后争议。</div>
-          </div>
-        </div>
-
-        <div class="alert alert-ok">
-          <div class="alert-icon">✅</div>
-          <div class="alert-content">
-            <div class="alert-title">吊顶施工价格合理</div>
-            <div class="alert-desc">RM 12.50/sqft 石膏板吊顶属市场正常范围 (RM 10–18)，含轻钢龙骨及批土工序。</div>
-          </div>
-        </div>
-
-        <div style="margin-top: 24px; display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn btn-gold" onclick="showPanel('schedule');setTimeout(generateAISchedule,300)">生成工程进度 →</button>
-          <button class="btn btn-ghost" onclick="exportReport()">导出 PDF 报告</button>
+        <!-- Action buttons -->
+        <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-gold" onclick="showPanel('schedule');setTimeout(generateAISchedule,300)" data-i18n="btn_gen_schedule">Generate Schedule →</button>
+          <button class="btn btn-ghost" onclick="exportReport()" data-i18n="btn_export_pdf">Export PDF Report</button>
           <button class="btn btn-ghost" data-i18n="btn_send_owner">Send to Owner for Review</button>
         </div>
 
@@ -2446,7 +2367,7 @@ code {
         </div>
       </div>
 
-      <!-- Panel: Schedule -->
+            <!-- Panel: Schedule -->
       <div class="panel" id="panel-schedule">
         <div class="panel-title" data-i18n="sched_title">Schedule Planning</div>
         <div class="panel-sub" data-i18n="sched_sub">Calendar sync · Auto-skips weekends & public holidays · Designer can manually override special work days</div>
@@ -2772,7 +2693,7 @@ code {
 
       <!-- Panel: Workers -->
       <div class="panel" id="panel-workers">
-        <div class="panel-title">工人名册</div>
+        <div class="panel-title" data-i18n="nav_workers">工人名册</div>
         <div class="panel-sub">通过电话号码添加工人 · 工人需在 APP 接受邀请后才加入名册</div>
 
         <button class="add-worker-btn" onclick="openAddWorker()">
@@ -2800,14 +2721,14 @@ code {
            Panel: Price Library
       ═══════════════════════════════════════════ -->
       <div class="panel" id="panel-pricelibrary">
-        <div class="panel-title">💰 价格数据库</div>
+        <div class="panel-title" data-i18n="nav_pricelist_title">💰 价格数据库</div>
         <div class="panel-sub">基于马来西亚 2025 年市场数据 · 通过上传报价单持续学习更新 · AI 审核时自动对比</div>
 
         <!-- Pro gate (shown to free users) -->
         <div id="price-lib-gate" style="display:none;">
           <div class="pro-gate-banner">
             <div class="pro-gate-icon">💰</div>
-            <div class="pro-gate-title">价格数据库 — Pro 专属功能</div>
+            <div class="pro-gate-title" data-i18n="pricelist_pro_title">价格数据库 — Pro 专属功能</div>
             <div class="pro-gate-sub">
               升级至 Pro 即可解锁马来西亚 2025 年装修市场参考价格库，AI 审核报价单时自动对比市场行情，
               并通过你上传的报价单数据持续自我学习更新。
@@ -2999,7 +2920,7 @@ code {
             <li style="color:var(--text3);">— 导出 Excel/PDF</li>
           </ul>
           <div style="padding:12px;background:var(--surface2);border-radius:10px;font-size:12px;color:var(--text3);">
-            AI 额度已用：<strong id="settings-ai-used" style="color:var(--text);">1 / 3 次</strong>
+            <span data-i18n="ai_quota_used">AI 额度已用</span>：<strong id="settings-ai-used" style="color:var(--text);">1 / 3 次</strong>
           </div>
         </div>
 
@@ -3948,6 +3869,18 @@ function resetUpload() {
 }
 
 async function processFile(file) {
+  // ── AI Quota Gate ─────────────────────────────────────────────
+  if (!canUploadQuotation()) {
+    const remaining = getRemainingUploads();
+    const plan = PRICING_STATE.plan;
+    const msg = plan === 'free'
+      ? `Free plan limit reached (${PRICING_STATE.totalFree} uses). Upgrade to Pro for 50/month.`
+      : `Monthly quota reached. Upgrade to Elite for unlimited.`;
+    showToast('🔒', msg);
+    setTimeout(() => switchPortal('pricing'), 800);
+    return;
+  }
+
   // Clear all previous data before processing new file
   lastQuotationText = '';
   lastAnalysisResult = null;
@@ -4074,7 +4007,49 @@ async function readPDF(file) {
       return `[PDF 文件: ${file.name}]\n\n⚠️ 此 PDF 为扫描图片格式（无文字层），无法直接提取文字。\n\n建议操作：\n1. 使用 Adobe Acrobat / Microsoft Lens OCR 扫描后转为可复制文本\n2. 直接将内容复制粘贴到 .txt 文件后上传\n3. 请承包商提供 Excel (.xlsx) 版本的报价单`;
     }
 
-    return fullText;
+    // Smart compression: keep ALL description/work item lines from every page
+    // Priority: client info → section headers → description lines → amount lines → rest
+    const allLines = fullText.split('\n').filter(l => l.trim().length > 2);
+    const clientLines = [];
+    const sectionLines = [];
+    const descLines = [];   // "Supply To ..." work description lines — MUST KEEP
+    const amountLines = []; // lines with RM amounts
+    const skipLines = [];   // repeated headers, page numbers, company address
+
+    for (const line of allLines) {
+      const t = line.trim();
+      const isRepeatHeader = /^(NEUF DESIGN|No\.01|Tel\s*:|E-mail\s*:|Company No\.|QUOTATION$)/.test(t);
+      if (isRepeatHeader) { skipLines.push(t); continue; }
+
+      const isClient = /^(MR|MS|DATO|ATTENTION|TEL\s*:|DATE\s*:|QUO NO|TERMS\s*:)/i.test(t);
+      const isSection = /^(CONSTRUCTION|TILING|PLUMBING|CARPENTRY|PAINTING|WIRING|FALSE CEILING|FOLDING|SLIDING|SHOWER|ALUMINIUM|GLASS|CLEANING|CLEAR|WORK|LIVING|DINING|MASTER|BEDROOM|WET KITCHEN|DRY KITCHEN|STORE|FOYER|TOTAL)/i.test(t);
+      const isDesc = /^(Supply|Install|Hack|Lay|Paint|Plaster|Build|Modify|Touch|Aluminium|Cleaning|Demolish|Remove|Replace|Construct)/i.test(t);
+      const hasAmount = /RM\s*[\d,]+|\d{1,3},\d{3}\.\d{2}/.test(t);
+
+      if (isClient) clientLines.push(t);
+      else if (isSection) sectionLines.push(t);
+      else if (isDesc) descLines.push(t);
+      else if (hasAmount) amountLines.push(t);
+    }
+
+    // Build: client info first, then all sections+descriptions (most important), then amounts
+    const optimized = [
+      '=== CLIENT INFO ===',
+      ...clientLines,
+      '',
+      '=== WORK ITEMS (all pages) ===',
+      ...sectionLines.reduce((acc, sec, i) => {
+        // Interleave: section header then its description lines
+        acc.push(sec);
+        return acc;
+      }, []),
+      ...descLines,
+      '',
+      '=== AMOUNTS ===',
+      ...amountLines
+    ].join('\n');
+
+    return optimized.length > 200 ? optimized.substring(0, 12000) : fullText.substring(0, 12000);
 
   } catch (err) {
     console.error('PDF.js error:', err);
@@ -4093,55 +4068,49 @@ function setAIProgress(pct, text) {
 }
 
 async function analyzeWithClaude(quotationText, fileName) {
-  // Use up to 14000 chars to cover multi-page PDFs (7 pages ≈ 12,000–18,000 chars)
   const textForAI = quotationText.length > 4000
-    ? quotationText.substring(0, 4000) + '\n\n[...已截断至前 4000 字符...]'
+    ? quotationText.substring(0, 4000) + '\n\n[...truncated to 4000 chars...]'
     : quotationText;
 
-  const prompt = `你是马来西亚和新加坡装修行业的专业报价审核 AI（RenoSmart）。
+  // Language for AI output follows UI language
+  const isZH = currentLang === 'zh';
+  const isBM = currentLang === 'ms';
+  const outputLang = isZH ? 'Chinese (Simplified)' : isBM ? 'Bahasa Melayu' : 'English';
+  const summaryNote = isZH ? '一句话中文总结' : isBM ? 'Satu ayat ringkasan dalam BM' : 'One-line summary in English';
+  const alertNote = isZH ? '中文标题和描述' : isBM ? 'tajuk dan desc dalam BM' : 'title and desc in English';
 
-请仔细分析以下报价单，严格按 JSON 格式输出。只返回 JSON，不要任何其他文字或 markdown。
+  const prompt = `You are a professional renovation quotation audit AI for Malaysia and Singapore (RenoSmart).
 
-报价单原始内容：
+Analyze the quotation below. Return ONLY valid JSON. No markdown, no extra text.
+Output language for summary, alerts, missing items, and item notes: ${outputLang}
+
+Quotation content:
 \`\`\`
 ${textForAI}
 \`\`\`
 
-═══ 极重要规则 ═══
+=== CRITICAL RULES ===
 
-【规则0 — 区分"出单方"与"收单方"★★★最重要★★★】
-报价单结构通常是：
-  - 页眉/信头 = 出单的【承包商/设计公司】（如 NEUF DESIGN SDN BHD、ABC RENOVATION SDN BHD）
-  - 页面主体左上角 = 【客户】，即收到报价的公司/个人（通常有 ATTENTION: 某人）
-  - 关键识别：客户是报价单**寄送给/地址给**的那一方，通常在 "TO:" 或直接列出公司名+地址+ATTENTION+TEL
+【RULE 0 — Identify CLIENT vs CONTRACTOR ★ MOST IMPORTANT ★】
+Quotation structure:
+  - Header/letterhead = the CONTRACTOR issuing the quote (e.g. NEUF DESIGN SDN BHD) — IGNORE this
+  - Top-left body = the CLIENT receiving the quote (has ATTENTION:, address, TEL)
+  - Client = the party the quote is ADDRESSED TO
 
-正确识别示例（来自本报价单格式）：
-  - 承包商（出单方）= 信头公司，忽略，不放入 client
-  - 客户（收单方）= 报价单正文开头列出的公司+地址+ATTENTION 那一行组合
-    如："ITS ASSET MANAGEMENT SDN BHD / 21 JALAN BUKIT IMPIAN 18/2 / JOHOR BAHRU / ATTENTION: DATO CATHERINE / TEL: +6019-710 2676"
-    则 company="ITS ASSET MANAGEMENT SDN BHD", attention="Dato Catherine", tel="+6019-710 2676", address="21 Jalan Bukit Impian 18/2, Taman Bukit Impian, Johor Bahru"
+Example: "ITS ASSET MANAGEMENT SDN BHD / 21 JALAN BUKIT IMPIAN / ATTENTION: DATO CATHERINE / TEL: +6019-710 2676"
+→ company="ITS ASSET MANAGEMENT SDN BHD", attention="Dato Catherine", tel="+6019-710 2676"
 
-【规则1 — 客户资料识别】
-报价单正文上方通常有客户资料区，包含：公司名、地址、收件人（ATTENTION/ATT/DATO/TAN/MS/MR）、电话（TEL/HP/+60）、邮箱。
-这些行【绝对不是工程项目】，必须抽取到 "client" 字段，不得出现在 "items" 中。
-"DESCRIPTION"、"NO"、"ITEM"、空白行、分节标题（如 GROUND FLOOR、FIRST FLOOR、CEILING WORK 等）均不是工程项目。
+【RULE 1 — Client Info】
+Extract company, address, attention (ATTENTION/DATO/MR/MS), tel (TEL/HP/+60), email into "client". These are NOT work items. Section headers (GROUND FLOOR, CEILING WORK etc) are not items either.
 
-【规则2 — 分节小计处理】
-报价单中有形如 "GROUND FLOOR RM 27,510.00"、"FLOORING WORK RM 36,666.00" 的分节合计行。
-这些是小计标题，放入 "subtotals" 数组，不放入 "items"。
+【RULE 2 — Subtotals】
+Section totals like "GROUND FLOOR RM 27,510.00" go into "subtotals" array, NOT "items".
 
-【规则3 — 数字黄金定律】
-- ★★ 每一行里最大的数字 = 小计(total)
-- 若原文某列为空，对应字段填 null
-- 若只有 qty 和 total，无 unitPrice → 计算 unitPrice = total ÷ qty，unitPriceDerived=true
-- 总价必须与原文完全一致，不得用 qty × unitPrice 替换
-- 单位照抄原文（sqft/sqm/nos/lot/set/ft/sq/L/sum 等）
+【RULE 3 — Numbers】Largest number in row = total. Missing columns = null. If only qty+total: unitPrice=total÷qty, unitPriceDerived=true. Copy unit exactly from source.
 
-【规则4 — 工程项目判断标准】
-只有描述施工动作的行才是工程项目：Hack / Supply / Install / Lay / Paint / Plaster / Replace / Remove / Construct / Demolish 等动词开头，或中文施工动词（铺设/安装/批土/粉刷/拆除/防水等）。
+【RULE 4 — Work Items Only】Only rows with construction verbs: Hack/Supply/Install/Lay/Paint/Plaster/Replace/Remove/Construct/Demolish or Chinese equivalents.
 
-【规则5 — 提取前25个最重要项目】
-若项目超过25个，优先保留金额最大的25项。工程描述控制在30字以内。每个字段尽量简短。
+【RULE 5 — Max 20 items】If >20 items, keep the 20 highest-value ones. Keep name ≤20 chars. Keep JSON compact.
 
 返回格式（极度精简，每个字段越短越好）：
 {"client":{"company":"公司名","address":"地址","attention":"联系人","tel":"电话","email":null,"projectRef":"编号","projectName":"项目名"},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"一句话总结","items":[{"no":"1","section":"分节名","name":"工程描述(20字内)","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"status":"ok"}],"subtotals":[{"label":"分节","amount":1000}],"totalAmount":50000,"missing":["缺失项1"],"alerts":[{"level":"critical","title":"标题","desc":"说明(30字内)"}]}
@@ -4154,15 +4123,17 @@ ${textForAI}
 MY/SG 2025 价格参考：
 ${getRegionPriceNote()}
 若无单价数据 status 填 "nodata"，不要乱填 ok/warn。
-必查漏项：防水工程(湿区)、水电暗槽布线、清洁及废料处理。`;
+Common missing items to check: waterproofing (wet areas), M&E conduit wiring, cleaning & disposal.
+alerts title and desc must be in ${outputLang}.`;
 
   try {
+    const authHdr = await getAuthHeader();
     const resp = await fetch('/api/claude', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHdr },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 6000,
+        max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -4172,6 +4143,17 @@ ${getRegionPriceNote()}
     if (!resp.ok) {
       const errData = await resp.json().catch(() => ({}));
       console.error('AI API Error:', resp.status, errData);
+      // 429 = server-side quota exceeded
+      if (resp.status === 429) {
+        document.getElementById('ai-loading-state').style.display = 'none';
+        document.getElementById('upload-zone').style.display = 'block';
+        const qMsg = errData.error?.plan === 'free'
+          ? `Free plan limit reached (${errData.error.used}/${errData.error.limit} uses). Upgrade to Pro →`
+          : `Monthly quota reached. Upgrade to Elite for unlimited.`;
+        showToast('🔒', qMsg);
+        setTimeout(() => switchPortal('pricing'), 1200);
+        return;
+      }
       if (resp.status === 401) {
         showToast('❌', 'API Key 无效，请检查 Vercel 环境变量设置');
         setAIProgress(100, '❌ API 认证失败');
@@ -4810,9 +4792,20 @@ function renderAnalysisResult(r, fileName, rawText) {
     `已识别 ${workItems.length} 项工程 · ${r.totalAmount ? cur+' '+Number(r.totalAmount).toLocaleString() : '总额待确认'}`;
 
   // ── CLIENT INFO CARD ──────────────────────────────────────
-  // Remove any existing client card first
+  // Clear all previous data first
   const existingCard = document.getElementById('client-extract-card');
   if (existingCard) existingCard.remove();
+  document.getElementById('ai-score-body').innerHTML = '';
+  document.getElementById('q-table-rows').innerHTML = '';
+  document.getElementById('missing-items-section').innerHTML = '';
+  document.getElementById('ai-alerts-section').innerHTML = '';
+  const aiSubtitle = document.getElementById('ai-report-subtitle');
+  if (aiSubtitle) {
+    const now = new Date();
+    const mon = now.toLocaleString('en', {month:'short'});
+    const projName = r.client?.projectName || r.client?.address?.split(',')[0] || 'New Project';
+    aiSubtitle.innerHTML = `<span class="live-dot"></span>Analysed by Claude AI · ${projName} · ${mon} ${now.getFullYear()}`;
+  }
   const c = r.client || {};
   const hasClient = c.company || c.attention || c.tel || c.address;
   const clientHTML = hasClient ? `
@@ -4955,7 +4948,7 @@ function renderAnalysisResult(r, fileName, rawText) {
 
   // ── ALERTS ────────────────────────────────────────────────
   const alerts = r.alerts || [];
-  document.getElementById('ai-alerts-section').innerHTML = alerts.map(a => `
+  const alertsHTML = alerts.map(a => `
     <div class="alert ${a.level==='critical'?'alert-critical':a.level==='warning'?'alert-warning':'alert-info'}">
       <div class="alert-icon">${a.level==='critical'?'🚨':a.level==='warning'?'⚠️':'💡'}</div>
       <div class="alert-content">
@@ -4963,6 +4956,18 @@ function renderAnalysisResult(r, fileName, rawText) {
         <div class="alert-desc">${a.desc}</div>
       </div>
     </div>`).join('');
+  document.getElementById('ai-alerts-section').innerHTML = alertsHTML;
+
+  // ── Mirror into panel-review (full report page) ───────────────
+  const scoreCardHTML = document.getElementById('ai-score-card').outerHTML;
+  const reviewWrapper = document.getElementById('ai-score-card-wrapper');
+  if (reviewWrapper) reviewWrapper.innerHTML = scoreCardHTML;
+  
+  const reviewAlertsBody = document.getElementById('review-alerts-body');
+  if (reviewAlertsBody) {
+    const missingHTML = document.getElementById('missing-items-section').innerHTML;
+    reviewAlertsBody.innerHTML = (missingHTML || '') + alertsHTML;
+  }
 
   lastAnalysisResult = r;
 
@@ -5232,9 +5237,10 @@ ${lastQuotationText ? `\n当前已上传的报价单内容摘要：\n${lastQuota
 ${lastAnalysisResult ? `\nAI 分析结果摘要：评分 ${lastAnalysisResult.score?.total}/100，漏项：${(lastAnalysisResult.missing||[]).join('、')}` : ''}`;
 
   try {
+    const authHdrChat = await getAuthHeader();
     const resp = await fetch('/api/claude', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHdrChat },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 600,
@@ -5538,7 +5544,7 @@ let dayOverrides   = {};
 const TODAY_DATE   = (() => { const d=new Date(); d.setHours(0,0,0,0); return d; })();
 
 let currentRegion = 'MY';
-let currentLang   = 'zh';
+let currentLang   = 'en';
 
 const dateKey  = d => d.toISOString().slice(0,10);
 const addDays  = (d,n)=>{ const r=new Date(d); r.setDate(r.getDate()+n); return r; };
@@ -5563,6 +5569,13 @@ const TRANSLATIONS = {
     sidebar_settings: 'SETTINGS',
     nav_dashboard: 'My Dashboard',
     nav_settings: 'My Settings',
+    nav_switch: 'Switch Role',
+    review_title: 'AI Smart Review Report',
+    review_sub: 'Analysed by Claude AI',
+    nav_ai_quota: '✦ AI Credits',
+    nav_pricelist_title: '💰 Price Library',
+    pricelist_pro_title: 'Price Library — Pro Feature',
+    ai_quota_used: 'AI Credits Used',
     sidebar_new_project: 'New Project',
     nav_quotation: 'Quotation Import',
     nav_ai_review: 'AI Review',
@@ -5626,6 +5639,13 @@ const TRANSLATIONS = {
     sidebar_settings: 'TETAPAN',
     nav_dashboard: 'Papan Pemuka',
     nav_settings: 'Tetapan Saya',
+    nav_switch: 'Tukar Peranan',
+    review_title: 'Laporan Semakan AI',
+    review_sub: 'Dianalisis oleh Claude AI',
+    nav_ai_quota: '✦ Kredit AI',
+    nav_pricelist_title: '💰 Pangkalan Harga',
+    pricelist_pro_title: 'Pangkalan Harga — Ciri Pro',
+    ai_quota_used: 'Kredit AI Digunakan',
     sidebar_new_project: 'Projek Baru',
     nav_quotation: 'Import Sebut Harga',
     nav_ai_review: 'Semakan AI',
@@ -5685,6 +5705,13 @@ const TRANSLATIONS = {
     sidebar_settings: '设置',
     nav_dashboard: '我的后台',
     nav_settings: '我的设定',
+    nav_switch: '切换身份',
+    review_title: 'AI 智能审核报告',
+    review_sub: '由 Claude AI 分析',
+    nav_ai_quota: '✦ AI 额度',
+    nav_pricelist_title: '💰 价格数据库',
+    pricelist_pro_title: '价格数据库 — Pro 专属功能',
+    ai_quota_used: 'AI 额度已用',
     sidebar_new_project: '新建项目',
     nav_quotation: '报价单导入',
     nav_ai_review: 'AI 审核结果',
@@ -6038,55 +6065,55 @@ async function generateAISchedule() {
   // Try Claude API for enhanced schedule
   if (quotItems.length > 0) {
     try {
-      const itemsSummary = quotItems.slice(0, 30).map(i =>
-        `${i.section || ''}: ${i.name} | ${i.unit || ''} ${i.qty || ''} | 小计 ${i.total ? 'RM '+i.total : '待定'}`
+      // Group items by trade before sending to AI
+      const tradeGroups = {};
+      quotItems.forEach(i => {
+        const cat = sectionToTradeCategory((i.section||'') + ' ' + (i.name||''));
+        if (!tradeGroups[cat]) tradeGroups[cat] = { total: 0, items: [] };
+        tradeGroups[cat].total += (i.total || 0);
+        tradeGroups[cat].items.push(i.name || '');
+      });
+      const itemsSummary = Object.entries(tradeGroups).map(([cat, g]) =>
+        `[${cat}] RM ${g.total.toLocaleString()} — ${g.items.slice(0,4).join(', ')}${g.items.length>4?` +${g.items.length-4} more`:''}`
       ).join('\n');
 
+      const authHdr3 = await getAuthHeader();
       const resp = await fetch('/api/claude', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHdr3 },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 4000,
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 3000,
           messages: [{
             role: 'user',
-            content: `你是马来西亚装修工程进度编排专家。请分析以下报价单内容，生成合理的施工进度计划。
+            content: `You are a Malaysia renovation scheduling expert. Generate a realistic Gantt chart schedule.
 
-报价单摘要（共 ${quotItems.length} 项，总额 RM ${totalAmt.toLocaleString()}）：
+Project: ${quotItems.length} items, total RM ${totalAmt.toLocaleString()}
+Start: ${startDate}${targetDate ? '\nTarget: '+targetDate : ''}
+
+Work trades in this quotation:
 ${itemsSummary}
 
-开工日期：${startDate}
-${targetDate ? `业主期望完工日期：${targetDate}` : ''}
+RULES — strictly follow:
+1. STRICTLY ONE Gantt bar per trade — no matter how many sub-items exist
+   ALL hacking/brick/RC/structural items → ONE bar: "Demolition & Structural" (#f87171)
+   ALL plumbing/pipe/water items → ONE bar: "Plumbing Works" (#60a5fa)
+   ALL wiring/electrical/power items → ONE bar: "Electrical & M&E" (#fb923c)
+   ALL waterproofing items → ONE bar: "Waterproofing" (#fbbf24)
+   ALL tile/floor tile/wall tile → ONE bar: "Tiling Works" (#a78bfa)
+   ALL ceiling/L-box/cornice → ONE bar: "False Ceiling Works" (#34d399)
+   ALL cabinet/wardrobe/carpentry/kitchen cabinet → ONE bar: "Carpentry & Joinery" (#f472b6)
+   ALL glass door/folding door/sliding door/louver → ONE bar: "Glass & Door Works" (#22d3ee)
+   ALL painting/texture paint → ONE bar: "Painting Works" (#86efac)
+   ALL cleaning/clear/disposal → ONE bar: "Final Clean & Handover" (#94a3b8)
+   Max 12 bars total. Skip any trade not present.
+2. Correct sequence with realistic MY durations based on project size RM ${totalAmt.toLocaleString()}
+3. Duration rules: Demo 5-15d, M&E 8-15d, Waterproof 5-7d, Tiling 8-20d, Ceiling 8-15d, Carpentry 15-30d (factory 30d lead), Painting 7-14d
+4. Parallel tasks allowed (ceiling+carpentry, glass+painting)
+5. Add nameZH in Chinese for each task
 
-马来西亚装修实际经验规则：
-1. 大型商业/办公室翻新（RM 200,000以上）通常需要4-9个月
-2. 结构工程（砌砖/拆除/RC）是关键路径，必须最先完成
-3. 水电必须在泥水批土前完成暗槽，无法回头
-4. 防水测试48小时后才可铺砖
-5. 批土需7-14天干燥才可油漆
-6. 定制木工需提前4-6周工厂生产（计入备料期）
-7. 同层不同区域的工序可以并行（如泥水工扩建同时水电工做另一区）
-8. 多层楼：每层可错开2-3周启动（节约关键资源但保持整体进度）
-
-请返回 JSON，不要其他文字：
-{
-  "tasks": [
-    {
-      "id": "唯一ID",
-      "nameZH": "工序中文名称",
-      "nameEN": "Task name in English",
-      "nameMS": "Nama dalam Bahasa Melayu",
-      "workDays": 整数施工工作天数,
-      "offsetDays": 从开工日算的工作天数偏移,
-      "color": "#十六进制颜色",
-      "parallelNote": "可同步施工的说明（如有）或null",
-      "realismNote": "为什么这个工期合理的说明"
-    }
-  ],
-  "totalCalendarWeeks": 总日历周数,
-  "feasibilityNote": "对业主期望工期的评估（如提供了目标日期）",
-  "criticalPath": ["关键路径工序ID列表"]
-}`
+Return ONLY valid JSON, no markdown:
+{"tasks":[{"id":"demo","nameZH":"拆除及结构工程","nameEN":"Demolition & Structural","nameMS":"Kerja Robuhan","workDays":8,"offsetDays":5,"color":"#f87171","parallelNote":null,"realismNote":"Hacking all walls and structural changes"}],"totalCalendarWeeks":14,"feasibilityNote":"Realistic timeline","criticalPath":["demo","plumbing","tiling"]}`
           }]
         })
       });
@@ -6134,6 +6161,23 @@ ${targetDate ? `业主期望完工日期：${targetDate}` : ''}
   icon.textContent = '✨';
   label.textContent = t('btn_ai_schedule') || 'AI 智能编排';
   checkDeadlineFeasibility();
+}
+
+// ── Helper: map section name to trade category ──────────────────
+function sectionToTradeCategory(text) {
+  const t = (text||'').toLowerCase();
+  if (/hack|demolish|structural|construct|brick wall|brickwork|raise.*floor|rc|brc|extension/.test(t)) return 'demolition_structural';
+  if (/plumb|pipe|inlet|outlet|water|wet kitchen.*sink|modify.*pipe|sanitary/.test(t)) return 'plumbing';
+  if (/wiring|electrical|power point|cable|lighting|circuit|mcb|conduit|air.cond.*point/.test(t)) return 'electrical';
+  if (/waterproof|kalis air/.test(t)) return 'waterproofing';
+  if (/tile|tiling|floor tile|wall tile|touch.up.*tile|lay.*tile/.test(t)) return 'tiling';
+  if (/false ceiling|plaster ceiling|ceiling|l.box|cornice/.test(t)) return 'ceiling';
+  if (/carpet|vinyl|timber floor|laminate|parquet|flooring/.test(t)) return 'flooring';
+  if (/cabinet|wardrobe|carpentry|kitchen.*cabinet|island|table top|shoe cabinet|display|tv console|bed head|study table|drawer/.test(t)) return 'carpentry';
+  if (/glass door|sliding door|folding door|glass roof|louver|shower glass|glass roofing|aluminium/.test(t)) return 'glass_door';
+  if (/paint|nippon|jotun|dulux|texture paint|cement effect/.test(t)) return 'painting';
+  if (/clean|cleaning|clear|disposal/.test(t)) return 'cleaning';
+  return 'other';
 }
 
 // ── Rule-based schedule from quotation items ────────────────────
@@ -8077,6 +8121,20 @@ function authSelectPlan(el, plan) {
 const REGISTERED_PHONES = new Set(['11-2345 6789','0112345678']);
 
 // ── Smart login: skip OTP if phone already registered ───────────
+// ── Get auth token for API calls ─────────────────────────────
+async function getAuthHeader() {
+  try {
+    const { data } = await _supa.auth.getSession();
+    const token = data?.session?.access_token;
+    if (token) return { 'Authorization': 'Bearer ' + token };
+  } catch(e) {}
+  // Fallback: phone-only mode (no OTP) — use phone as bearer
+  // Server will allow through if SUPABASE_SERVICE_ROLE_KEY not set
+  const phone = localStorage.getItem('rs_phone_designer') ||
+                localStorage.getItem('rs_phone_owner') || '';
+  return phone ? { 'Authorization': 'Bearer phone:' + phone } : {};
+}
+
 async function authLoginWithPhone(portal) {
   const p = portal === 'designer' ? 'd' : portal === 'owner' ? 'o' : 'w';
   const phoneInput = document.getElementById('auth-' + p + '-phone');
@@ -8673,7 +8731,7 @@ function buildItemBreakdown(lr) {
 // ── Initially show ROLE SELECT overlay (first entry point) ──────
 document.addEventListener('DOMContentLoaded', () => {
   // Apply Chinese language on load
-  if (typeof applyI18n === 'function') applyI18n('zh');
+  if (typeof applyI18n === 'function') applyI18n('en');
 
   // Role select is visible by default (not hidden in HTML)
   if (AUTH_STATE.designer || AUTH_STATE.owner || AUTH_STATE.worker) {
