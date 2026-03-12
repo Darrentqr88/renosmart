@@ -3415,193 +3415,215 @@ code {
 <!-- ═══════════════════════════════════════
      PORTAL 4: PRICING PAGE
 ═══════════════════════════════════════ -->
-<div class="portal" id="portal-pricing" style="background:var(--bg);min-height:100vh;padding:0;">
-  <!-- Back button row -->
-  <div style="position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border2);padding:10px 20px;display:flex;align-items:center;gap:12px;">
-    <button onclick="switchPortal('designer')" style="background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:8px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">← Back to Dashboard</button>
-    <span style="font-size:13px;font-weight:700;color:var(--text)">✦ Upgrade Plan</span>
-  </div>
+<div class="portal" id="portal-pricing">
 
-  <!-- Pricing Hero -->
-  <div style="text-align:center;padding:60px 24px 36px;max-width:900px;margin:0 auto;">
-    <div style="display:inline-block;padding:5px 14px;background:rgba(240,185,11,.1);border:1px solid rgba(240,185,11,.25);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--gold-dk,#C89B09);text-transform:uppercase;margin-bottom:20px;">Simple Pricing · 简单透明定价</div>
-    <h1 style="font-family:'Cormorant Garamond','Corbel',serif;font-size:clamp(28px,5vw,44px);font-weight:700;color:var(--text);line-height:1.15;margin:0 0 16px;">
-      让 AI 帮你赚更多，<br>不是让你花更多
-    </h1>
-    <p style="font-size:15px;color:var(--text2);line-height:1.75;max-width:560px;margin:0 auto;">
-      每位新注册设计师免费获得 <strong style="color:var(--text)">3 次 AI 分析额度</strong>（终身有效）。<br>
-      每个月订阅即可上传报价单 + 解锁全部功能。
-    </p>
-    <div id="pricing-demo-banner" style="margin-top:24px;display:inline-flex;align-items:center;gap:10px;padding:10px 18px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;font-size:12px;color:var(--text2);">
-      <div style="width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0;"></div>
-      <span>你的账户：<strong id="pricing-account-status" style="color:var(--text);">免费版 · 已用 1/3 次</strong></span>
-      <span style="color:var(--border2);">|</span>
-      <span style="color:var(--gold-dk,#C89B09);font-weight:600;cursor:pointer;" onclick="pricingSelectPlan('pro')">升级 →</span>
+  <!-- ── TOP NAV ─────────────────────────────── -->
+  <div style="background:#fff;border-bottom:1px solid #e8eaf0;padding:12px 28px;display:flex;align-items:center;gap:14px;">
+    <button onclick="switchPortal('designer')" style="background:#f3f4f6;color:#374151;border:none;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">← Dashboard</button>
+    <span style="font-size:15px;font-weight:700;color:#1B2336;">✦ Upgrade Plan</span>
+    <div style="margin-left:auto;" id="pricing-account-status-bar">
+      <span style="font-size:12px;color:#6b7280;">Current: </span>
+      <span id="pricing-acct-badge" style="font-size:12px;font-weight:700;color:#1B2336;">Free · 1/3 used</span>
     </div>
   </div>
 
-  <!-- 3 Plan Cards -->
-  <div style="display:flex;gap:16px;max-width:1080px;margin:0 auto;padding:0 20px 60px;flex-wrap:wrap;justify-content:center;">
+  <!-- ── HERO ───────────────────────────────── -->
+  <div style="text-align:center;padding:48px 24px 36px;background:linear-gradient(160deg,#fffdf5 0%,#f7f8fa 100%);">
+    <div style="display:inline-block;padding:4px 14px;background:rgba(240,185,11,.12);border:1px solid rgba(240,185,11,.3);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1.5px;color:#C89B09;text-transform:uppercase;margin-bottom:18px;">透明定价 · Simple Pricing</div>
+    <h1 style="font-family:'Cormorant Garamond','Corbel',serif;font-size:clamp(26px,4vw,40px);font-weight:700;color:#1B2336;line-height:1.2;margin:0 0 14px;">让 AI 帮你赚更多<br><span style="color:#C89B09;">不是让你花更多</span></h1>
+    <p style="font-size:14px;color:#6b7280;line-height:1.75;max-width:520px;margin:0 auto;">每位新设计师免费获得 <strong style="color:#1B2336;">3 次 AI 分析额度</strong>（终身有效）。订阅后每月解锁全部功能。</p>
+  </div>
 
-    <!-- FREE CARD -->
-    <div id="plan-card-free" class="pricing-card" onclick="pricingSelectPlan('free')" style="flex:1;min-width:280px;max-width:320px;">
-      <div class="pricing-card-inner">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;">
-          <div>
-            <div class="pricing-plan-name">免费版</div>
-            <div class="pricing-plan-sub">先试试，不满意不收费</div>
-          </div>
-          <div class="pricing-plan-badge free-badge">当前方案</div>
-        </div>
-        <div class="pricing-amount">
-          <span class="pricing-currency">RM</span>
-          <span class="pricing-price">0</span>
-          <span class="pricing-period">/永久</span>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:3px;">注册即获，无需信用卡</div>
-        <div class="pricing-usage-block" style="margin-top:16px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-            <span style="font-size:11px;color:var(--text2);">AI 分析额度</span>
-            <span style="font-size:11px;font-weight:700;color:var(--text);" id="free-usage-text">1 / 3 次已用</span>
-          </div>
-          <div style="background:var(--surface3);border-radius:4px;height:6px;overflow:hidden;">
-            <div id="free-usage-bar" style="height:100%;border-radius:4px;background:var(--gold);width:33%;transition:width .5s;"></div>
-          </div>
-          <div style="font-size:10px;color:var(--text3);margin-top:5px;" id="free-usage-hint">还剩 2 次 · 用完后订阅继续使用</div>
-        </div>
-        <div class="pricing-divider"></div>
-        <ul class="pricing-features">
-          <li class="feat-yes">✓ 3 次 AI 报价单分析（终身）</li>
-          <li class="feat-yes">✓ AI 施工进度编排</li>
-          <li class="feat-yes">✓ 甘特图 + 拖拽调整</li>
-          <li class="feat-yes">✓ 工人端 + 业主端（预览）</li>
-          <li class="feat-no">— 不含报价单上传（订阅功能）</li>
-          <li class="feat-no">— 无 AI 市场价格对比</li>
-          <li class="feat-no">— 无导出 Excel/PDF</li>
-          <li class="feat-no">— 限 1 个项目</li>
-        </ul>
-        <button class="pricing-btn pricing-btn-ghost" disabled>当前方案</button>
+  <!-- ── 3 PLAN CARDS ───────────────────────── -->
+  <div style="display:flex;gap:20px;max-width:1000px;margin:0 auto;padding:0 20px 40px;flex-wrap:wrap;justify-content:center;">
+
+    <!-- FREE -->
+    <div style="flex:1;min-width:270px;max-width:300px;background:#fff;border:1.5px solid #e8eaf0;border-radius:18px;padding:28px;transition:all .2s;">
+      <div style="font-size:11px;font-weight:700;color:#9ca3af;background:#f3f4f6;border-radius:6px;padding:3px 10px;display:inline-block;margin-bottom:14px;">当前方案</div>
+      <div style="font-size:20px;font-weight:800;color:#1B2336;margin-bottom:4px;">免费版</div>
+      <div style="font-size:11px;color:#9ca3af;margin-bottom:18px;">先试试，不满意不收费</div>
+      <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:4px;">
+        <span style="font-size:17px;font-weight:700;color:#6b7280;">RM</span>
+        <span style="font-size:48px;font-weight:900;color:#1B2336;line-height:1;">0</span>
+        <span style="font-size:13px;color:#9ca3af;">/永久</span>
       </div>
+      <div style="font-size:11px;color:#9ca3af;margin-bottom:20px;">注册即获，无需信用卡</div>
+      <!-- Usage bar -->
+      <div style="background:#f3f4f6;border-radius:8px;padding:10px 12px;margin-bottom:20px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+          <span style="font-size:11px;color:#6b7280;">AI 分析额度</span>
+          <span style="font-size:11px;font-weight:700;color:#1B2336;" id="free-usage-text">1 / 3 次已用</span>
+        </div>
+        <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div id="free-usage-bar" style="height:100%;border-radius:4px;background:#f0b90b;width:33%;transition:width .5s;"></div></div>
+        <div style="font-size:10px;color:#9ca3af;margin-top:5px;" id="free-usage-hint">还剩 2 次 · 用完后订阅继续</div>
+      </div>
+      <ul style="list-style:none;padding:0;margin:0 0 20px;display:flex;flex-direction:column;gap:8px;">
+        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>3 次 AI 报价单分析（终身）</li>
+        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>AI 施工进度编排</li>
+        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>甘特图 + 拖拽调整</li>
+        <li style="font-size:12px;color:#9ca3af;display:flex;gap:8px;"><span>—</span>不含无限报价单上传</li>
+        <li style="font-size:12px;color:#9ca3af;display:flex;gap:8px;"><span>—</span>无 AI 市场价格对比</li>
+      </ul>
+      <button onclick="switchPortal('designer')" style="width:100%;padding:11px;border:1.5px solid #e8eaf0;border-radius:10px;background:#fff;color:#6b7280;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">继续使用免费版</button>
     </div>
 
-    <!-- PRO CARD -->
-    <div id="plan-card-pro" class="pricing-card pricing-card-pro" onclick="pricingSelectPlan('pro')" style="flex:1;min-width:280px;max-width:320px;">
-      <div class="pricing-popular-tag">🔥 最多人选择</div>
-      <div class="pricing-card-inner">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;">
-          <div>
-            <div class="pricing-plan-name" style="color:var(--gold-dk,#C89B09);">Pro 专业版</div>
-            <div class="pricing-plan-sub">全功能解锁，让 AI 做你的助理</div>
-          </div>
-          <div class="pricing-plan-badge pro-badge">推荐</div>
-        </div>
-        <div class="pricing-amount">
-          <span class="pricing-currency">RM</span>
-          <span class="pricing-price">99</span>
-          <span class="pricing-period">/月</span>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:3px;">≈ RM 3.30/天 · 按月付，随时取消</div>
-        <div style="margin:14px 0 10px;padding:10px 12px;background:rgba(240,185,11,.07);border:1px solid rgba(240,185,11,.2);border-radius:8px;">
-          <div style="font-size:11px;color:var(--gold-dk,#C89B09);font-weight:700;margin-bottom:3px;">💡 ROI 测算</div>
-          <div style="font-size:11px;color:var(--text2);line-height:1.6;">每次分析省 2–4小时 = <strong style="color:var(--green);">RM 160–600</strong><br>50次额度回报率 <strong style="color:var(--green);">160–600倍</strong></div>
-        </div>
-        <div class="pricing-divider"></div>
-        <ul class="pricing-features">
-          <li class="feat-yes feat-gold">✦ 每月上传报价单 × 50次</li>
-          <li class="feat-yes feat-gold">✦ 每月 50 次 AI 分析额度</li>
-          <li class="feat-yes feat-gold">✦ AI 市场价格对比</li>
-          <li class="feat-yes">✓ 无限项目管理</li>
-          <li class="feat-yes">✓ Excel + PDF 进度表导出</li>
-          <li class="feat-yes">✓ 工人端多工地日历</li>
-          <li class="feat-yes">✓ 业主端付款追踪</li>
-          <li class="feat-yes">✓ WhatsApp 进度推送</li>
-          <li class="feat-yes">✓ 优先客服支持</li>
-        </ul>
-        <button class="pricing-btn pricing-btn-gold" onclick="handleUpgradeClick(event,'pro')">
-          <span id="upgrade-btn-label">✦ 升级 Pro · RM 99/月</span>
-        </button>
-        <div style="text-align:center;font-size:10px;color:var(--text3);margin-top:8px;">无合约 · 随时取消 · FPX / 信用卡 / TNG</div>
+    <!-- PRO ★ RECOMMENDED -->
+    <div style="flex:1;min-width:270px;max-width:310px;background:#fff;border:2px solid #f0b90b;border-radius:18px;padding:28px;position:relative;box-shadow:0 0 0 1px rgba(240,185,11,.2),0 12px 40px rgba(240,185,11,.1);">
+      <div style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#c9a84c,#f0c060);color:#0d0f14;font-size:11px;font-weight:800;padding:4px 18px;border-radius:20px;white-space:nowrap;">⭐ 最受设计师欢迎</div>
+      <div style="font-size:11px;font-weight:700;color:#C89B09;background:rgba(240,185,11,.1);border-radius:6px;padding:3px 10px;display:inline-block;margin-bottom:14px;">Pro ✦</div>
+      <div style="font-size:20px;font-weight:800;color:#1B2336;margin-bottom:4px;">专业版</div>
+      <div style="font-size:11px;color:#9ca3af;margin-bottom:18px;">适合每月处理 5–20 个项目的设计师</div>
+      <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:4px;">
+        <span style="font-size:17px;font-weight:700;color:#6b7280;">RM</span>
+        <span style="font-size:48px;font-weight:900;color:#1B2336;line-height:1;">99</span>
+        <span style="font-size:13px;color:#9ca3af;">/月</span>
       </div>
+      <div style="font-size:11px;color:#9ca3af;margin-bottom:20px;">约 RM 3.30/天 · 随时取消</div>
+      <ul style="list-style:none;padding:0;margin:0 0 24px;display:flex;flex-direction:column;gap:8px;">
+        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span><strong>50 次</strong> AI 分析/月</li>
+        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>无限报价单上传</li>
+        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>AI 市场价格对比</li>
+        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>导出 Excel + PDF 报告</li>
+        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>业主端完整功能</li>
+        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>优先客服支持</li>
+      </ul>
+      <button onclick="openPaymentModal('pro','monthly')" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#c9a84c,#f0c060);color:#0d0f14;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;box-shadow:0 4px 16px rgba(240,185,11,.3);">✦ 立即订阅 Pro · RM 99/月</button>
+      <div style="text-align:center;margin-top:8px;font-size:11px;color:#9ca3af;">支持 FPX · 信用卡 · GrabPay · TNG</div>
     </div>
 
-    <!-- ELITE CARD -->
-    <div id="plan-card-elite" class="pricing-card" onclick="pricingSelectPlan('elite')"
-      style="flex:1;min-width:280px;max-width:320px;border-color:rgba(46,107,230,.3);box-shadow:0 0 0 1px rgba(46,107,230,.12),0 8px 32px rgba(46,107,230,.06);">
-      <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--blue);color:#fff;font-size:10px;font-weight:700;letter-spacing:1px;padding:4px 14px;border-radius:20px;white-space:nowrap;">⚡ 无限版</div>
-      <div class="pricing-card-inner">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;">
-          <div>
-            <div class="pricing-plan-name" style="color:var(--blue);">Elite 无限版</div>
-            <div class="pricing-plan-sub">大量项目 · 事务所级别使用</div>
-          </div>
-          <div class="pricing-plan-badge" style="background:rgba(46,107,230,.1);color:var(--blue);border:1px solid rgba(46,107,230,.25);">无限额度</div>
-        </div>
-        <div class="pricing-amount">
-          <span class="pricing-currency">RM</span>
-          <span class="pricing-price">499</span>
-          <span class="pricing-period">/月</span>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:3px;">≈ RM 16.60/天 · 最高可覆盖 5 名设计师</div>
-        <div style="margin:14px 0 10px;padding:10px 12px;background:rgba(46,107,230,.06);border:1px solid rgba(46,107,230,.18);border-radius:8px;">
-          <div style="font-size:11px;color:var(--blue);font-weight:700;margin-bottom:3px;">🏢 适合场景</div>
-          <div style="font-size:11px;color:var(--text2);line-height:1.6;">每月 20+ 报价单 · 多设计师团队<br>年费可再省 <strong style="color:var(--blue);">RM 1,190</strong></div>
-        </div>
-        <div class="pricing-divider"></div>
-        <ul class="pricing-features">
-          <li class="feat-yes" style="color:var(--blue);font-weight:700;">⚡ 无限次 AI 分析额度</li>
-          <li class="feat-yes" style="color:var(--blue);font-weight:700;">⚡ 每月无限上传报价单</li>
-          <li class="feat-yes feat-gold">✦ AI 市场价格对比</li>
-          <li class="feat-yes">✓ 最多 5 名团队成员</li>
-          <li class="feat-yes">✓ 无限项目管理</li>
-          <li class="feat-yes">✓ 全部导出功能</li>
-          <li class="feat-yes">✓ 专属客户经理</li>
-          <li class="feat-yes">✓ 自定义品牌报告</li>
-          <li class="feat-yes">✓ API 访问权限</li>
-        </ul>
-        <button class="pricing-btn" style="width:100%;background:var(--blue);color:#fff;box-shadow:0 3px 12px rgba(46,107,230,.25);" onclick="handleUpgradeClick(event,'elite')">
-          <span id="upgrade-elite-label">⚡ 升级 Elite · RM 499/月</span>
-        </button>
-        <div style="text-align:center;font-size:10px;color:var(--text3);margin-top:8px;">年付优惠 RM 4,790 · 省 RM 1,198</div>
+    <!-- ELITE -->
+    <div style="flex:1;min-width:270px;max-width:300px;background:linear-gradient(145deg,#0f172a,#1e293b);border:1.5px solid #334155;border-radius:18px;padding:28px;">
+      <div style="font-size:11px;font-weight:700;color:#60a5fa;background:rgba(96,165,250,.1);border-radius:6px;padding:3px 10px;display:inline-block;margin-bottom:14px;">Elite ⚡</div>
+      <div style="font-size:20px;font-weight:800;color:#fff;margin-bottom:4px;">企业版</div>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:18px;">适合大型设计公司 / 多项目团队</div>
+      <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:4px;">
+        <span style="font-size:17px;font-weight:700;color:#94a3b8;">RM</span>
+        <span style="font-size:48px;font-weight:900;color:#fff;line-height:1;">499</span>
+        <span style="font-size:13px;color:#94a3b8;">/月</span>
       </div>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:20px;">或 RM 4,788/年（省 RM 1,200）</div>
+      <ul style="list-style:none;padding:0;margin:0 0 24px;display:flex;flex-direction:column;gap:8px;">
+        <li style="font-size:12px;color:#e2e8f0;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span><strong>无限次</strong> AI 分析</li>
+        <li style="font-size:12px;color:#e2e8f0;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>白标品牌定制</li>
+        <li style="font-size:12px;color:#e2e8f0;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>API 接入</li>
+        <li style="font-size:12px;color:#e2e8f0;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>专属客户经理</li>
+        <li style="font-size:12px;color:#e2e8f0;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>团队多账号管理</li>
+        <li style="font-size:12px;color:#e2e8f0;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>SLA 保障</li>
+      </ul>
+      <button onclick="openPaymentModal('elite','monthly')" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;box-shadow:0 4px 16px rgba(59,130,246,.3);">⚡ 订阅 Elite · RM 499/月</button>
+      <div style="text-align:center;margin-top:8px;font-size:11px;color:#64748b;">年付享 20% 折扣 · <span onclick="openPaymentModal('elite','annual')" style="color:#60a5fa;cursor:pointer;">查看年付方案</span></div>
     </div>
 
   </div><!-- /plan cards -->
 
-  <!-- Feature comparison table — 3 cols -->
-  <div style="max-width:800px;margin:0 auto;padding:0 20px 60px;">
-    <div style="text-align:center;margin-bottom:28px;">
-      <div style="font-family:'Cormorant Garamond','Corbel',serif;font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px;">详细功能对比</div>
-      <div style="font-size:13px;color:var(--text3);">看清楚每个方案包含什么</div>
-    </div>
-    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:16px;overflow:hidden;">
-      <div style="display:grid;grid-template-columns:1fr 90px 90px 90px;background:var(--surface2);padding:12px 20px;border-bottom:1px solid var(--border2);">
-        <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--text3);text-transform:uppercase;">功能</div>
-        <div style="font-size:12px;font-weight:700;color:var(--text2);text-align:center;">免费</div>
-        <div style="font-size:12px;font-weight:700;color:var(--gold-dk,#C89B09);text-align:center;">Pro ✦</div>
-        <div style="font-size:12px;font-weight:700;color:var(--blue);text-align:center;">Elite ⚡</div>
+  <!-- ── PAYMENT METHOD BANNER ───────────────── -->
+  <div style="max-width:1000px;margin:0 auto 32px;padding:0 20px;">
+    <div style="background:#fff;border:1px solid #e8eaf0;border-radius:14px;padding:18px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:16px;">
+      <span style="font-size:12px;font-weight:600;color:#6b7280;letter-spacing:.5px;text-transform:uppercase;">支付方式</span>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+        <span style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;color:#0369a1;">🏦 FPX 网银</span>
+        <span style="background:#fff7f0;border:1px solid #fed7aa;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;color:#c2410c;">💳 信用卡</span>
+        <span style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;color:#15803d;">💚 GrabPay</span>
+        <span style="background:#faf5ff;border:1px solid #d8b4fe;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;color:#7c3aed;">📱 TNG eWallet</span>
+        <span style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;color:#15803d;">🔵 Boost</span>
       </div>
-      <div id="pricing-compare-table"></div>
+      <span style="margin-left:auto;font-size:11px;color:#9ca3af;">Powered by ToyyibPay · SSL Encrypted</span>
     </div>
   </div>
 
-  <!-- FAQ -->
-  <div style="max-width:640px;margin:0 auto;padding:0 20px 80px;">
-    <div style="text-align:center;font-family:'Cormorant Garamond','Corbel',serif;font-size:22px;font-weight:700;color:var(--text);margin-bottom:28px;">常见问题</div>
-    <div id="pricing-faq"></div>
-  </div>
-
-  <!-- Bottom CTA -->
-  <div style="text-align:center;padding:52px 24px;background:linear-gradient(180deg,var(--surface) 0%,var(--bg) 100%);border-top:1px solid var(--border2);">
-    <div style="font-family:'Cormorant Garamond','Corbel',serif;font-size:26px;font-weight:700;color:var(--text);margin-bottom:8px;">还在犹豫？先免费试用</div>
-    <div style="font-size:13px;color:var(--text2);margin-bottom:24px;">注册即获 3 次免费 AI 分析额度，无需信用卡</div>
-    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-      <button class="pricing-btn pricing-btn-gold" style="padding:13px 28px;font-size:13px;" onclick="handleUpgradeClick(event,'pro')">✦ 升级 Pro · RM 99/月</button>
-      <button class="pricing-btn" style="padding:13px 28px;font-size:13px;background:var(--blue);color:#fff;" onclick="handleUpgradeClick(event,'elite')">⚡ Elite · RM 499/月</button>
-      <button class="pricing-btn pricing-btn-ghost" style="padding:13px 28px;font-size:13px;" onclick="switchPortal('designer')">← 返回工作台</button>
+  <!-- ── FAQ ────────────────────────────────── -->
+  <div style="max-width:720px;margin:0 auto 60px;padding:0 20px;">
+    <div style="font-size:16px;font-weight:700;color:#1B2336;margin-bottom:20px;text-align:center;">常见问题</div>
+    <div id="pricing-faq-list">
+      <details style="border:1px solid #e8eaf0;border-radius:10px;margin-bottom:8px;overflow:hidden;">
+        <summary style="padding:14px 18px;font-size:13px;font-weight:600;color:#1B2336;cursor:pointer;background:#fff;">订阅后会立刻生效吗？</summary>
+        <p style="padding:12px 18px 14px;font-size:13px;color:#6b7280;background:#f9fafb;margin:0;">是的，付款成功后额度立即到账，刷新页面即可使用。</p>
+      </details>
+      <details style="border:1px solid #e8eaf0;border-radius:10px;margin-bottom:8px;overflow:hidden;">
+        <summary style="padding:14px 18px;font-size:13px;font-weight:600;color:#1B2336;cursor:pointer;background:#fff;">可以随时取消吗？</summary>
+        <p style="padding:12px 18px 14px;font-size:13px;color:#6b7280;background:#f9fafb;margin:0;">可以，随时在设置里取消，当月剩余额度照常使用，下月不再续费。</p>
+      </details>
+      <details style="border:1px solid #e8eaf0;border-radius:10px;margin-bottom:8px;overflow:hidden;">
+        <summary style="padding:14px 18px;font-size:13px;font-weight:600;color:#1B2336;cursor:pointer;background:#fff;">免费版 3 次用完了怎么办？</summary>
+        <p style="padding:12px 18px 14px;font-size:13px;color:#6b7280;background:#f9fafb;margin:0;">订阅 Pro 后立即获得 50 次/月额度，可继续上传和分析报价单。</p>
+      </details>
+      <details style="border:1px solid #e8eaf0;border-radius:10px;overflow:hidden;">
+        <summary style="padding:14px 18px;font-size:13px;font-weight:600;color:#1B2336;cursor:pointer;background:#fff;">支持哪些支付方式？</summary>
+        <p style="padding:12px 18px 14px;font-size:13px;color:#6b7280;background:#f9fafb;margin:0;">支持马来西亚全主要银行 FPX 网银、Visa/Mastercard 信用卡、GrabPay、TNG eWallet、Boost。通过 ToyyibPay 安全处理。</p>
+      </details>
     </div>
   </div>
 
 </div><!-- /portal-pricing -->
+
+
+<!-- ════════════════════════════════════════════
+     PAYMENT MODAL (ToyyibPay Integration)
+════════════════════════════════════════════ -->
+<div id="payment-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9000;align-items:center;justify-content:center;">
+  <div id="payment-modal" style="background:#fff;border-radius:20px;padding:32px;max-width:460px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.2);">
+
+    <!-- Modal Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div>
+        <div style="font-size:18px;font-weight:800;color:#1B2336;" id="pay-modal-title">Subscribe to Pro</div>
+        <div style="font-size:12px;color:#9ca3af;margin-top:3px;" id="pay-modal-sub">RM 99/month · billed monthly</div>
+      </div>
+      <button onclick="closePaymentModal()" style="background:#f3f4f6;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:16px;">✕</button>
+    </div>
+
+    <!-- Order Summary -->
+    <div style="background:#f9fafb;border:1px solid #e8eaf0;border-radius:12px;padding:16px;margin-bottom:20px;">
+      <div style="font-size:11px;font-weight:700;color:#6b7280;letter-spacing:.8px;text-transform:uppercase;margin-bottom:12px;">ORDER SUMMARY</div>
+      <div id="pay-order-lines" style="display:flex;flex-direction:column;gap:8px;"></div>
+      <div style="border-top:1px dashed #e8eaf0;margin:12px 0;"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:14px;font-weight:700;color:#1B2336;">Total</span>
+        <span style="font-size:20px;font-weight:800;color:#1B2336;" id="pay-total-amount">RM 99</span>
+      </div>
+    </div>
+
+    <!-- Billing Info -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">账单资料 Billing Info</div>
+      <input id="pay-name" placeholder="Full Name / 全名" style="width:100%;padding:10px 14px;border:1.5px solid #e8eaf0;border-radius:8px;font-size:13px;margin-bottom:8px;font-family:'DM Sans',sans-serif;box-sizing:border-box;">
+      <input id="pay-email" placeholder="Email Address" style="width:100%;padding:10px 14px;border:1.5px solid #e8eaf0;border-radius:8px;font-size:13px;margin-bottom:8px;font-family:'DM Sans',sans-serif;box-sizing:border-box;">
+      <input id="pay-phone" placeholder="Phone / 手机号 (e.g. 0123456789)" style="width:100%;padding:10px 14px;border:1.5px solid #e8eaf0;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box;">
+    </div>
+
+    <!-- Payment Method -->
+    <div style="margin-bottom:24px;">
+      <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:10px;">支付方式 Payment Method</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="pay-methods">
+        <label style="border:1.5px solid #e8eaf0;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .15s;" id="pm-fpx">
+          <input type="radio" name="pay_method" value="fpx" checked style="accent-color:#f0b90b;"> <span style="font-size:12px;font-weight:600;color:#374151;">🏦 FPX 网银</span>
+        </label>
+        <label style="border:1.5px solid #e8eaf0;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;" id="pm-cc">
+          <input type="radio" name="pay_method" value="cc" style="accent-color:#f0b90b;"> <span style="font-size:12px;font-weight:600;color:#374151;">💳 信用卡</span>
+        </label>
+        <label style="border:1.5px solid #e8eaf0;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;" id="pm-grab">
+          <input type="radio" name="pay_method" value="grab" style="accent-color:#f0b90b;"> <span style="font-size:12px;font-weight:600;color:#374151;">💚 GrabPay</span>
+        </label>
+        <label style="border:1.5px solid #e8eaf0;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;" id="pm-tng">
+          <input type="radio" name="pay_method" value="tng" style="accent-color:#f0b90b;"> <span style="font-size:12px;font-weight:600;color:#374151;">📱 TNG eWallet</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ToyyibPay Note -->
+    <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px 14px;margin-bottom:20px;display:flex;gap:10px;align-items:flex-start;">
+      <span style="font-size:16px;flex-shrink:0;">🔒</span>
+      <div style="font-size:11px;color:#0369a1;line-height:1.6;">Payment processed securely via <strong>ToyyibPay</strong> (Malaysia's leading payment gateway). You'll be redirected to complete payment.</div>
+    </div>
+
+    <!-- CTA Button -->
+    <button id="pay-submit-btn" onclick="submitPayment()" style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#c9a84c,#f0c060);color:#0d0f14;font-size:15px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;box-shadow:0 4px 16px rgba(240,185,11,.3);">
+      Proceed to Payment →
+    </button>
+    <div style="text-align:center;margin-top:10px;font-size:11px;color:#9ca3af;">No hidden fees · Cancel anytime · SSL encrypted</div>
+
+  </div>
+</div>
 
 <!-- UPGRADE SUCCESS MODAL -->
 <div class="modal-overlay" id="modal-upgrade" onclick="if(event.target===this)closeModal('modal-upgrade')">
@@ -3999,6 +4021,145 @@ function showOwnerTab(tab) {
   });
   if (tab === 'documents') renderOwnerDocuments();
 }
+
+
+// ════════════════════════════════════════════════════════════
+//  PAYMENT MODAL — ToyyibPay Integration
+//  Register at: https://toyyibpay.com
+// ════════════════════════════════════════════════════════════
+
+// ── ToyyibPay config (fill in after registration) ───────────
+const TOYYIBPAY_CFG = {
+  // Get these from https://toyyibpay.com/index.php/account → API Settings
+  userSecretKey: 'YOUR_SECRET_KEY',   // ← paste your secret key here
+  categoryCode:  'YOUR_CATEGORY_CODE', // ← paste your bill category code
+  callbackUrl:   'https://renosmart.vercel.app/api/payment-callback',
+  returnUrl:     'https://renosmart.vercel.app/payment-success',
+};
+
+const PLAN_CONFIG = {
+  pro: {
+    monthly: { name:'RenoSmart Pro',  amount:9900,  desc:'Pro Plan · 50 AI analyses/month' },
+    annual:  { name:'RenoSmart Pro Annual', amount:95040, desc:'Pro Plan Annual · Save RM 1,188 (12 months)' }
+  },
+  elite: {
+    monthly: { name:'RenoSmart Elite', amount:49900, desc:'Elite Plan · Unlimited AI analyses/month' },
+    annual:  { name:'RenoSmart Elite Annual', amount:399200, desc:'Elite Plan Annual · Save RM 1,996 (12 months)' }
+  }
+};
+
+let _payPlan = null;
+let _payBilling = 'monthly';
+
+function openPaymentModal(plan, billing) {
+  _payPlan    = plan;
+  _payBilling = billing || 'monthly';
+  const cfg   = PLAN_CONFIG[plan]?.[billing] || PLAN_CONFIG[plan]?.monthly;
+  if (!cfg) return;
+
+  const amountRM = (cfg.amount / 100).toFixed(2);
+  document.getElementById('pay-modal-title').textContent =
+    plan === 'pro' ? 'Subscribe to Pro ✦' : 'Subscribe to Elite ⚡';
+  document.getElementById('pay-modal-sub').textContent =
+    billing === 'annual' ? cfg.desc : `RM ${amountRM}/month · billed monthly`;
+  document.getElementById('pay-total-amount').textContent = `RM ${amountRM}`;
+  document.getElementById('pay-order-lines').innerHTML = `
+    <div style="display:flex;justify-content:space-between;font-size:13px;color:#374151;">
+      <span>${cfg.name}</span><span style="font-weight:600;">RM ${amountRM}</span>
+    </div>
+    <div style="font-size:11px;color:#9ca3af;">${cfg.desc}</div>`;
+
+  // Pre-fill phone from login
+  const storedPhone = localStorage.getItem('rs_phone_designer') || '';
+  const phoneInput  = document.getElementById('pay-phone');
+  if (phoneInput && storedPhone) phoneInput.value = storedPhone.replace('+60','0');
+
+  const overlay = document.getElementById('payment-modal-overlay');
+  overlay.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closePaymentModal() {
+  const overlay = document.getElementById('payment-modal-overlay');
+  if (overlay) overlay.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+async function submitPayment() {
+  const name  = document.getElementById('pay-name')?.value.trim();
+  const email = document.getElementById('pay-email')?.value.trim();
+  const phone = document.getElementById('pay-phone')?.value.trim().replace(/[\s\-]/g,'');
+  const method = document.querySelector('input[name="pay_method"]:checked')?.value || 'fpx';
+
+  if (!name)  { showToast('⚠️','Please enter your full name'); return; }
+  if (!email || !email.includes('@')) { showToast('⚠️','Please enter a valid email'); return; }
+  if (!phone) { showToast('⚠️','Please enter your phone number'); return; }
+
+  const cfg    = PLAN_CONFIG[_payPlan]?.[_payBilling];
+  const btn    = document.getElementById('pay-submit-btn');
+  btn.textContent = '处理中 Processing...';
+  btn.disabled    = true;
+
+  // ── Option A: ToyyibPay live (after registration) ────────────
+  const useToyyibPay = TOYYIBPAY_CFG.userSecretKey !== 'YOUR_SECRET_KEY';
+
+  if (useToyyibPay) {
+    try {
+      // Call our Vercel API to create a ToyyibPay bill (keeps secret key server-side)
+      const resp = await fetch('/api/create-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan: _payPlan, billing: _payBilling,
+          name, email, phone,
+          amount: cfg.amount,
+          desc: cfg.desc
+        })
+      });
+      const result = await resp.json();
+      if (result.billCode) {
+        // Redirect to ToyyibPay payment page
+        window.location.href = 'https://toyyibpay.com/' + result.billCode;
+        return;
+      }
+      throw new Error(result.error || 'Payment creation failed');
+    } catch(err) {
+      showToast('❌', 'Payment error: ' + err.message);
+      btn.textContent = 'Proceed to Payment →';
+      btn.disabled    = false;
+      return;
+    }
+  }
+
+  // ── Option B: Demo mode (before ToyyibPay setup) ─────────────
+  // Simulate payment for testing
+  await new Promise(r => setTimeout(r, 1500));
+  closePaymentModal();
+
+  // Activate the plan locally (demo)
+  PRICING_STATE.plan = _payPlan;
+  if (_payPlan === 'pro') {
+    PRICING_STATE.usedPro = 0;
+    showToast('🎉', 'Pro plan activated! 50 AI analyses unlocked this month.');
+  } else {
+    PRICING_STATE.usedElite = 0;
+    showToast('🎉', 'Elite plan activated! Unlimited AI analyses unlocked.');
+  }
+  syncUsageUI();
+  // Show success state
+  document.getElementById('pricing-acct-badge').textContent =
+    _payPlan === 'pro' ? 'Pro ✦ · Active' : 'Elite ⚡ · Active';
+  showToast('⚠️', 'DEMO MODE — Connect ToyyibPay to process real payments. See Setup Guide.');
+
+  btn.textContent = 'Proceed to Payment →';
+  btn.disabled    = false;
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(e) {
+  const overlay = document.getElementById('payment-modal-overlay');
+  if (overlay && e.target === overlay) closePaymentModal();
+});
 
 function showToast(icon, text) {
   const t = document.getElementById('toast');
@@ -8090,9 +8251,12 @@ function getPricingLeft() {
   return Math.max(0, getPricingTotal() - getPricingUsed());
 }
 function canUploadQuotation() {
+  // PDF upload is always allowed — quota only gates AI analysis
+  // Free users get 3 lifetime AI analyses (totalFree = 3)
   if (PRICING_STATE.plan === 'elite') return true;
-  if (PRICING_STATE.plan === 'pro')   return PRICING_STATE.quotaUploadsThisMonth < PRICING_STATE.quotaUploadsPro;
-  return false; // free: no monthly uploads
+  if (PRICING_STATE.plan === 'pro')   return true; // 50/month, checked in AI call
+  // Free: allow if they still have AI quota left
+  return getPricingLeft() > 0;
 }
 function getRemainingUploads() {
   if (PRICING_STATE.plan === 'elite') return Infinity;
@@ -8183,43 +8347,173 @@ function handleUpgradeClick(e, targetPlan) {
   const plan = targetPlan || 'pro';
 
   if (PRICING_STATE.plan === plan) {
-    showToast('⚙️', '订阅管理页面（演示模式）');
+    showToast('⚙️', '已是 ' + (plan === 'elite' ? 'Elite' : 'Pro') + ' 用户');
     return;
   }
 
-  // Animate button
-  const labelId = plan === 'elite' ? 'upgrade-elite-label' : 'upgrade-btn-label';
-  const label = document.getElementById(labelId);
-  if (label) label.textContent = '⏳ 处理中...';
+  // Show Billplz payment modal
+  openBillplzCheckout(plan);
+}
 
-  setTimeout(() => {
-    PRICING_STATE.plan = plan;
-    if (plan === 'pro')   PRICING_STATE.usedPro   = PRICING_STATE.usedFree;
-    if (plan === 'elite') PRICING_STATE.usedElite  = 0;
+// ── Billplz Payment Checkout ─────────────────────────────────
+function openBillplzCheckout(plan) {
+  const prices = { pro: 99, elite: 499 };
+  const labels = { pro: 'Pro 专业版 ✦', elite: 'Elite 无限版 ⚡' };
+  const amount = prices[plan] || 99;
+  const label  = labels[plan] || 'Pro';
+  const phone  = localStorage.getItem('rs_phone_designer') || '';
 
-    const resetDate = new Date(TODAY_DATE);
-    resetDate.setMonth(resetDate.getMonth() + 1);
-    const fmtDate = `${resetDate.getFullYear()}年${resetDate.getMonth()+1}月${resetDate.getDate()}日`;
+  const existing = document.getElementById('billplz-modal');
+  if (existing) existing.remove();
 
-    // Populate upgrade modal
-    const resetEl = document.getElementById('upgrade-reset-date');
-    if (resetEl) resetEl.textContent = fmtDate;
-    const planNameEl = document.getElementById('upgrade-plan-name');
-    if (planNameEl) planNameEl.textContent = plan === 'elite' ? 'Elite 无限版 ⚡' : 'Pro 专业版 ✦';
-    const creditsEl = document.getElementById('upgrade-credits-line');
-    if (creditsEl) creditsEl.textContent = plan === 'elite' ? '∞ 无限次 AI 分析额度' : '50 次 AI 分析额度/月';
-    const quotaEl = document.getElementById('upgrade-quota-line');
-    if (quotaEl) quotaEl.textContent = '每月无限上传报价单';
-    const priceEl = document.getElementById('upgrade-price-line');
-    if (priceEl) priceEl.textContent = plan === 'elite' ? 'RM 499/月' : 'RM 99/月';
+  const modal = document.createElement('div');
+  modal.id = 'billplz-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML = `
+    <div style="background:var(--surface);border-radius:16px;width:100%;max-width:440px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <!-- Header -->
+      <div style="background:linear-gradient(135deg,rgba(240,185,11,.15),rgba(240,185,11,.05));border-bottom:1px solid var(--border2);padding:20px 24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:18px;font-weight:700;color:var(--text)">✦ 升级 ${label}</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px;">RenoSmart · 按月付款 · 随时取消</div>
+          </div>
+          <button onclick="document.getElementById('billplz-modal').remove()" style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;color:var(--text);font-family:'DM Sans',sans-serif;">✕</button>
+        </div>
+      </div>
 
-    syncUsageUI();
-    // Refresh price library gate if panel is open
-    if (document.getElementById('panel-pricelibrary')?.classList.contains('active')) {
-      checkPriceLibAccess();
+      <!-- Order summary -->
+      <div style="padding:20px 24px 0;">
+        <div style="background:var(--surface2);border-radius:10px;padding:14px 16px;border:1px solid var(--border2);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-size:13px;color:var(--text2);">${label} — 1 个月</span>
+            <span style="font-size:16px;font-weight:700;color:var(--gold);">RM ${amount}.00</span>
+          </div>
+          <div style="font-size:11px;color:var(--text3);border-top:1px solid var(--border2);padding-top:8px;margin-top:4px;">
+            付款后立即激活 · 下期续费提醒 · 可随时取消
+          </div>
+        </div>
+
+        <!-- Phone / email for receipt -->
+        <div style="margin-top:14px;">
+          <label style="font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.5px;text-transform:uppercase;display:block;margin-bottom:6px;">收据发送至</label>
+          <input id="bp-email" type="email" placeholder="your@email.com（选填）"
+            style="width:100%;box-sizing:border-box;padding:10px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;">
+        </div>
+
+        <!-- Payment method choice -->
+        <div style="margin-top:14px;">
+          <label style="font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.5px;text-transform:uppercase;display:block;margin-bottom:8px;">选择付款方式</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            ${[
+              {id:'fpx',    icon:'🏦', label:'FPX 网银',     sub:'Maybank · CIMB · RHB...'},
+              {id:'card',   icon:'💳', label:'信用卡/借记卡', sub:'Visa · Mastercard'},
+              {id:'tng',    icon:'📱', label:'TNG eWallet',  sub:"Touch 'n Go"},
+              {id:'manual', icon:'🏧', label:'银行转账',       sub:'账号: 人工核实 (1-2h)'}
+            ].map(m => `
+              <div onclick="selectPayMethod('${m.id}')" id="pm-${m.id}" class="pay-method-card"
+                style="cursor:pointer;border:2px solid var(--border2);border-radius:10px;padding:10px 12px;transition:.15s;background:var(--surface2);">
+                <div style="font-size:18px;margin-bottom:4px;">${m.icon}</div>
+                <div style="font-size:12px;font-weight:600;color:var(--text)">${m.label}</div>
+                <div style="font-size:10px;color:var(--text3);margin-top:2px;">${m.sub}</div>
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <!-- Manual transfer info (hidden by default) -->
+        <div id="manual-transfer-info" style="display:none;margin-top:12px;background:rgba(96,165,250,.07);border:1px solid rgba(96,165,250,.2);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--text2);line-height:1.8;">
+          <div style="font-weight:700;color:var(--blue);margin-bottom:8px;">📋 银行转账资料</div>
+          <div>银行名称: <strong style="color:var(--text)">Maybank</strong></div>
+          <div>账户名称: <strong style="color:var(--text)">RENOSMART SDN BHD</strong></div>
+          <div>账户号码: <strong style="color:var(--text)">5621 2345 6789</strong></div>
+          <div>参考号码: <strong style="color:var(--gold)" id="manual-ref">RS-PRO-${Date.now().toString(36).toUpperCase()}</strong></div>
+          <div style="margin-top:8px;font-size:11px;color:var(--text3);">转账后 WhatsApp 截图至 <strong>+60 12-345 6789</strong> 人工核实（1-2小时内激活）</div>
+        </div>
+
+        <!-- Pay button -->
+        <button id="bp-pay-btn" onclick="submitBillplzPayment('${plan}', ${amount})"
+          style="width:100%;margin-top:16px;padding:14px;background:var(--gold);color:#000;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:.15s;">
+          🔒 立即付款 RM ${amount}.00
+        </button>
+        <div style="text-align:center;font-size:10px;color:var(--text3);margin:8px 0 4px;">
+          🔒 由 <strong>Billplz</strong> 安全处理 · PCI-DSS Level 1 · SSL 加密
+        </div>
+      </div>
+      <div style="height:20px;"></div>
+    </div>`;
+  document.body.appendChild(modal);
+  // Select FPX by default
+  selectPayMethod('fpx');
+}
+
+let _selectedPayMethod = 'fpx';
+function selectPayMethod(id) {
+  _selectedPayMethod = id;
+  ['fpx','card','tng','manual'].forEach(m => {
+    const el = document.getElementById('pm-' + m);
+    if (!el) return;
+    if (m === id) {
+      el.style.borderColor = 'var(--gold)';
+      el.style.background  = 'rgba(240,185,11,0.08)';
+    } else {
+      el.style.borderColor = 'var(--border2)';
+      el.style.background  = 'var(--surface2)';
     }
-    openModal('modal-upgrade');
-  }, 1000);
+  });
+  const manInfo = document.getElementById('manual-transfer-info');
+  if (manInfo) manInfo.style.display = id === 'manual' ? '' : 'none';
+  const payBtn = document.getElementById('bp-pay-btn');
+  if (payBtn) payBtn.textContent = id === 'manual' ? '✓ 我已完成转账' : `🔒 立即付款 RM ${_currentCheckoutAmount || '99'}.00`;
+}
+let _currentCheckoutAmount = 99;
+let _currentCheckoutPlan = 'pro';
+
+async function submitBillplzPayment(plan, amount) {
+  _currentCheckoutAmount = amount;
+  _currentCheckoutPlan = plan;
+  const email  = document.getElementById('bp-email')?.value.trim() || '';
+  const phone  = localStorage.getItem('rs_phone_designer') || '';
+  const payBtn = document.getElementById('bp-pay-btn');
+  const method = _selectedPayMethod;
+
+  if (method === 'manual') {
+    // Manual transfer: just close modal + show instructions
+    document.getElementById('billplz-modal')?.remove();
+    showToast('📋', '请按银行转账资料付款，WhatsApp 截图给我们激活');
+    return;
+  }
+
+  if (payBtn) { payBtn.textContent = '⏳ 正在跳转付款页面...'; payBtn.disabled = true; }
+
+  try {
+    // Call our serverless function to create a Billplz bill
+    const res = await fetch('/api/payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan, amount, email, phone, method })
+    });
+    const data = await res.json();
+
+    if (data.url) {
+      // Redirect to Billplz payment page
+      window.location.href = data.url;
+    } else if (data.demo) {
+      // Demo mode (Billplz keys not configured yet) - simulate success
+      document.getElementById('billplz-modal')?.remove();
+      PRICING_STATE.plan = plan;
+      syncUsageUI();
+      showToast('✅', `已升级至 ${plan === 'elite' ? 'Elite ⚡' : 'Pro ✦'}（演示模式）`);
+      if (document.getElementById('panel-pricelibrary')?.classList.contains('active')) {
+        checkPriceLibAccess?.();
+      }
+    } else {
+      throw new Error(data.error || 'Payment init failed');
+    }
+  } catch(err) {
+    console.warn('Payment error:', err);
+    if (payBtn) { payBtn.textContent = `🔒 立即付款 RM ${amount}.00`; payBtn.disabled = false; }
+    showToast('❌', '付款跳转失败：' + err.message + '（请联系客服）');
+  }
 }
 
 // ── Compare table data ────────────────────
@@ -8310,12 +8604,18 @@ function toggleFAQ(i) {
 
 // ── Init pricing page ─────────────────────
 function initPricingPage() {
-  try { renderPricingCompareTable(); } catch(e) { console.warn('renderPricingCompareTable:', e); }
-  try { renderPricingFAQ(); }          catch(e) { console.warn('renderPricingFAQ:', e); }
-  try { syncUsageUI(); }               catch(e) { console.warn('syncUsageUI:', e); }
-  // Ensure pricing portal is visible (force display in case CSS hides it)
-  const pp = document.getElementById('portal-pricing');
-  if (pp) pp.style.display = '';
+  // Update account status in new pricing portal
+  try {
+    const badge = document.getElementById('pricing-acct-badge');
+    if (badge) {
+      const plan = PRICING_STATE.plan;
+      const used = getPricingUsed(), total = getPricingTotal();
+      if (plan === 'elite') badge.textContent = 'Elite ⚡ · Unlimited';
+      else if (plan === 'pro') badge.textContent = `Pro ✦ · ${used}/${total} used`;
+      else badge.textContent = `Free · ${used}/${total} used`;
+    }
+  } catch(e) {}
+  try { syncUsageUI(); } catch(e) {}
 }
 
 
@@ -9777,6 +10077,25 @@ initWorkerPortal();
 initScheduleControls();
 rebuildGantt();
 syncUsageUI();
+
+// ── Handle Billplz payment return ────────────────────────────
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const payment = params.get('payment');
+  const plan    = params.get('plan');
+  if (payment === 'success' && plan) {
+    PRICING_STATE.plan = plan;
+    if (plan === 'pro')   { PRICING_STATE.usedPro = 0; }
+    if (plan === 'elite') { PRICING_STATE.usedElite = 0; }
+    syncUsageUI();
+    setTimeout(() => {
+      showToast('🎉', `成功升级至 ${plan === 'elite' ? 'Elite ⚡ 无限版' : 'Pro ✦ 专业版'}！欢迎使用全部功能`);
+      switchPortal('designer');
+    }, 600);
+    // Clean URL
+    history.replaceState({}, '', '/');
+  }
+})();
 
 // ══════════════════════════════════════════════════════════════════
 // EXPORT FUNCTIONS
