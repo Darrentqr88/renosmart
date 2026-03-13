@@ -3,10 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RenoSmart — Smart Renovation Platform MY/SG</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='16' fill='%23F0B90B'/><text y='.9em' font-size='72' x='12'>🏠</text></svg>">
+<title>RenoSmart — 智能装修管理平台 MY/SG</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/@supabase/supabase-js@2.99.1/dist/umd/supabase.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ══ SUPABASE CLIENT ════════════════════════════════════════════
 const SUPABASE_URL = 'https://obwcntliainlbxuzfeew.supabase.co';
@@ -15,54 +14,17 @@ const _supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ── Current logged-in Supabase user ─────────────────────────────
 let _supaUser = null;
-// Generate a stable UUID v5-style from a phone string
-// Same phone → same UUID always. Used for phone-only (no OTP) mode.
-function phoneToUUID(phone) {
-  // Simple deterministic hash → UUID-shaped string
-  let hash = 0;
-  const str = 'renosmart:' + phone;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i);
-    hash |= 0;
-  }
-  const h = Math.abs(hash).toString(16).padStart(8,'0');
-  const phone64 = btoa(phone).replace(/[^a-f0-9]/g,'').padEnd(12,'0').slice(0,12);
-  return `${h}-${phone64.slice(0,4)}-4${phone64.slice(4,7)}-a${phone64.slice(7,10)}-${phone64.slice(0,12)}`;
-}
-
 async function getSupaUser() {
   if (_supaUser) return _supaUser;
-
-  // Try real Supabase auth first
-  try {
-    const { data } = await _supa.auth.getUser();
-    if (data?.user) {
-      _supaUser = data.user;
-      return _supaUser;
-    }
-  } catch(e) {}
-
-  // Phone-only fallback: create synthetic user object from stored phone
-  const phone = localStorage.getItem('rs_phone_designer') ||
-                localStorage.getItem('rs_phone_owner') ||
-                localStorage.getItem('rs_phone_worker');
-  if (phone) {
-    _supaUser = {
-      id: phoneToUUID(phone),
-      phone: phone,
-      isPhoneOnly: true // flag so we know this is not a real Supabase user
-    };
-    return _supaUser;
-  }
-  return null;
+  const { data } = await _supa.auth.getUser();
+  _supaUser = data?.user || null;
+  return _supaUser;
 }
 
 // ── Load projects from Supabase on login ────────────────────────
 async function loadProjectsFromSupabase() {
   const user = await getSupaUser();
   if (!user) return;
-  // Phone-only users: no real Supabase auth → skip remote load (use localStorage)
-  if (user.isPhoneOnly) return;
   const { data, error } = await _supa.from('projects').select('*').order('created_at', { ascending: false });
   if (error) { console.warn('Load projects error:', error.message); return; }
   PROJECTS_DB.length = 0;
@@ -90,8 +52,8 @@ async function loadProjectsFromSupabase() {
   renderProjectsSidebar();
 }
 </script>
-<script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 :root {
   --bg:       #F7F8FA;
@@ -2241,7 +2203,7 @@ code {
       <div style="margin:10px 12px 0;padding:10px 12px;border:1px solid var(--border2);border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="showRoleSelect()">
         <span style="font-size:14px;">🔄</span>
         <div style="flex:1;">
-          <div style="font-size:11px;font-weight:700;color:var(--text2);" data-i18n="nav_switch">切换身份</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text2);">切换身份</div>
           <div style="font-size:10px;color:var(--text3);">业主端 / 工人端</div>
         </div>
         <span style="font-size:14px;color:var(--text3);">›</span>
@@ -2250,7 +2212,7 @@ code {
       <!-- AI Usage Meter -->
       <div id="sidebar-usage-box" style="margin:16px 12px 0;padding:12px 13px;background:rgba(240,185,11,.06);border:1px solid rgba(240,185,11,.2);border-radius:10px;cursor:pointer;" onclick="switchPortal('pricing')">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-          <div style="font-size:11px;font-weight:700;color:var(--gold);" data-i18n="nav_ai_quota">✦ AI 额度</div>
+          <div style="font-size:11px;font-weight:700;color:var(--gold);">✦ AI 额度</div>
           <div style="font-size:10px;color:var(--text3);" id="sidebar-plan-label">免费版</div>
         </div>
         <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:6px;">
@@ -2359,8 +2321,6 @@ code {
           <!-- Action buttons -->
           <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
             <button class="btn btn-gold" onclick="showPanel('review')" data-i18n="btn_full_report">View Full AI Report →</button>
-            <button class="btn btn-ghost" id="btn-view-pdf" onclick="viewUploadedPDF()" style="display:none">📄 View PDF</button>
-            <button class="btn" id="btn-share-owner" onclick="shareDocumentWithOwner()" style="display:none;background:var(--teal);color:#fff;">📤 Share with Owner</button>
             <button class="btn btn-ghost" onclick="showPanel('schedule');setTimeout(generateAISchedule,300)" data-i18n="btn_gen_schedule">Generate Schedule</button>
             <button class="btn btn-ghost" onclick="exportReport()" data-i18n="btn_export_pdf">Export PDF Report</button>
             <div style="margin-left:auto;">
@@ -2372,26 +2332,104 @@ code {
 
       <!-- Panel: AI Review -->
       <div class="panel" id="panel-review">
-        <div class="panel-title" data-i18n="review_title">AI Smart Review Report</div>
-        <div class="panel-sub" id="ai-report-subtitle"><span class="live-dot"></span><span data-i18n="review_sub">Analysed by Claude AI</span></div>
+        <div class="panel-title">AI 智能审核报告</div>
+        <div class="panel-sub"><span class="live-dot"></span>由 Claude AI 分析 · Taman Desa #A22 · 2025年3月</div>
 
-        <!-- Score card: fully populated by renderAnalysisResult() -->
-        <div id="review-client-slot"></div>
-      <div id="ai-score-card-wrapper">
-          <div style="text-align:center;padding:48px 0;color:var(--text3);">
-            <div style="font-size:32px;margin-bottom:12px;">📋</div>
-            <div style="font-size:14px;">Upload a quotation to see AI analysis</div>
+        <div class="ai-review-card">
+          <div class="ai-header">
+            <span class="ai-badge">AI REVIEW</span>
+            <div class="ai-title">综合评分 & 风险评估</div>
+            <div style="margin-left:auto; font-size:12px; color:var(--text2);">基于 MY/SG 2025 市场数据</div>
+          </div>
+          <div class="ai-body">
+            <div class="score-row">
+              <div class="score-circle">
+                <div class="score-num">74</div>
+                <div class="score-label">/ 100</div>
+              </div>
+              <div class="score-breakdown">
+                <div class="score-item">
+                  <div class="score-item-label">项目完整性</div>
+                  <div class="score-bar-bg"><div class="score-bar" style="width:62%;background:var(--orange)"></div></div>
+                  <div class="score-item-val">62</div>
+                </div>
+                <div class="score-item">
+                  <div class="score-item-label">单价合理性</div>
+                  <div class="score-bar-bg"><div class="score-bar" style="width:85%;background:var(--green)"></div></div>
+                  <div class="score-item-val">85</div>
+                </div>
+                <div class="score-item">
+                  <div class="score-item-label">工序逻辑性</div>
+                  <div class="score-bar-bg"><div class="score-bar" style="width:90%;background:var(--green)"></div></div>
+                  <div class="score-item-val">90</div>
+                </div>
+                <div class="score-item">
+                  <div class="score-item-label">漏项风险</div>
+                  <div class="score-bar-bg"><div class="score-bar" style="width:58%;background:var(--red)"></div></div>
+                  <div class="score-item-val">58</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Alerts body: fully populated by renderAnalysisResult() -->
-        <div id="review-items-table-slot"></div>
-        <div id="review-alerts-body"></div>
+        <div class="section-title">严重问题 (需立即处理)</div>
 
-        <!-- Action buttons -->
-        <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap;">
-          <button class="btn btn-gold" onclick="showPanel('schedule');setTimeout(generateAISchedule,300)" data-i18n="btn_gen_schedule">Generate Schedule →</button>
-          <button class="btn btn-ghost" onclick="exportReport()" data-i18n="btn_export_pdf">Export PDF Report</button>
+        <div class="alert alert-critical">
+          <div class="alert-icon">🚨</div>
+          <div class="alert-content">
+            <div class="alert-title">水电暗槽工程完全缺失</div>
+            <div class="alert-desc">报价单中未见任何水电布线项目。按此房型 (1,200 sqft) 估算，水电工程通常需 RM 8,000–14,000。若不列入报价，装修途中将产生严重超支纠纷。</div>
+          </div>
+        </div>
+
+        <div class="alert alert-critical">
+          <div class="alert-icon">🚨</div>
+          <div class="alert-content">
+            <div class="alert-title">厨房/浴室防水层未包含</div>
+            <div class="alert-desc">湿区防水工程 (Kitchen, Bath x2, Utility) 为马来西亚装修法规强制要求项目，估算 RM 2,500–4,500。遗漏将导致日后渗水责任纠纷。</div>
+          </div>
+        </div>
+
+        <div class="section-title">警告 (建议确认)</div>
+
+        <div class="alert alert-warning">
+          <div class="alert-icon">⚠️</div>
+          <div class="alert-content">
+            <div class="alert-title">油漆单价高于市场 22%</div>
+            <div class="alert-desc">报价 RM 2.20/sqft，KL 市场均价 RM 1.80/sqft (Nippon 同系列)。建议与供应商确认是否含2层底漆+2层面漆标准工艺。</div>
+          </div>
+        </div>
+
+        <div class="alert alert-warning">
+          <div class="alert-icon">⚠️</div>
+          <div class="alert-content">
+            <div class="alert-title">主卧室地板数量疑似漏算</div>
+            <div class="alert-desc">报价 180 sqft，但依据户型图主卧约 220–240 sqft。建议重新实地量度，差异约 RM 720–1,080。</div>
+          </div>
+        </div>
+
+        <div class="section-title">提示 (可选考虑)</div>
+
+        <div class="alert alert-info">
+          <div class="alert-icon">💡</div>
+          <div class="alert-content">
+            <div class="alert-title">建议增列清洁及垃圾处理费</div>
+            <div class="alert-desc">2.5个月装修周期预估废料清运费 RM 800–1,500。建议在合同中明确责任方，避免双方日后争议。</div>
+          </div>
+        </div>
+
+        <div class="alert alert-ok">
+          <div class="alert-icon">✅</div>
+          <div class="alert-content">
+            <div class="alert-title">吊顶施工价格合理</div>
+            <div class="alert-desc">RM 12.50/sqft 石膏板吊顶属市场正常范围 (RM 10–18)，含轻钢龙骨及批土工序。</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 24px; display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-gold" onclick="showPanel('schedule');setTimeout(generateAISchedule,300)">生成工程进度 →</button>
+          <button class="btn btn-ghost" onclick="exportReport()">导出 PDF 报告</button>
           <button class="btn btn-ghost" data-i18n="btn_send_owner">Send to Owner for Review</button>
         </div>
 
@@ -2408,7 +2446,7 @@ code {
         </div>
       </div>
 
-            <!-- Panel: Schedule -->
+      <!-- Panel: Schedule -->
       <div class="panel" id="panel-schedule">
         <div class="panel-title" data-i18n="sched_title">Schedule Planning</div>
         <div class="panel-sub" data-i18n="sched_sub">Calendar sync · Auto-skips weekends & public holidays · Designer can manually override special work days</div>
@@ -2734,7 +2772,7 @@ code {
 
       <!-- Panel: Workers -->
       <div class="panel" id="panel-workers">
-        <div class="panel-title" data-i18n="nav_workers">工人名册</div>
+        <div class="panel-title">工人名册</div>
         <div class="panel-sub">通过电话号码添加工人 · 工人需在 APP 接受邀请后才加入名册</div>
 
         <button class="add-worker-btn" onclick="openAddWorker()">
@@ -2762,14 +2800,14 @@ code {
            Panel: Price Library
       ═══════════════════════════════════════════ -->
       <div class="panel" id="panel-pricelibrary">
-        <div class="panel-title" data-i18n="nav_pricelist_title">💰 价格数据库</div>
+        <div class="panel-title">💰 价格数据库</div>
         <div class="panel-sub">基于马来西亚 2025 年市场数据 · 通过上传报价单持续学习更新 · AI 审核时自动对比</div>
 
         <!-- Pro gate (shown to free users) -->
         <div id="price-lib-gate" style="display:none;">
           <div class="pro-gate-banner">
             <div class="pro-gate-icon">💰</div>
-            <div class="pro-gate-title" data-i18n="pricelist_pro_title">价格数据库 — Pro 专属功能</div>
+            <div class="pro-gate-title">价格数据库 — Pro 专属功能</div>
             <div class="pro-gate-sub">
               升级至 Pro 即可解锁马来西亚 2025 年装修市场参考价格库，AI 审核报价单时自动对比市场行情，
               并通过你上传的报价单数据持续自我学习更新。
@@ -2961,7 +2999,7 @@ code {
             <li style="color:var(--text3);">— 导出 Excel/PDF</li>
           </ul>
           <div style="padding:12px;background:var(--surface2);border-radius:10px;font-size:12px;color:var(--text3);">
-            <span data-i18n="ai_quota_used">AI 额度已用</span>：<strong id="settings-ai-used" style="color:var(--text);">1 / 3 次</strong>
+            AI 额度已用：<strong id="settings-ai-used" style="color:var(--text);">1 / 3 次</strong>
           </div>
         </div>
 
@@ -3088,26 +3126,6 @@ code {
       </div>
 
       <!-- Notification banner -->
-      <!-- Documents Tab Bar -->
-      <div style="margin:0 12px 12px;display:flex;gap:6px;overflow-x:auto;" id="owner-mobile-tabs">
-        <button onclick="showOwnerTab('progress')" class="owner-tab-btn active" id="otab-progress" style="background:var(--gold);color:#000;border:none;border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif">📊 Progress</button>
-        <button onclick="showOwnerTab('documents')" class="owner-tab-btn" id="otab-documents" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border2);border-radius:20px;padding:6px 14px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif">📄 Documents</button>
-        <button onclick="showOwnerTab('payments')" class="owner-tab-btn" id="otab-payments" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border2);border-radius:20px;padding:6px 14px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif">💰 Payments</button>
-      </div>
-
-      <!-- Owner: Documents tab content -->
-      <div id="owner-tab-documents" style="display:none;padding:0 12px 12px;">
-        <div id="owner-docs-slot">
-          <div style="text-align:center;padding:40px 20px;color:var(--text3);">
-            <div style="font-size:40px;margin-bottom:12px">📂</div>
-            <div style="font-size:13px;">No documents yet.</div>
-            <div style="font-size:11px;margin-top:6px">Designer will share quotation PDFs here.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Owner: Progress tab content (existing notification) -->
-      <div id="owner-tab-progress">
       <div onclick="showToast('🔔','审核报告已确认！设计师将收到通知。')" style="margin: 0 16px 12px; background: rgba(240,185,11,0.1); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor:pointer; display:flex; align-items:center; gap: 10px;">
         <span style="font-size: 20px;">📋</span>
         <div style="flex:1;">
@@ -3415,215 +3433,188 @@ code {
 <!-- ═══════════════════════════════════════
      PORTAL 4: PRICING PAGE
 ═══════════════════════════════════════ -->
-<div class="portal" id="portal-pricing">
+<div class="portal" id="portal-pricing" style="background:var(--bg);min-height:100vh;padding:0;">
 
-  <!-- ── TOP NAV ─────────────────────────────── -->
-  <div style="background:#fff;border-bottom:1px solid #e8eaf0;padding:12px 28px;display:flex;align-items:center;gap:14px;">
-    <button onclick="switchPortal('designer')" style="background:#f3f4f6;color:#374151;border:none;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">← Dashboard</button>
-    <span style="font-size:15px;font-weight:700;color:#1B2336;">✦ Upgrade Plan</span>
-    <div style="margin-left:auto;" id="pricing-account-status-bar">
-      <span style="font-size:12px;color:#6b7280;">Current: </span>
-      <span id="pricing-acct-badge" style="font-size:12px;font-weight:700;color:#1B2336;">Free · 1/3 used</span>
+  <!-- Pricing Hero -->
+  <div style="text-align:center;padding:60px 24px 36px;max-width:900px;margin:0 auto;">
+    <div style="display:inline-block;padding:5px 14px;background:rgba(240,185,11,.1);border:1px solid rgba(240,185,11,.25);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--gold-dk,#C89B09);text-transform:uppercase;margin-bottom:20px;">Simple Pricing · 简单透明定价</div>
+    <h1 style="font-family:'Cormorant Garamond','Corbel',serif;font-size:clamp(28px,5vw,44px);font-weight:700;color:var(--text);line-height:1.15;margin:0 0 16px;">
+      让 AI 帮你赚更多，<br>不是让你花更多
+    </h1>
+    <p style="font-size:15px;color:var(--text2);line-height:1.75;max-width:560px;margin:0 auto;">
+      每位新注册设计师免费获得 <strong style="color:var(--text)">3 次 AI 分析额度</strong>（终身有效）。<br>
+      每个月订阅即可上传报价单 + 解锁全部功能。
+    </p>
+    <div id="pricing-demo-banner" style="margin-top:24px;display:inline-flex;align-items:center;gap:10px;padding:10px 18px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;font-size:12px;color:var(--text2);">
+      <div style="width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0;"></div>
+      <span>你的账户：<strong id="pricing-account-status" style="color:var(--text);">免费版 · 已用 1/3 次</strong></span>
+      <span style="color:var(--border2);">|</span>
+      <span style="color:var(--gold-dk,#C89B09);font-weight:600;cursor:pointer;" onclick="pricingSelectPlan('pro')">升级 →</span>
     </div>
   </div>
 
-  <!-- ── HERO ───────────────────────────────── -->
-  <div style="text-align:center;padding:48px 24px 36px;background:linear-gradient(160deg,#fffdf5 0%,#f7f8fa 100%);">
-    <div style="display:inline-block;padding:4px 14px;background:rgba(240,185,11,.12);border:1px solid rgba(240,185,11,.3);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1.5px;color:#C89B09;text-transform:uppercase;margin-bottom:18px;">透明定价 · Simple Pricing</div>
-    <h1 style="font-family:'Cormorant Garamond','Corbel',serif;font-size:clamp(26px,4vw,40px);font-weight:700;color:#1B2336;line-height:1.2;margin:0 0 14px;">让 AI 帮你赚更多<br><span style="color:#C89B09;">不是让你花更多</span></h1>
-    <p style="font-size:14px;color:#6b7280;line-height:1.75;max-width:520px;margin:0 auto;">每位新设计师免费获得 <strong style="color:#1B2336;">3 次 AI 分析额度</strong>（终身有效）。订阅后每月解锁全部功能。</p>
-  </div>
+  <!-- 3 Plan Cards -->
+  <div style="display:flex;gap:16px;max-width:1080px;margin:0 auto;padding:0 20px 60px;flex-wrap:wrap;justify-content:center;">
 
-  <!-- ── 3 PLAN CARDS ───────────────────────── -->
-  <div style="display:flex;gap:20px;max-width:1000px;margin:0 auto;padding:0 20px 40px;flex-wrap:wrap;justify-content:center;">
-
-    <!-- FREE -->
-    <div style="flex:1;min-width:270px;max-width:300px;background:#fff;border:1.5px solid #e8eaf0;border-radius:18px;padding:28px;transition:all .2s;">
-      <div style="font-size:11px;font-weight:700;color:#9ca3af;background:#f3f4f6;border-radius:6px;padding:3px 10px;display:inline-block;margin-bottom:14px;">当前方案</div>
-      <div style="font-size:20px;font-weight:800;color:#1B2336;margin-bottom:4px;">免费版</div>
-      <div style="font-size:11px;color:#9ca3af;margin-bottom:18px;">先试试，不满意不收费</div>
-      <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:4px;">
-        <span style="font-size:17px;font-weight:700;color:#6b7280;">RM</span>
-        <span style="font-size:48px;font-weight:900;color:#1B2336;line-height:1;">0</span>
-        <span style="font-size:13px;color:#9ca3af;">/永久</span>
-      </div>
-      <div style="font-size:11px;color:#9ca3af;margin-bottom:20px;">注册即获，无需信用卡</div>
-      <!-- Usage bar -->
-      <div style="background:#f3f4f6;border-radius:8px;padding:10px 12px;margin-bottom:20px;">
-        <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-          <span style="font-size:11px;color:#6b7280;">AI 分析额度</span>
-          <span style="font-size:11px;font-weight:700;color:#1B2336;" id="free-usage-text">1 / 3 次已用</span>
+    <!-- FREE CARD -->
+    <div id="plan-card-free" class="pricing-card" onclick="pricingSelectPlan('free')" style="flex:1;min-width:280px;max-width:320px;">
+      <div class="pricing-card-inner">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;">
+          <div>
+            <div class="pricing-plan-name">免费版</div>
+            <div class="pricing-plan-sub">先试试，不满意不收费</div>
+          </div>
+          <div class="pricing-plan-badge free-badge">当前方案</div>
         </div>
-        <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div id="free-usage-bar" style="height:100%;border-radius:4px;background:#f0b90b;width:33%;transition:width .5s;"></div></div>
-        <div style="font-size:10px;color:#9ca3af;margin-top:5px;" id="free-usage-hint">还剩 2 次 · 用完后订阅继续</div>
+        <div class="pricing-amount">
+          <span class="pricing-currency">RM</span>
+          <span class="pricing-price">0</span>
+          <span class="pricing-period">/永久</span>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px;">注册即获，无需信用卡</div>
+        <div class="pricing-usage-block" style="margin-top:16px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span style="font-size:11px;color:var(--text2);">AI 分析额度</span>
+            <span style="font-size:11px;font-weight:700;color:var(--text);" id="free-usage-text">1 / 3 次已用</span>
+          </div>
+          <div style="background:var(--surface3);border-radius:4px;height:6px;overflow:hidden;">
+            <div id="free-usage-bar" style="height:100%;border-radius:4px;background:var(--gold);width:33%;transition:width .5s;"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:5px;" id="free-usage-hint">还剩 2 次 · 用完后订阅继续使用</div>
+        </div>
+        <div class="pricing-divider"></div>
+        <ul class="pricing-features">
+          <li class="feat-yes">✓ 3 次 AI 报价单分析（终身）</li>
+          <li class="feat-yes">✓ AI 施工进度编排</li>
+          <li class="feat-yes">✓ 甘特图 + 拖拽调整</li>
+          <li class="feat-yes">✓ 工人端 + 业主端（预览）</li>
+          <li class="feat-no">— 不含报价单上传（订阅功能）</li>
+          <li class="feat-no">— 无 AI 市场价格对比</li>
+          <li class="feat-no">— 无导出 Excel/PDF</li>
+          <li class="feat-no">— 限 1 个项目</li>
+        </ul>
+        <button class="pricing-btn pricing-btn-ghost" disabled>当前方案</button>
       </div>
-      <ul style="list-style:none;padding:0;margin:0 0 20px;display:flex;flex-direction:column;gap:8px;">
-        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>3 次 AI 报价单分析（终身）</li>
-        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>AI 施工进度编排</li>
-        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>甘特图 + 拖拽调整</li>
-        <li style="font-size:12px;color:#9ca3af;display:flex;gap:8px;"><span>—</span>不含无限报价单上传</li>
-        <li style="font-size:12px;color:#9ca3af;display:flex;gap:8px;"><span>—</span>无 AI 市场价格对比</li>
-      </ul>
-      <button onclick="switchPortal('designer')" style="width:100%;padding:11px;border:1.5px solid #e8eaf0;border-radius:10px;background:#fff;color:#6b7280;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">继续使用免费版</button>
     </div>
 
-    <!-- PRO ★ RECOMMENDED -->
-    <div style="flex:1;min-width:270px;max-width:310px;background:#fff;border:2px solid #f0b90b;border-radius:18px;padding:28px;position:relative;box-shadow:0 0 0 1px rgba(240,185,11,.2),0 12px 40px rgba(240,185,11,.1);">
-      <div style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#c9a84c,#f0c060);color:#0d0f14;font-size:11px;font-weight:800;padding:4px 18px;border-radius:20px;white-space:nowrap;">⭐ 最受设计师欢迎</div>
-      <div style="font-size:11px;font-weight:700;color:#C89B09;background:rgba(240,185,11,.1);border-radius:6px;padding:3px 10px;display:inline-block;margin-bottom:14px;">Pro ✦</div>
-      <div style="font-size:20px;font-weight:800;color:#1B2336;margin-bottom:4px;">专业版</div>
-      <div style="font-size:11px;color:#9ca3af;margin-bottom:18px;">适合每月处理 5–20 个项目的设计师</div>
-      <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:4px;">
-        <span style="font-size:17px;font-weight:700;color:#6b7280;">RM</span>
-        <span style="font-size:48px;font-weight:900;color:#1B2336;line-height:1;">99</span>
-        <span style="font-size:13px;color:#9ca3af;">/月</span>
+    <!-- PRO CARD -->
+    <div id="plan-card-pro" class="pricing-card pricing-card-pro" onclick="pricingSelectPlan('pro')" style="flex:1;min-width:280px;max-width:320px;">
+      <div class="pricing-popular-tag">🔥 最多人选择</div>
+      <div class="pricing-card-inner">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;">
+          <div>
+            <div class="pricing-plan-name" style="color:var(--gold-dk,#C89B09);">Pro 专业版</div>
+            <div class="pricing-plan-sub">全功能解锁，让 AI 做你的助理</div>
+          </div>
+          <div class="pricing-plan-badge pro-badge">推荐</div>
+        </div>
+        <div class="pricing-amount">
+          <span class="pricing-currency">RM</span>
+          <span class="pricing-price">99</span>
+          <span class="pricing-period">/月</span>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px;">≈ RM 3.30/天 · 按月付，随时取消</div>
+        <div style="margin:14px 0 10px;padding:10px 12px;background:rgba(240,185,11,.07);border:1px solid rgba(240,185,11,.2);border-radius:8px;">
+          <div style="font-size:11px;color:var(--gold-dk,#C89B09);font-weight:700;margin-bottom:3px;">💡 ROI 测算</div>
+          <div style="font-size:11px;color:var(--text2);line-height:1.6;">每次分析省 2–4小时 = <strong style="color:var(--green);">RM 160–600</strong><br>50次额度回报率 <strong style="color:var(--green);">160–600倍</strong></div>
+        </div>
+        <div class="pricing-divider"></div>
+        <ul class="pricing-features">
+          <li class="feat-yes feat-gold">✦ 每月上传报价单 × 50次</li>
+          <li class="feat-yes feat-gold">✦ 每月 50 次 AI 分析额度</li>
+          <li class="feat-yes feat-gold">✦ AI 市场价格对比</li>
+          <li class="feat-yes">✓ 无限项目管理</li>
+          <li class="feat-yes">✓ Excel + PDF 进度表导出</li>
+          <li class="feat-yes">✓ 工人端多工地日历</li>
+          <li class="feat-yes">✓ 业主端付款追踪</li>
+          <li class="feat-yes">✓ WhatsApp 进度推送</li>
+          <li class="feat-yes">✓ 优先客服支持</li>
+        </ul>
+        <button class="pricing-btn pricing-btn-gold" onclick="handleUpgradeClick(event,'pro')">
+          <span id="upgrade-btn-label">✦ 升级 Pro · RM 99/月</span>
+        </button>
+        <div style="text-align:center;font-size:10px;color:var(--text3);margin-top:8px;">无合约 · 随时取消 · FPX / 信用卡 / TNG</div>
       </div>
-      <div style="font-size:11px;color:#9ca3af;margin-bottom:20px;">约 RM 3.30/天 · 随时取消</div>
-      <ul style="list-style:none;padding:0;margin:0 0 24px;display:flex;flex-direction:column;gap:8px;">
-        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span><strong>50 次</strong> AI 分析/月</li>
-        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>无限报价单上传</li>
-        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>AI 市场价格对比</li>
-        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>导出 Excel + PDF 报告</li>
-        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>业主端完整功能</li>
-        <li style="font-size:12px;color:#374151;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>优先客服支持</li>
-      </ul>
-      <button onclick="openPaymentModal('pro','monthly')" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#c9a84c,#f0c060);color:#0d0f14;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;box-shadow:0 4px 16px rgba(240,185,11,.3);">✦ 立即订阅 Pro · RM 99/月</button>
-      <div style="text-align:center;margin-top:8px;font-size:11px;color:#9ca3af;">支持 FPX · 信用卡 · GrabPay · TNG</div>
     </div>
 
-    <!-- ELITE -->
-    <div style="flex:1;min-width:270px;max-width:300px;background:linear-gradient(145deg,#0f172a,#1e293b);border:1.5px solid #334155;border-radius:18px;padding:28px;">
-      <div style="font-size:11px;font-weight:700;color:#60a5fa;background:rgba(96,165,250,.1);border-radius:6px;padding:3px 10px;display:inline-block;margin-bottom:14px;">Elite ⚡</div>
-      <div style="font-size:20px;font-weight:800;color:#fff;margin-bottom:4px;">企业版</div>
-      <div style="font-size:11px;color:#94a3b8;margin-bottom:18px;">适合大型设计公司 / 多项目团队</div>
-      <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:4px;">
-        <span style="font-size:17px;font-weight:700;color:#94a3b8;">RM</span>
-        <span style="font-size:48px;font-weight:900;color:#fff;line-height:1;">499</span>
-        <span style="font-size:13px;color:#94a3b8;">/月</span>
+    <!-- ELITE CARD -->
+    <div id="plan-card-elite" class="pricing-card" onclick="pricingSelectPlan('elite')"
+      style="flex:1;min-width:280px;max-width:320px;border-color:rgba(46,107,230,.3);box-shadow:0 0 0 1px rgba(46,107,230,.12),0 8px 32px rgba(46,107,230,.06);">
+      <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--blue);color:#fff;font-size:10px;font-weight:700;letter-spacing:1px;padding:4px 14px;border-radius:20px;white-space:nowrap;">⚡ 无限版</div>
+      <div class="pricing-card-inner">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;">
+          <div>
+            <div class="pricing-plan-name" style="color:var(--blue);">Elite 无限版</div>
+            <div class="pricing-plan-sub">大量项目 · 事务所级别使用</div>
+          </div>
+          <div class="pricing-plan-badge" style="background:rgba(46,107,230,.1);color:var(--blue);border:1px solid rgba(46,107,230,.25);">无限额度</div>
+        </div>
+        <div class="pricing-amount">
+          <span class="pricing-currency">RM</span>
+          <span class="pricing-price">499</span>
+          <span class="pricing-period">/月</span>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px;">≈ RM 16.60/天 · 最高可覆盖 5 名设计师</div>
+        <div style="margin:14px 0 10px;padding:10px 12px;background:rgba(46,107,230,.06);border:1px solid rgba(46,107,230,.18);border-radius:8px;">
+          <div style="font-size:11px;color:var(--blue);font-weight:700;margin-bottom:3px;">🏢 适合场景</div>
+          <div style="font-size:11px;color:var(--text2);line-height:1.6;">每月 20+ 报价单 · 多设计师团队<br>年费可再省 <strong style="color:var(--blue);">RM 1,190</strong></div>
+        </div>
+        <div class="pricing-divider"></div>
+        <ul class="pricing-features">
+          <li class="feat-yes" style="color:var(--blue);font-weight:700;">⚡ 无限次 AI 分析额度</li>
+          <li class="feat-yes" style="color:var(--blue);font-weight:700;">⚡ 每月无限上传报价单</li>
+          <li class="feat-yes feat-gold">✦ AI 市场价格对比</li>
+          <li class="feat-yes">✓ 最多 5 名团队成员</li>
+          <li class="feat-yes">✓ 无限项目管理</li>
+          <li class="feat-yes">✓ 全部导出功能</li>
+          <li class="feat-yes">✓ 专属客户经理</li>
+          <li class="feat-yes">✓ 自定义品牌报告</li>
+          <li class="feat-yes">✓ API 访问权限</li>
+        </ul>
+        <button class="pricing-btn" style="width:100%;background:var(--blue);color:#fff;box-shadow:0 3px 12px rgba(46,107,230,.25);" onclick="handleUpgradeClick(event,'elite')">
+          <span id="upgrade-elite-label">⚡ 升级 Elite · RM 499/月</span>
+        </button>
+        <div style="text-align:center;font-size:10px;color:var(--text3);margin-top:8px;">年付优惠 RM 4,790 · 省 RM 1,198</div>
       </div>
-      <div style="font-size:11px;color:#94a3b8;margin-bottom:20px;">或 RM 4,788/年（省 RM 1,200）</div>
-      <ul style="list-style:none;padding:0;margin:0 0 24px;display:flex;flex-direction:column;gap:8px;">
-        <li style="font-size:12px;color:#e2e8f0;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span><strong>无限次</strong> AI 分析</li>
-        <li style="font-size:12px;color:#e2e8f0;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>白标品牌定制</li>
-        <li style="font-size:12px;color:#e2e8f0;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>API 接入</li>
-        <li style="font-size:12px;color:#e2e8f0;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>专属客户经理</li>
-        <li style="font-size:12px;color:#e2e8f0;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>团队多账号管理</li>
-        <li style="font-size:12px;color:#e2e8f0;display:flex;gap:8px;"><span style="color:#22c55e;">✓</span>SLA 保障</li>
-      </ul>
-      <button onclick="openPaymentModal('elite','monthly')" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;box-shadow:0 4px 16px rgba(59,130,246,.3);">⚡ 订阅 Elite · RM 499/月</button>
-      <div style="text-align:center;margin-top:8px;font-size:11px;color:#64748b;">年付享 20% 折扣 · <span onclick="openPaymentModal('elite','annual')" style="color:#60a5fa;cursor:pointer;">查看年付方案</span></div>
     </div>
 
   </div><!-- /plan cards -->
 
-  <!-- ── PAYMENT METHOD BANNER ───────────────── -->
-  <div style="max-width:1000px;margin:0 auto 32px;padding:0 20px;">
-    <div style="background:#fff;border:1px solid #e8eaf0;border-radius:14px;padding:18px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:16px;">
-      <span style="font-size:12px;font-weight:600;color:#6b7280;letter-spacing:.5px;text-transform:uppercase;">支付方式</span>
-      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-        <span style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;color:#0369a1;">🏦 FPX 网银</span>
-        <span style="background:#fff7f0;border:1px solid #fed7aa;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;color:#c2410c;">💳 信用卡</span>
-        <span style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;color:#15803d;">💚 GrabPay</span>
-        <span style="background:#faf5ff;border:1px solid #d8b4fe;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;color:#7c3aed;">📱 TNG eWallet</span>
-        <span style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;color:#15803d;">🔵 Boost</span>
+  <!-- Feature comparison table — 3 cols -->
+  <div style="max-width:800px;margin:0 auto;padding:0 20px 60px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="font-family:'Cormorant Garamond','Corbel',serif;font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px;">详细功能对比</div>
+      <div style="font-size:13px;color:var(--text3);">看清楚每个方案包含什么</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:16px;overflow:hidden;">
+      <div style="display:grid;grid-template-columns:1fr 90px 90px 90px;background:var(--surface2);padding:12px 20px;border-bottom:1px solid var(--border2);">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--text3);text-transform:uppercase;">功能</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-align:center;">免费</div>
+        <div style="font-size:12px;font-weight:700;color:var(--gold-dk,#C89B09);text-align:center;">Pro ✦</div>
+        <div style="font-size:12px;font-weight:700;color:var(--blue);text-align:center;">Elite ⚡</div>
       </div>
-      <span style="margin-left:auto;font-size:11px;color:#9ca3af;">Powered by ToyyibPay · SSL Encrypted</span>
+      <div id="pricing-compare-table"></div>
     </div>
   </div>
 
-  <!-- ── FAQ ────────────────────────────────── -->
-  <div style="max-width:720px;margin:0 auto 60px;padding:0 20px;">
-    <div style="font-size:16px;font-weight:700;color:#1B2336;margin-bottom:20px;text-align:center;">常见问题</div>
-    <div id="pricing-faq-list">
-      <details style="border:1px solid #e8eaf0;border-radius:10px;margin-bottom:8px;overflow:hidden;">
-        <summary style="padding:14px 18px;font-size:13px;font-weight:600;color:#1B2336;cursor:pointer;background:#fff;">订阅后会立刻生效吗？</summary>
-        <p style="padding:12px 18px 14px;font-size:13px;color:#6b7280;background:#f9fafb;margin:0;">是的，付款成功后额度立即到账，刷新页面即可使用。</p>
-      </details>
-      <details style="border:1px solid #e8eaf0;border-radius:10px;margin-bottom:8px;overflow:hidden;">
-        <summary style="padding:14px 18px;font-size:13px;font-weight:600;color:#1B2336;cursor:pointer;background:#fff;">可以随时取消吗？</summary>
-        <p style="padding:12px 18px 14px;font-size:13px;color:#6b7280;background:#f9fafb;margin:0;">可以，随时在设置里取消，当月剩余额度照常使用，下月不再续费。</p>
-      </details>
-      <details style="border:1px solid #e8eaf0;border-radius:10px;margin-bottom:8px;overflow:hidden;">
-        <summary style="padding:14px 18px;font-size:13px;font-weight:600;color:#1B2336;cursor:pointer;background:#fff;">免费版 3 次用完了怎么办？</summary>
-        <p style="padding:12px 18px 14px;font-size:13px;color:#6b7280;background:#f9fafb;margin:0;">订阅 Pro 后立即获得 50 次/月额度，可继续上传和分析报价单。</p>
-      </details>
-      <details style="border:1px solid #e8eaf0;border-radius:10px;overflow:hidden;">
-        <summary style="padding:14px 18px;font-size:13px;font-weight:600;color:#1B2336;cursor:pointer;background:#fff;">支持哪些支付方式？</summary>
-        <p style="padding:12px 18px 14px;font-size:13px;color:#6b7280;background:#f9fafb;margin:0;">支持马来西亚全主要银行 FPX 网银、Visa/Mastercard 信用卡、GrabPay、TNG eWallet、Boost。通过 ToyyibPay 安全处理。</p>
-      </details>
+  <!-- FAQ -->
+  <div style="max-width:640px;margin:0 auto;padding:0 20px 80px;">
+    <div style="text-align:center;font-family:'Cormorant Garamond','Corbel',serif;font-size:22px;font-weight:700;color:var(--text);margin-bottom:28px;">常见问题</div>
+    <div id="pricing-faq"></div>
+  </div>
+
+  <!-- Bottom CTA -->
+  <div style="text-align:center;padding:52px 24px;background:linear-gradient(180deg,var(--surface) 0%,var(--bg) 100%);border-top:1px solid var(--border2);">
+    <div style="font-family:'Cormorant Garamond','Corbel',serif;font-size:26px;font-weight:700;color:var(--text);margin-bottom:8px;">还在犹豫？先免费试用</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:24px;">注册即获 3 次免费 AI 分析额度，无需信用卡</div>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+      <button class="pricing-btn pricing-btn-gold" style="padding:13px 28px;font-size:13px;" onclick="handleUpgradeClick(event,'pro')">✦ 升级 Pro · RM 99/月</button>
+      <button class="pricing-btn" style="padding:13px 28px;font-size:13px;background:var(--blue);color:#fff;" onclick="handleUpgradeClick(event,'elite')">⚡ Elite · RM 499/月</button>
+      <button class="pricing-btn pricing-btn-ghost" style="padding:13px 28px;font-size:13px;" onclick="switchPortal('designer')">← 返回工作台</button>
     </div>
   </div>
 
 </div><!-- /portal-pricing -->
-
-
-<!-- ════════════════════════════════════════════
-     PAYMENT MODAL (ToyyibPay Integration)
-════════════════════════════════════════════ -->
-<div id="payment-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9000;align-items:center;justify-content:center;">
-  <div id="payment-modal" style="background:#fff;border-radius:20px;padding:32px;max-width:460px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.2);">
-
-    <!-- Modal Header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-      <div>
-        <div style="font-size:18px;font-weight:800;color:#1B2336;" id="pay-modal-title">Subscribe to Pro</div>
-        <div style="font-size:12px;color:#9ca3af;margin-top:3px;" id="pay-modal-sub">RM 99/month · billed monthly</div>
-      </div>
-      <button onclick="closePaymentModal()" style="background:#f3f4f6;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:16px;">✕</button>
-    </div>
-
-    <!-- Order Summary -->
-    <div style="background:#f9fafb;border:1px solid #e8eaf0;border-radius:12px;padding:16px;margin-bottom:20px;">
-      <div style="font-size:11px;font-weight:700;color:#6b7280;letter-spacing:.8px;text-transform:uppercase;margin-bottom:12px;">ORDER SUMMARY</div>
-      <div id="pay-order-lines" style="display:flex;flex-direction:column;gap:8px;"></div>
-      <div style="border-top:1px dashed #e8eaf0;margin:12px 0;"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:14px;font-weight:700;color:#1B2336;">Total</span>
-        <span style="font-size:20px;font-weight:800;color:#1B2336;" id="pay-total-amount">RM 99</span>
-      </div>
-    </div>
-
-    <!-- Billing Info -->
-    <div style="margin-bottom:20px;">
-      <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">账单资料 Billing Info</div>
-      <input id="pay-name" placeholder="Full Name / 全名" style="width:100%;padding:10px 14px;border:1.5px solid #e8eaf0;border-radius:8px;font-size:13px;margin-bottom:8px;font-family:'DM Sans',sans-serif;box-sizing:border-box;">
-      <input id="pay-email" placeholder="Email Address" style="width:100%;padding:10px 14px;border:1.5px solid #e8eaf0;border-radius:8px;font-size:13px;margin-bottom:8px;font-family:'DM Sans',sans-serif;box-sizing:border-box;">
-      <input id="pay-phone" placeholder="Phone / 手机号 (e.g. 0123456789)" style="width:100%;padding:10px 14px;border:1.5px solid #e8eaf0;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box;">
-    </div>
-
-    <!-- Payment Method -->
-    <div style="margin-bottom:24px;">
-      <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:10px;">支付方式 Payment Method</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="pay-methods">
-        <label style="border:1.5px solid #e8eaf0;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .15s;" id="pm-fpx">
-          <input type="radio" name="pay_method" value="fpx" checked style="accent-color:#f0b90b;"> <span style="font-size:12px;font-weight:600;color:#374151;">🏦 FPX 网银</span>
-        </label>
-        <label style="border:1.5px solid #e8eaf0;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;" id="pm-cc">
-          <input type="radio" name="pay_method" value="cc" style="accent-color:#f0b90b;"> <span style="font-size:12px;font-weight:600;color:#374151;">💳 信用卡</span>
-        </label>
-        <label style="border:1.5px solid #e8eaf0;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;" id="pm-grab">
-          <input type="radio" name="pay_method" value="grab" style="accent-color:#f0b90b;"> <span style="font-size:12px;font-weight:600;color:#374151;">💚 GrabPay</span>
-        </label>
-        <label style="border:1.5px solid #e8eaf0;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;" id="pm-tng">
-          <input type="radio" name="pay_method" value="tng" style="accent-color:#f0b90b;"> <span style="font-size:12px;font-weight:600;color:#374151;">📱 TNG eWallet</span>
-        </label>
-      </div>
-    </div>
-
-    <!-- ToyyibPay Note -->
-    <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px 14px;margin-bottom:20px;display:flex;gap:10px;align-items:flex-start;">
-      <span style="font-size:16px;flex-shrink:0;">🔒</span>
-      <div style="font-size:11px;color:#0369a1;line-height:1.6;">Payment processed securely via <strong>ToyyibPay</strong> (Malaysia's leading payment gateway). You'll be redirected to complete payment.</div>
-    </div>
-
-    <!-- CTA Button -->
-    <button id="pay-submit-btn" onclick="submitPayment()" style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#c9a84c,#f0c060);color:#0d0f14;font-size:15px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;box-shadow:0 4px 16px rgba(240,185,11,.3);">
-      Proceed to Payment →
-    </button>
-    <div style="text-align:center;margin-top:10px;font-size:11px;color:#9ca3af;">No hidden fees · Cancel anytime · SSL encrypted</div>
-
-  </div>
-</div>
 
 <!-- UPGRADE SUCCESS MODAL -->
 <div class="modal-overlay" id="modal-upgrade" onclick="if(event.target===this)closeModal('modal-upgrade')">
@@ -3842,31 +3833,17 @@ code {
 function switchPortal(name) {
   document.querySelectorAll('.portal').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.portal-btn').forEach(b => b.classList.remove('active'));
-
-  const portalEl = document.getElementById('portal-' + name);
-  const btnEl    = document.getElementById('btn-' + name);
-  if (portalEl) portalEl.classList.add('active');
-  if (btnEl)    btnEl.classList.add('active');
-
-  // Pricing portal: always accessible, no auth gate
-  if (name === 'pricing') {
-    try { initPricingPage(); } catch(e) { console.warn('initPricingPage error:', e); }
-    return;
-  }
-
-  // Worker calendar
-  if (name === 'worker') {
-    try { renderWorkerCalendar(); } catch(e) {}
-  }
-
-  // Auth gate — only for designer / owner / worker
-  const needsAuth = ['designer','owner','worker'];
-  if (needsAuth.includes(name) && typeof AUTH_STATE !== 'undefined') {
+  document.getElementById('portal-' + name)?.classList.add('active');
+  document.getElementById('btn-' + name)?.classList.add('active');
+  if (name === 'pricing') initPricingPage();
+  if (name === 'worker')  renderWorkerCalendar();
+  // Auth gate: show overlay if not logged in
+  if ((name === 'designer' || name === 'owner' || name === 'worker') && typeof AUTH_STATE !== 'undefined') {
     if (!AUTH_STATE[name]) {
       const ov = document.getElementById('auth-' + name);
       if (ov) {
         ov.classList.remove('hidden');
-        try { authSwitchTab(name, 'login'); } catch(e) {}
+        authSwitchTab(name, 'login');
       }
     }
   }
@@ -3907,260 +3884,6 @@ function ownerTab(el, name) {
 }
 
 // ── Toast ─────────────────────────────────
-// ══════════════════════════════════════════════════════════════
-// PDF Viewer & Document Share System
-// ══════════════════════════════════════════════════════════════
-function openPDFViewer(base64Data, filename, readOnly) {
-  const existing = document.getElementById('pdf-viewer-overlay');
-  if (existing) existing.remove();
-  const overlay = document.createElement('div');
-  overlay.id = 'pdf-viewer-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;flex-direction:column;';
-  overlay.innerHTML = `
-    <div style="background:var(--surface);border-bottom:1px solid var(--border2);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-      <div style="display:flex;align-items:center;gap:12px">
-        <span style="font-size:20px">📄</span>
-        <div>
-          <div style="font-size:13px;font-weight:600;color:var(--text)">${filename||'Document'}</div>
-          <div style="font-size:11px;color:var(--text3)">${readOnly?'Owner read-only view':'Uploaded quotation document'}</div>
-        </div>
-      </div>
-      <div style="display:flex;gap:10px;align-items:center">
-        <a href="${base64Data}" download="${filename||'document.pdf'}" style="background:var(--teal);color:#fff;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:600;text-decoration:none;font-family:'DM Sans',sans-serif;">⬇ Download PDF</a>
-        <button onclick="document.getElementById('pdf-viewer-overlay').remove()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:8px;padding:8px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">✕ Close</button>
-      </div>
-    </div>
-    <div style="flex:1;overflow:hidden;background:#525659">
-      <iframe src="${base64Data}" style="width:100%;height:100%;border:none;" title="PDF Viewer"></iframe>
-    </div>`;
-  document.body.appendChild(overlay);
-}
-
-function viewUploadedPDF() {
-  if (!window._uploadedPDFBase64) {
-    showToast('⚠️', 'No PDF uploaded. Please upload a PDF quotation first.');
-    return;
-  }
-  openPDFViewer(window._uploadedPDFBase64, window._uploadedPDFName, false);
-}
-
-function shareDocumentWithOwner() {
-  if (!window._uploadedPDFBase64) {
-    showToast('⚠️', 'Please upload a PDF quotation first before sharing with owner.');
-    return;
-  }
-  window._ownerSharedDoc = {
-    base64: window._uploadedPDFBase64,
-    filename: window._uploadedPDFName,
-    size: window._uploadedPDFSize,
-    sharedAt: new Date().toISOString(),
-    sharedBy: localStorage.getItem('rs_phone_designer') || 'Designer',
-    totalAmount: window._qTotalAmount || 0,
-    clientName: window.lastExtractedClient?.company || window.lastExtractedClient?.attention || ''
-  };
-  showToast('✅', 'Quotation document shared with owner portal!');
-  setTimeout(() => {
-    switchPortal('owner');
-    setTimeout(() => renderOwnerDocuments(), 400);
-  }, 800);
-}
-
-function renderOwnerDocuments() {
-  const slot = document.getElementById('owner-docs-slot');
-  if (!slot) return;
-  const doc = window._ownerSharedDoc;
-  if (!doc) {
-    slot.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text3);">
-      <div style="font-size:40px;margin-bottom:12px">📂</div>
-      <div style="font-size:13px;">No documents shared yet.</div>
-      <div style="font-size:12px;margin-top:6px;color:var(--text3)">Designer will share quotation documents here.</div>
-    </div>`;
-    return;
-  }
-  const sharedDate = new Date(doc.sharedAt).toLocaleDateString('en-MY', {day:'numeric',month:'short',year:'numeric'});
-  const fileSizeKB = doc.size ? Math.round(doc.size/1024) : '?';
-  slot.innerHTML = `
-    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:12px;overflow:hidden;">
-      <div style="padding:14px 16px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;">
-        <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.8px;text-transform:uppercase;">📄 Shared Documents</div>
-        <div style="font-size:11px;color:var(--text3)">From Designer</div>
-      </div>
-      <div style="padding:16px;">
-        <div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--surface2);border-radius:10px;border:1px solid var(--border2);">
-          <div style="width:44px;height:44px;background:rgba(248,113,113,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📄</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${doc.filename}</div>
-            <div style="font-size:11px;color:var(--text3);margin-top:3px">Shared ${sharedDate} · ${fileSizeKB} KB${doc.totalAmount ? ' · RM '+doc.totalAmount.toLocaleString() : ''}</div>
-          </div>
-          <div style="display:flex;gap:8px;flex-shrink:0">
-            <button onclick="openPDFViewer(window._ownerSharedDoc.base64, window._ownerSharedDoc.filename, true)" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">👁 View</button>
-            <a href="${doc.base64}" download="${doc.filename}" style="background:var(--surface3);color:var(--text);border:1px solid var(--border2);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;text-decoration:none;font-family:'DM Sans',sans-serif;">⬇</a>
-          </div>
-        </div>
-        <div style="margin-top:10px;padding:10px 12px;background:rgba(0,201,167,0.07);border-radius:8px;border:1px solid rgba(0,201,167,0.2);font-size:11px;color:var(--text2);">
-          ℹ️ This is the original quotation PDF uploaded by your designer. For questions, contact your designer directly.
-        </div>
-      </div>
-    </div>`;
-}
-
-function showOwnerTab(tab) {
-  ['progress','documents','payments'].forEach(t => {
-    const el = document.getElementById('owner-tab-'+t);
-    const btn = document.getElementById('otab-'+t);
-    if (el) el.style.display = t === tab ? '' : 'none';
-    if (btn) {
-      if (t === tab) {
-        btn.style.background = 'var(--gold)'; btn.style.color = '#000';
-        btn.style.border = 'none';
-      } else {
-        btn.style.background = 'var(--surface2)'; btn.style.color = 'var(--text2)';
-        btn.style.border = '1px solid var(--border2)';
-      }
-    }
-  });
-  if (tab === 'documents') renderOwnerDocuments();
-}
-
-
-// ════════════════════════════════════════════════════════════
-//  PAYMENT MODAL — ToyyibPay Integration
-//  Register at: https://toyyibpay.com
-// ════════════════════════════════════════════════════════════
-
-// ── ToyyibPay config (fill in after registration) ───────────
-const TOYYIBPAY_CFG = {
-  // Get these from https://toyyibpay.com/index.php/account → API Settings
-  userSecretKey: 'YOUR_SECRET_KEY',   // ← paste your secret key here
-  categoryCode:  'YOUR_CATEGORY_CODE', // ← paste your bill category code
-  callbackUrl:   'https://renosmart.vercel.app/api/payment-callback',
-  returnUrl:     'https://renosmart.vercel.app/payment-success',
-};
-
-const PLAN_CONFIG = {
-  pro: {
-    monthly: { name:'RenoSmart Pro',  amount:9900,  desc:'Pro Plan · 50 AI analyses/month' },
-    annual:  { name:'RenoSmart Pro Annual', amount:95040, desc:'Pro Plan Annual · Save RM 1,188 (12 months)' }
-  },
-  elite: {
-    monthly: { name:'RenoSmart Elite', amount:49900, desc:'Elite Plan · Unlimited AI analyses/month' },
-    annual:  { name:'RenoSmart Elite Annual', amount:399200, desc:'Elite Plan Annual · Save RM 1,996 (12 months)' }
-  }
-};
-
-let _payPlan = null;
-let _payBilling = 'monthly';
-
-function openPaymentModal(plan, billing) {
-  _payPlan    = plan;
-  _payBilling = billing || 'monthly';
-  const cfg   = PLAN_CONFIG[plan]?.[billing] || PLAN_CONFIG[plan]?.monthly;
-  if (!cfg) return;
-
-  const amountRM = (cfg.amount / 100).toFixed(2);
-  document.getElementById('pay-modal-title').textContent =
-    plan === 'pro' ? 'Subscribe to Pro ✦' : 'Subscribe to Elite ⚡';
-  document.getElementById('pay-modal-sub').textContent =
-    billing === 'annual' ? cfg.desc : `RM ${amountRM}/month · billed monthly`;
-  document.getElementById('pay-total-amount').textContent = `RM ${amountRM}`;
-  document.getElementById('pay-order-lines').innerHTML = `
-    <div style="display:flex;justify-content:space-between;font-size:13px;color:#374151;">
-      <span>${cfg.name}</span><span style="font-weight:600;">RM ${amountRM}</span>
-    </div>
-    <div style="font-size:11px;color:#9ca3af;">${cfg.desc}</div>`;
-
-  // Pre-fill phone from login
-  const storedPhone = localStorage.getItem('rs_phone_designer') || '';
-  const phoneInput  = document.getElementById('pay-phone');
-  if (phoneInput && storedPhone) phoneInput.value = storedPhone.replace('+60','0');
-
-  const overlay = document.getElementById('payment-modal-overlay');
-  overlay.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
-}
-
-function closePaymentModal() {
-  const overlay = document.getElementById('payment-modal-overlay');
-  if (overlay) overlay.style.display = 'none';
-  document.body.style.overflow = '';
-}
-
-async function submitPayment() {
-  const name  = document.getElementById('pay-name')?.value.trim();
-  const email = document.getElementById('pay-email')?.value.trim();
-  const phone = document.getElementById('pay-phone')?.value.trim().replace(/[\s\-]/g,'');
-  const method = document.querySelector('input[name="pay_method"]:checked')?.value || 'fpx';
-
-  if (!name)  { showToast('⚠️','Please enter your full name'); return; }
-  if (!email || !email.includes('@')) { showToast('⚠️','Please enter a valid email'); return; }
-  if (!phone) { showToast('⚠️','Please enter your phone number'); return; }
-
-  const cfg    = PLAN_CONFIG[_payPlan]?.[_payBilling];
-  const btn    = document.getElementById('pay-submit-btn');
-  btn.textContent = '处理中 Processing...';
-  btn.disabled    = true;
-
-  // ── Option A: ToyyibPay live (after registration) ────────────
-  const useToyyibPay = TOYYIBPAY_CFG.userSecretKey !== 'YOUR_SECRET_KEY';
-
-  if (useToyyibPay) {
-    try {
-      // Call our Vercel API to create a ToyyibPay bill (keeps secret key server-side)
-      const resp = await fetch('/api/create-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plan: _payPlan, billing: _payBilling,
-          name, email, phone,
-          amount: cfg.amount,
-          desc: cfg.desc
-        })
-      });
-      const result = await resp.json();
-      if (result.billCode) {
-        // Redirect to ToyyibPay payment page
-        window.location.href = 'https://toyyibpay.com/' + result.billCode;
-        return;
-      }
-      throw new Error(result.error || 'Payment creation failed');
-    } catch(err) {
-      showToast('❌', 'Payment error: ' + err.message);
-      btn.textContent = 'Proceed to Payment →';
-      btn.disabled    = false;
-      return;
-    }
-  }
-
-  // ── Option B: Demo mode (before ToyyibPay setup) ─────────────
-  // Simulate payment for testing
-  await new Promise(r => setTimeout(r, 1500));
-  closePaymentModal();
-
-  // Activate the plan locally (demo)
-  PRICING_STATE.plan = _payPlan;
-  if (_payPlan === 'pro') {
-    PRICING_STATE.usedPro = 0;
-    showToast('🎉', 'Pro plan activated! 50 AI analyses unlocked this month.');
-  } else {
-    PRICING_STATE.usedElite = 0;
-    showToast('🎉', 'Elite plan activated! Unlimited AI analyses unlocked.');
-  }
-  syncUsageUI();
-  // Show success state
-  document.getElementById('pricing-acct-badge').textContent =
-    _payPlan === 'pro' ? 'Pro ✦ · Active' : 'Elite ⚡ · Active';
-  showToast('⚠️', 'DEMO MODE — Connect ToyyibPay to process real payments. See Setup Guide.');
-
-  btn.textContent = 'Proceed to Payment →';
-  btn.disabled    = false;
-}
-
-// Close modal when clicking outside
-document.addEventListener('click', function(e) {
-  const overlay = document.getElementById('payment-modal-overlay');
-  if (overlay && e.target === overlay) closePaymentModal();
-});
-
 function showToast(icon, text) {
   const t = document.getElementById('toast');
   document.getElementById('toast-icon').textContent = icon;
@@ -4189,7 +3912,6 @@ function completeTask3() {
 // ══════════════════════════════════════════
 
 let lastQuotationText = '';
-let quotationArchive = []; // Archive: [{id, filename, uploadedAt, result, totalAmount, fileSize}]
 
 function handleFileDrop(e) {
   e.preventDefault();
@@ -4226,55 +3948,13 @@ function resetUpload() {
 }
 
 async function processFile(file) {
-  // ── AI Quota Gate ─────────────────────────────────────────────
-  if (!canUploadQuotation()) {
-    const remaining = getRemainingUploads();
-    const plan = PRICING_STATE.plan;
-    const msg = plan === 'free'
-      ? `Free plan limit reached (${PRICING_STATE.totalFree} uses). Upgrade to Pro for 50/month.`
-      : `Monthly quota reached. Upgrade to Elite for unlimited.`;
-    showToast('🔒', msg);
-    setTimeout(() => switchPortal('pricing'), 800);
-    return;
-  }
-
-  // ── Clear all previous analysis state for new upload ────────
+  // Clear all previous data before processing new file
   lastQuotationText = '';
   lastAnalysisResult = null;
   window.lastExtractedClient = null;
   window.projectClientData   = null;
   window.lastDiff            = null;
   window.previousQuotationItems = null;
-  window._qAllItems    = null;
-  window._uploadedPDFBase64 = null;
-  window._uploadedPDFName = null;
-  const bvp = document.getElementById('btn-view-pdf');
-  if (bvp) bvp.style.display = 'none';
-  const bso = document.getElementById('btn-share-owner');
-  if (bso) bso.style.display = 'none';
-  window._qSubtotals   = null;
-  window._qTotalAmount = null;
-  // Clear DOM display areas
-  const q_rows = document.getElementById('q-table-rows');
-  if (q_rows) q_rows.innerHTML = '';
-  const q_tabs = document.getElementById('q-page-tabs');
-  if (q_tabs) { q_tabs.innerHTML = ''; q_tabs.style.display='none'; }
-  const scoreBody = document.getElementById('ai-score-body');
-  if (scoreBody) scoreBody.innerHTML = '';
-  const alertsSec = document.getElementById('ai-alerts-section');
-  if (alertsSec) alertsSec.innerHTML = '';
-  const missingSec = document.getElementById('missing-items-section');
-  if (missingSec) missingSec.innerHTML = '';
-  const reviewWrapper = document.getElementById('ai-score-card-wrapper');
-  if (reviewWrapper) reviewWrapper.innerHTML = '';
-  const reviewAlerts = document.getElementById('review-alerts-body');
-  if (reviewAlerts) reviewAlerts.innerHTML = '';
-  const reviewItems = document.getElementById('review-items-table-slot');
-  if (reviewItems) reviewItems.innerHTML = '';
-  const reviewClient = document.getElementById('review-client-slot');
-  if (reviewClient) reviewClient.innerHTML = '';
-  const oldCard = document.getElementById('client-extract-card');
-  if (oldCard) oldCard.remove();
   const ext = file.name.split('.').pop().toLowerCase();
   document.getElementById('upload-zone').style.display = 'none';
   document.getElementById('ai-loading-state').style.display = 'block';
@@ -4290,14 +3970,6 @@ async function processFile(file) {
     } else if (ext === 'pdf') {
       setAIProgress(15, 'PDF 解析中 (PDF.js)...');
       text = await readPDF(file);
-      // Store original PDF as base64 for viewer (in-memory, no server needed)
-      const pdfReader = new FileReader();
-      pdfReader.onload = (e) => {
-        window._uploadedPDFBase64 = e.target.result; // data:application/pdf;base64,...
-        window._uploadedPDFName = file.name;
-        window._uploadedPDFSize = file.size;
-      };
-      pdfReader.readAsDataURL(file);
     } else {
       text = await file.text();
     }
@@ -4347,7 +4019,7 @@ async function readPDF(file) {
       return `[PDF 文件: ${file.name}]\nPDF.js 尚未加载，请刷新页面后重试。`;
     }
     pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -4402,71 +4074,7 @@ async function readPDF(file) {
       return `[PDF 文件: ${file.name}]\n\n⚠️ 此 PDF 为扫描图片格式（无文字层），无法直接提取文字。\n\n建议操作：\n1. 使用 Adobe Acrobat / Microsoft Lens OCR 扫描后转为可复制文本\n2. 直接将内容复制粘贴到 .txt 文件后上传\n3. 请承包商提供 Excel (.xlsx) 版本的报价单`;
     }
 
-    // Smart compression: page-by-page, preserve section→item structure
-    // Priority: client info first, then each page's section+items interleaved, skip pure repeat headers
-    const SKIP_RE = /^(NEUF DESIGN|ITS ASSET|No\.01|Tel\s*:|Fax\s*:|E-mail\s*:|Company No\.|Website:|QUOTATION$|Page \d|\d+ of \d|Prepared by|Signature)/i;
-    const CLIENT_RE = /^(MR\.?\s|MS\.?\s|DATO|DATIN|ATTENTION|ATTN|TEL\s*:|HP\s*:|DATE\s*:|QUO NO|REF NO|TERMS\s*:|TO\s*:)/i;
-    const SECTION_RE = /^(CONSTRUCTION|TILING|PLUMBING|CARPENTRY|PAINTING|WIRING|ELECTRICAL|FALSE CEILING|FOLDING|SLIDING|SHOWER|ALUMINIUM|GLASS|CLEANING|DEMOLISH|GROUND FLOOR|FIRST FLOOR|SECOND FLOOR|THIRD FLOOR|MASTER|BEDROOM|LIVING|DINING|KITCHEN|TOILET|BATHROOM|FOYER|STORE|YARD|BALCONY|ROOF|STAIRCASE|TOTAL|SUMMARY)/i;
-    const ITEM_RE = /^(Supply|Install|Hack|Lay|Paint|Plaster|Build|Modify|Touch|Cleaning|Demolish|Remove|Replace|Construct|Provide|Allow|Dismantle|Reinforce|Waterproof|Apply|Erect|Form|Cast|Fix|Hang|Wrap|Cut|Sand|Polish|Seal|Grout|Fill|Top|New|Existing|To |RC |M&E)/i;
-    const AMOUNT_RE = /\b(RM\s?[\d,]+|[\d]{1,3}(,[\d]{3})+\.\d{2}|\d+\.\d{2})\b/;
-
-    const allLines = fullText.split('\n');
-    const clientLines = [];
-    const pageBlocks = []; // array of { page, lines[] }
-    let seenHeaders = new Map(); // key=line text, value=count
-    let currentBlock = null;
-
-    for (const rawLine of allLines) {
-      const t = rawLine.trim();
-      if (!t || t.length < 2) continue;
-
-      // Detect page break markers
-      if (/^\[PDF 文件:|^=== PAGE/.test(t)) {
-        if (currentBlock) pageBlocks.push(currentBlock);
-        currentBlock = { lines: [] };
-        continue;
-      }
-      if (!currentBlock) currentBlock = { lines: [] };
-
-      // Skip pure repeat headers (same text seen 3+ times = header)
-      if (SKIP_RE.test(t)) {
-        const cnt = (seenHeaders.get(t) || 0) + 1;
-        seenHeaders.set(t, cnt);
-        if (cnt > 2) continue; // skip after 2 occurrences
-      }
-
-      // Client info: collect separately (non-duplicate)
-      if (CLIENT_RE.test(t)) {
-        if (!clientLines.includes(t)) clientLines.push(t);
-        continue;
-      }
-
-      // Keep section headers, work item lines, amount lines
-      const isSection = SECTION_RE.test(t);
-      const isItem = ITEM_RE.test(t);
-      const hasAmt = AMOUNT_RE.test(t);
-      const isNum = /^\d+\.?\s/.test(t); // numbered items like "1. Supply..."
-
-      if (isSection || isItem || hasAmt || isNum) {
-        currentBlock.lines.push(t);
-      }
-    }
-    if (currentBlock && currentBlock.lines.length) pageBlocks.push(currentBlock);
-
-    // Build optimized text: client info + all page blocks with structure preserved
-    const parts = ['=== CLIENT / PROJECT INFO ===', ...clientLines, ''];
-    for (let i = 0; i < pageBlocks.length; i++) {
-      const blk = pageBlocks[i];
-      if (blk.lines.length === 0) continue;
-      parts.push(`--- Page ${i+1} ---`);
-      parts.push(...blk.lines);
-      parts.push('');
-    }
-    const optimized = parts.join('\n');
-
-    // Use 20000 chars to cover 10+ page quotations  
-    const finalText = optimized.length > 300 ? optimized : fullText;
-    return finalText.substring(0, 20000);
+    return fullText;
 
   } catch (err) {
     console.error('PDF.js error:', err);
@@ -4485,82 +4093,76 @@ function setAIProgress(pct, text) {
 }
 
 async function analyzeWithClaude(quotationText, fileName) {
-  // Use full extracted text (up to 20000 chars) - smart compression already applied in readPDF()
-  const textForAI = quotationText.substring(0, 20000);
+  // Use up to 14000 chars to cover multi-page PDFs (7 pages ≈ 12,000–18,000 chars)
+  const textForAI = quotationText.length > 4000
+    ? quotationText.substring(0, 4000) + '\n\n[...已截断至前 4000 字符...]'
+    : quotationText;
 
-  // Language for AI output follows UI language
-  const isZH = currentLang === 'zh';
-  const isBM = currentLang === 'ms';
-  const outputLang = isZH ? 'Chinese (Simplified)' : isBM ? 'Bahasa Melayu' : 'English';
-  const summaryNote = isZH ? '一句话中文总结' : isBM ? 'Satu ayat ringkasan dalam BM' : 'One-line summary in English';
-  const alertNote = isZH ? '中文标题和描述' : isBM ? 'tajuk dan desc dalam BM' : 'title and desc in English';
+  const prompt = `你是马来西亚和新加坡装修行业的专业报价审核 AI（RenoSmart）。
 
-  const prompt = `You are a professional renovation quotation audit AI for Malaysia and Singapore (RenoSmart).
+请仔细分析以下报价单，严格按 JSON 格式输出。只返回 JSON，不要任何其他文字或 markdown。
 
-Analyze the quotation below. Return ONLY valid JSON. No markdown, no extra text.
-Output language for summary, alerts, missing items, and item notes: ${outputLang}
-
-Quotation content:
+报价单原始内容：
 \`\`\`
 ${textForAI}
 \`\`\`
 
-=== CRITICAL RULES ===
+═══ 极重要规则 ═══
 
-【RULE 0 — Identify CLIENT vs CONTRACTOR ★ MOST IMPORTANT ★】
-Quotation structure:
-  - Header/letterhead = the CONTRACTOR issuing the quote (e.g. NEUF DESIGN SDN BHD) — IGNORE this
-  - Top-left body = the CLIENT receiving the quote (has ATTENTION:, address, TEL)
-  - Client = the party the quote is ADDRESSED TO
+【规则0 — 区分"出单方"与"收单方"★★★最重要★★★】
+报价单结构通常是：
+  - 页眉/信头 = 出单的【承包商/设计公司】（如 NEUF DESIGN SDN BHD、ABC RENOVATION SDN BHD）
+  - 页面主体左上角 = 【客户】，即收到报价的公司/个人（通常有 ATTENTION: 某人）
+  - 关键识别：客户是报价单**寄送给/地址给**的那一方，通常在 "TO:" 或直接列出公司名+地址+ATTENTION+TEL
 
-Example: "ITS ASSET MANAGEMENT SDN BHD / 21 JALAN BUKIT IMPIAN / ATTENTION: DATO CATHERINE / TEL: +6019-710 2676"
-→ company="ITS ASSET MANAGEMENT SDN BHD", attention="Dato Catherine", tel="+6019-710 2676"
+正确识别示例（来自本报价单格式）：
+  - 承包商（出单方）= 信头公司，忽略，不放入 client
+  - 客户（收单方）= 报价单正文开头列出的公司+地址+ATTENTION 那一行组合
+    如："ITS ASSET MANAGEMENT SDN BHD / 21 JALAN BUKIT IMPIAN 18/2 / JOHOR BAHRU / ATTENTION: DATO CATHERINE / TEL: +6019-710 2676"
+    则 company="ITS ASSET MANAGEMENT SDN BHD", attention="Dato Catherine", tel="+6019-710 2676", address="21 Jalan Bukit Impian 18/2, Taman Bukit Impian, Johor Bahru"
 
-【RULE 1 — Client Info】
-Extract company, address, attention (ATTENTION/DATO/MR/MS), tel (TEL/HP/+60), email into "client". These are NOT work items. Section headers (GROUND FLOOR, CEILING WORK etc) are not items either.
+【规则1 — 客户资料识别】
+报价单正文上方通常有客户资料区，包含：公司名、地址、收件人（ATTENTION/ATT/DATO/TAN/MS/MR）、电话（TEL/HP/+60）、邮箱。
+这些行【绝对不是工程项目】，必须抽取到 "client" 字段，不得出现在 "items" 中。
+"DESCRIPTION"、"NO"、"ITEM"、空白行、分节标题（如 GROUND FLOOR、FIRST FLOOR、CEILING WORK 等）均不是工程项目。
 
-【RULE 2 — Subtotals】
-Section totals like "GROUND FLOOR RM 27,510.00" go into "subtotals" array, NOT "items".
+【规则2 — 分节小计处理】
+报价单中有形如 "GROUND FLOOR RM 27,510.00"、"FLOORING WORK RM 36,666.00" 的分节合计行。
+这些是小计标题，放入 "subtotals" 数组，不放入 "items"。
 
-【RULE 3 — Numbers】Largest number in row = total. Missing columns = null. If only qty+total: unitPrice=total÷qty, unitPriceDerived=true. Copy unit exactly from source.
+【规则3 — 数字黄金定律】
+- ★★ 每一行里最大的数字 = 小计(total)
+- 若原文某列为空，对应字段填 null
+- 若只有 qty 和 total，无 unitPrice → 计算 unitPrice = total ÷ qty，unitPriceDerived=true
+- 总价必须与原文完全一致，不得用 qty × unitPrice 替换
+- 单位照抄原文（sqft/sqm/nos/lot/set/ft/sq/L/sum 等）
 
-【RULE 4 — Work Items Only】Only rows with construction verbs: Hack/Supply/Install/Lay/Paint/Plaster/Replace/Remove/Construct/Demolish or Chinese equivalents.
+【规则4 — 工程项目判断标准】
+只有描述施工动作的行才是工程项目：Hack / Supply / Install / Lay / Paint / Plaster / Replace / Remove / Construct / Demolish 等动词开头，或中文施工动词（铺设/安装/批土/粉刷/拆除/防水等）。
 
-【RULE 5 — Items】If >20 items, keep the 20 highest-value ones.
+【规则5 — 提取前25个最重要项目】
+若项目超过25个，优先保留金额最大的25项。工程描述控制在30字以内。每个字段尽量简短。
 
-【RULE 6 — PRESERVE NAMES EXACTLY ★ CRITICAL ★】
-- Copy item name VERBATIM from the source. DO NOT translate. DO NOT abbreviate.
-- If source says "Supply To Install False Ceiling (750sq)" keep it exactly.
-- Only translate if the ENTIRE quotation is in Chinese/BM.
+返回格式（极度精简，每个字段越短越好）：
+{"client":{"company":"公司名","address":"地址","attention":"联系人","tel":"电话","email":null,"projectRef":"编号","projectName":"项目名"},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"一句话总结","items":[{"no":"1","section":"分节名","name":"工程描述(20字内)","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"status":"ok"}],"subtotals":[{"label":"分节","amount":1000}],"totalAmount":50000,"missing":["缺失项1"],"alerts":[{"level":"critical","title":"标题","desc":"说明(30字内)"}]}
 
-【RULE 7 — Per-item note】
-For items with status "warn" or "flag": add a brief "note" (max 25 chars) explaining the price issue.
-For "ok" or "nodata": note can be omitted or empty string.
-
-Return JSON schema:
-{"client":{"company":"","address":"","attention":"","tel":"","email":null,"projectRef":"","projectName":""},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"one-line summary","items":[{"no":"1","section":"Section Name","name":"EXACT name from source","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"status":"ok","note":""}],"subtotals":[{"label":"Section","amount":1000}],"totalAmount":50000,"missing":["Missing item 1"],"alerts":[{"level":"critical","title":"Title","desc":"Description (max 40 chars)"}]}
-
-Rules:
-- items max 20, highest-value first if >20
-- desc max 40 chars
-- section: use actual section name from source (GF-Kitchen, Master-BR, etc.)
-- status values: "ok" | "warn" | "flag" | "nodata"
-- note: brief price analysis for warn/flag items only (e.g. "22% above market rate")
+规则：
+- items最多20项，每项name控制在20字内，不要note字段
+- desc控制在30字内
+- section用缩写：GF/1F/2F/Ceiling/Floor/Carpentry/M&E
 
 MY/SG 2025 价格参考：
 ${getRegionPriceNote()}
 若无单价数据 status 填 "nodata"，不要乱填 ok/warn。
-Common missing items to check: waterproofing (wet areas), M&E conduit wiring, cleaning & disposal.
-alerts title and desc must be in ${outputLang}.`;
+必查漏项：防水工程(湿区)、水电暗槽布线、清洁及废料处理。`;
 
   try {
-    const authHdr = await getAuthHeader();
     const resp = await fetch('/api/claude', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHdr },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 8000,
+        max_tokens: 6000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -4570,17 +4172,6 @@ alerts title and desc must be in ${outputLang}.`;
     if (!resp.ok) {
       const errData = await resp.json().catch(() => ({}));
       console.error('AI API Error:', resp.status, errData);
-      // 429 = server-side quota exceeded
-      if (resp.status === 429) {
-        document.getElementById('ai-loading-state').style.display = 'none';
-        document.getElementById('upload-zone').style.display = 'block';
-        const qMsg = errData.error?.plan === 'free'
-          ? `Free plan limit reached (${errData.error.used}/${errData.error.limit} uses). Upgrade to Pro →`
-          : `Monthly quota reached. Upgrade to Elite for unlimited.`;
-        showToast('🔒', qMsg);
-        setTimeout(() => switchPortal('pricing'), 1200);
-        return;
-      }
       if (resp.status === 401) {
         showToast('❌', 'API Key 无效，请检查 Vercel 环境变量设置');
         setAIProgress(100, '❌ API 认证失败');
@@ -5219,20 +4810,9 @@ function renderAnalysisResult(r, fileName, rawText) {
     `已识别 ${workItems.length} 项工程 · ${r.totalAmount ? cur+' '+Number(r.totalAmount).toLocaleString() : '总额待确认'}`;
 
   // ── CLIENT INFO CARD ──────────────────────────────────────
-  // Clear all previous data first
+  // Remove any existing client card first
   const existingCard = document.getElementById('client-extract-card');
   if (existingCard) existingCard.remove();
-  document.getElementById('ai-score-body').innerHTML = '';
-  document.getElementById('q-table-rows').innerHTML = '';
-  document.getElementById('missing-items-section').innerHTML = '';
-  document.getElementById('ai-alerts-section').innerHTML = '';
-  const aiSubtitle = document.getElementById('ai-report-subtitle');
-  if (aiSubtitle) {
-    const now = new Date();
-    const mon = now.toLocaleString('en', {month:'short'});
-    const projName = r.client?.projectName || r.client?.address?.split(',')[0] || 'New Project';
-    aiSubtitle.innerHTML = `<span class="live-dot"></span>Analysed by Claude AI · ${projName} · ${mon} ${now.getFullYear()}`;
-  }
   const c = r.client || {};
   const hasClient = c.company || c.attention || c.tel || c.address;
   const clientHTML = hasClient ? `
@@ -5375,7 +4955,7 @@ function renderAnalysisResult(r, fileName, rawText) {
 
   // ── ALERTS ────────────────────────────────────────────────
   const alerts = r.alerts || [];
-  const alertsHTML = alerts.map(a => `
+  document.getElementById('ai-alerts-section').innerHTML = alerts.map(a => `
     <div class="alert ${a.level==='critical'?'alert-critical':a.level==='warning'?'alert-warning':'alert-info'}">
       <div class="alert-icon">${a.level==='critical'?'🚨':a.level==='warning'?'⚠️':'💡'}</div>
       <div class="alert-content">
@@ -5383,96 +4963,8 @@ function renderAnalysisResult(r, fileName, rawText) {
         <div class="alert-desc">${a.desc}</div>
       </div>
     </div>`).join('');
-  document.getElementById('ai-alerts-section').innerHTML = alertsHTML;
-
-  // ── Mirror into panel-review (full AI report page) ─────────────
-  // Score card
-  const reviewWrapper = document.getElementById('ai-score-card-wrapper');
-  if (reviewWrapper) reviewWrapper.innerHTML = document.getElementById('ai-score-card').outerHTML;
-
-  // Client info card
-  const reviewClientSlot = document.getElementById('review-client-slot');
-  if (reviewClientSlot) {
-    const clientCard = document.getElementById('client-extract-card');
-    reviewClientSlot.innerHTML = clientCard ? clientCard.outerHTML : '';
-  }
-
-  // Full items table in review panel
-  const reviewTableSlot = document.getElementById('review-items-table-slot');
-  if (reviewTableSlot) {
-    const allI = window._qAllItems || [];
-    const cur2 = window._qCur || 'RM';
-    const fmtA2 = window._qFmtAmt || (n => n == null ? '–' : n.toLocaleString());
-    const sCfg = window._qStatusCfg || {};
-    let tblRows = '';
-    let lastSec = null;
-    allI.forEach((item, idx2) => {
-      if (item.section && item.section !== lastSec) {
-        lastSec = item.section;
-        tblRows += `<tr><td colspan="7" style="padding:10px 12px 4px;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.8px;text-transform:uppercase;background:rgba(240,185,11,0.04);border-top:1px solid var(--border2);">📁 ${item.section}</td></tr>`;
-      }
-      const sc2 = sCfg[item.status] || { cls:'', icon:'–', label:'–' };
-      const up2 = item.unitPrice != null ? (item.unitPriceDerived ? `${fmtA2(item.unitPrice)}<sup style="font-size:9px;color:var(--text3)">*</sup>` : fmtA2(item.unitPrice)) : '–';
-      tblRows += `<tr>
-        <td style="color:var(--text3);font-size:11px;padding:8px 6px">${item.no||idx2+1}</td>
-        <td style="font-weight:500;color:var(--text);line-height:1.4;min-width:200px;padding:8px 6px">${item.name}</td>
-        <td style="color:var(--text2);text-align:center;padding:8px 6px">${item.unit||''}</td>
-        <td style="font-family:'DM Mono',monospace;text-align:right;padding:8px 6px">${item.qty != null ? item.qty : '–'}</td>
-        <td style="font-family:'DM Mono',monospace;text-align:right;padding:8px 6px">${up2}</td>
-        <td style="font-family:'DM Mono',monospace;font-weight:600;text-align:right;white-space:nowrap;padding:8px 6px">${item.total != null ? cur2+' '+fmtA2(item.total) : '–'}</td>
-        <td class="${sc2.cls}" style="white-space:nowrap;padding:8px 6px;font-size:12px">${sc2.icon} ${sc2.label}${item.note ? `<div style="font-size:10px;color:var(--text2);margin-top:2px">${item.note}</div>` : ''}</td>
-      </tr>`;
-    });
-    const totalAmt2 = window._qTotalAmount;
-    if (totalAmt2) {
-      tblRows += `<tr style="background:rgba(240,185,11,0.07);border-top:2px solid var(--gold)"><td colspan="5" style="text-align:right;font-weight:700;color:var(--text);font-size:13px;padding:10px 6px">Grand Total</td><td style="font-weight:800;color:var(--gold);font-family:'DM Mono',monospace;text-align:right;font-size:15px;padding:10px 6px">${cur2} ${fmtA2(totalAmt2)}</td><td></td></tr>`;
-    }
-    reviewTableSlot.innerHTML = allI.length ? `
-      <div style="margin:20px 0 8px;font-size:12px;font-weight:700;color:var(--text);letter-spacing:.5px;text-transform:uppercase;">Identified Work Items <span style="font-weight:400;color:var(--text3)">(${allI.length} items)</span></div>
-      <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border2)">
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <thead><tr style="background:var(--surface2)">
-            <th style="padding:8px 6px;text-align:left;font-weight:600;color:var(--text2);font-size:10px;letter-spacing:.8px;text-transform:uppercase">#</th>
-            <th style="padding:8px 6px;text-align:left;font-weight:600;color:var(--text2);font-size:10px;letter-spacing:.8px;text-transform:uppercase">Description</th>
-            <th style="padding:8px 6px;text-align:center;font-weight:600;color:var(--text2);font-size:10px;letter-spacing:.8px;text-transform:uppercase">Unit</th>
-            <th style="padding:8px 6px;text-align:right;font-weight:600;color:var(--text2);font-size:10px;letter-spacing:.8px;text-transform:uppercase">Qty</th>
-            <th style="padding:8px 6px;text-align:right;font-weight:600;color:var(--text2);font-size:10px;letter-spacing:.8px;text-transform:uppercase">Unit Price</th>
-            <th style="padding:8px 6px;text-align:right;font-weight:600;color:var(--text2);font-size:10px;letter-spacing:.8px;text-transform:uppercase">Subtotal</th>
-            <th style="padding:8px 6px;text-align:left;font-weight:600;color:var(--text2);font-size:10px;letter-spacing:.8px;text-transform:uppercase">AI Status</th>
-          </tr></thead>
-          <tbody id="review-items-tbody">${tblRows}</tbody>
-        </table>
-      </div>` : '';
-  }
-
-  // Alerts + missing
-  const reviewAlertsBody = document.getElementById('review-alerts-body');
-  if (reviewAlertsBody) {
-    const missingHTML = document.getElementById('missing-items-section').innerHTML;
-    reviewAlertsBody.innerHTML = (missingHTML || '') + alertsHTML;
-  }
 
   lastAnalysisResult = r;
-
-  // ── Archive this quotation (keyed by filename+timestamp) ─────
-  const archiveEntry = {
-    id: Date.now(),
-    filename: fileName,
-    uploadedAt: new Date().toISOString(),
-    result: r,
-    totalAmount: r.totalAmount || 0,
-    clientName: r.client?.company || r.client?.attention || '',
-    projectRef: r.client?.projectRef || '',
-    rawTextLength: (rawText||'').length
-  };
-  quotationArchive.unshift(archiveEntry); // newest first
-  if (quotationArchive.length > 20) quotationArchive = quotationArchive.slice(0, 20);
-  // Persist archive to localStorage (excluding rawText for size)
-  try {
-    const phone = localStorage.getItem('rs_phone_designer') || 'anon';
-    const toSave = quotationArchive.map(e => ({ ...e, result: null })); // no full result in LS
-    localStorage.setItem('rs_qarchive_' + phone, JSON.stringify(toSave.slice(0,10)));
-  } catch(e) {}
 
   // ── Run diff if re-upload ──────────────────────────────────
   if (window.previousQuotationItems && window.previousQuotationItems.length > 0) {
@@ -5483,26 +4975,6 @@ function renderAnalysisResult(r, fileName, rawText) {
   }
 
   showToast('🤖', `分析完成：${workItems.length} 项工程 · ${alerts.length} 项问题 · ${missing.length} 项漏算`);
-
-  // Show PDF viewer buttons if PDF was uploaded
-  if (window._uploadedPDFBase64) {
-    const btnViewPDF = document.getElementById('btn-view-pdf');
-    const btnShareOwner = document.getElementById('btn-share-owner');
-    if (btnViewPDF) btnViewPDF.style.display = '';
-    if (btnShareOwner) btnShareOwner.style.display = '';
-  }
-
-  // ── FIX 5: Auto-sync Gantt from latest quotation ─────────────
-  if (workItems.length > 0) {
-    // Run rule-based schedule immediately (no wait)
-    const autoSched = buildRuleBasedSchedule(workItems, r.totalAmount || 0);
-    applyGeneratedSchedule(autoSched);
-    // Then enhance with AI in background (non-blocking)
-    setTimeout(() => {
-      generateAISchedule().catch(() => {});
-    }, 500);
-    showToast('📅', `进度表已根据报价单自动生成 (${autoSched.length} 项工序)`);
-  }
 }
 
 // ── Trigger re-upload ──────────────────────────────────────
@@ -5760,10 +5232,9 @@ ${lastQuotationText ? `\n当前已上传的报价单内容摘要：\n${lastQuota
 ${lastAnalysisResult ? `\nAI 分析结果摘要：评分 ${lastAnalysisResult.score?.total}/100，漏项：${(lastAnalysisResult.missing||[]).join('、')}` : ''}`;
 
   try {
-    const authHdrChat = await getAuthHeader();
     const resp = await fetch('/api/claude', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHdrChat },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 600,
@@ -6067,7 +5538,7 @@ let dayOverrides   = {};
 const TODAY_DATE   = (() => { const d=new Date(); d.setHours(0,0,0,0); return d; })();
 
 let currentRegion = 'MY';
-let currentLang   = 'en';
+let currentLang   = 'zh';
 
 const dateKey  = d => d.toISOString().slice(0,10);
 const addDays  = (d,n)=>{ const r=new Date(d); r.setDate(r.getDate()+n); return r; };
@@ -6092,13 +5563,6 @@ const TRANSLATIONS = {
     sidebar_settings: 'SETTINGS',
     nav_dashboard: 'My Dashboard',
     nav_settings: 'My Settings',
-    nav_switch: 'Switch Role',
-    review_title: 'AI Smart Review Report',
-    review_sub: 'Analysed by Claude AI',
-    nav_ai_quota: '✦ AI Credits',
-    nav_pricelist_title: '💰 Price Library',
-    pricelist_pro_title: 'Price Library — Pro Feature',
-    ai_quota_used: 'AI Credits Used',
     sidebar_new_project: 'New Project',
     nav_quotation: 'Quotation Import',
     nav_ai_review: 'AI Review',
@@ -6162,13 +5626,6 @@ const TRANSLATIONS = {
     sidebar_settings: 'TETAPAN',
     nav_dashboard: 'Papan Pemuka',
     nav_settings: 'Tetapan Saya',
-    nav_switch: 'Tukar Peranan',
-    review_title: 'Laporan Semakan AI',
-    review_sub: 'Dianalisis oleh Claude AI',
-    nav_ai_quota: '✦ Kredit AI',
-    nav_pricelist_title: '💰 Pangkalan Harga',
-    pricelist_pro_title: 'Pangkalan Harga — Ciri Pro',
-    ai_quota_used: 'Kredit AI Digunakan',
     sidebar_new_project: 'Projek Baru',
     nav_quotation: 'Import Sebut Harga',
     nav_ai_review: 'Semakan AI',
@@ -6228,13 +5685,6 @@ const TRANSLATIONS = {
     sidebar_settings: '设置',
     nav_dashboard: '我的后台',
     nav_settings: '我的设定',
-    nav_switch: '切换身份',
-    review_title: 'AI 智能审核报告',
-    review_sub: '由 Claude AI 分析',
-    nav_ai_quota: '✦ AI 额度',
-    nav_pricelist_title: '💰 价格数据库',
-    pricelist_pro_title: '价格数据库 — Pro 专属功能',
-    ai_quota_used: 'AI 额度已用',
     sidebar_new_project: '新建项目',
     nav_quotation: '报价单导入',
     nav_ai_review: 'AI 审核结果',
@@ -6588,55 +6038,55 @@ async function generateAISchedule() {
   // Try Claude API for enhanced schedule
   if (quotItems.length > 0) {
     try {
-      // Group items by trade before sending to AI
-      const tradeGroups = {};
-      quotItems.forEach(i => {
-        const cat = sectionToTradeCategory((i.section||'') + ' ' + (i.name||''));
-        if (!tradeGroups[cat]) tradeGroups[cat] = { total: 0, items: [] };
-        tradeGroups[cat].total += (i.total || 0);
-        tradeGroups[cat].items.push(i.name || '');
-      });
-      const itemsSummary = Object.entries(tradeGroups).map(([cat, g]) =>
-        `[${cat}] RM ${g.total.toLocaleString()} — ${g.items.slice(0,4).join(', ')}${g.items.length>4?` +${g.items.length-4} more`:''}`
+      const itemsSummary = quotItems.slice(0, 30).map(i =>
+        `${i.section || ''}: ${i.name} | ${i.unit || ''} ${i.qty || ''} | 小计 ${i.total ? 'RM '+i.total : '待定'}`
       ).join('\n');
 
-      const authHdr3 = await getAuthHeader();
       const resp = await fetch('/api/claude', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHdr3 },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 3000,
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4000,
           messages: [{
             role: 'user',
-            content: `You are a Malaysia renovation scheduling expert. Generate a realistic Gantt chart schedule.
+            content: `你是马来西亚装修工程进度编排专家。请分析以下报价单内容，生成合理的施工进度计划。
 
-Project: ${quotItems.length} items, total RM ${totalAmt.toLocaleString()}
-Start: ${startDate}${targetDate ? '\nTarget: '+targetDate : ''}
-
-Work trades in this quotation:
+报价单摘要（共 ${quotItems.length} 项，总额 RM ${totalAmt.toLocaleString()}）：
 ${itemsSummary}
 
-RULES — strictly follow:
-1. STRICTLY ONE Gantt bar per trade — no matter how many sub-items exist
-   ALL hacking/brick/RC/structural items → ONE bar: "Demolition & Structural" (#f87171)
-   ALL plumbing/pipe/water items → ONE bar: "Plumbing Works" (#60a5fa)
-   ALL wiring/electrical/power items → ONE bar: "Electrical & M&E" (#fb923c)
-   ALL waterproofing items → ONE bar: "Waterproofing" (#fbbf24)
-   ALL tile/floor tile/wall tile → ONE bar: "Tiling Works" (#a78bfa)
-   ALL ceiling/L-box/cornice → ONE bar: "False Ceiling Works" (#34d399)
-   ALL cabinet/wardrobe/carpentry/kitchen cabinet → ONE bar: "Carpentry & Joinery" (#f472b6)
-   ALL glass door/folding door/sliding door/louver → ONE bar: "Glass & Door Works" (#22d3ee)
-   ALL painting/texture paint → ONE bar: "Painting Works" (#86efac)
-   ALL cleaning/clear/disposal → ONE bar: "Final Clean & Handover" (#94a3b8)
-   Max 12 bars total. Skip any trade not present.
-2. Correct sequence with realistic MY durations based on project size RM ${totalAmt.toLocaleString()}
-3. Duration rules: Demo 5-15d, M&E 8-15d, Waterproof 5-7d, Tiling 8-20d, Ceiling 8-15d, Carpentry 15-30d (factory 30d lead), Painting 7-14d
-4. Parallel tasks allowed (ceiling+carpentry, glass+painting)
-5. Add nameZH in Chinese for each task
+开工日期：${startDate}
+${targetDate ? `业主期望完工日期：${targetDate}` : ''}
 
-Return ONLY valid JSON, no markdown:
-{"tasks":[{"id":"demo","nameZH":"拆除及结构工程","nameEN":"Demolition & Structural","nameMS":"Kerja Robuhan","workDays":8,"offsetDays":5,"color":"#f87171","parallelNote":null,"realismNote":"Hacking all walls and structural changes"}],"totalCalendarWeeks":14,"feasibilityNote":"Realistic timeline","criticalPath":["demo","plumbing","tiling"]}`
+马来西亚装修实际经验规则：
+1. 大型商业/办公室翻新（RM 200,000以上）通常需要4-9个月
+2. 结构工程（砌砖/拆除/RC）是关键路径，必须最先完成
+3. 水电必须在泥水批土前完成暗槽，无法回头
+4. 防水测试48小时后才可铺砖
+5. 批土需7-14天干燥才可油漆
+6. 定制木工需提前4-6周工厂生产（计入备料期）
+7. 同层不同区域的工序可以并行（如泥水工扩建同时水电工做另一区）
+8. 多层楼：每层可错开2-3周启动（节约关键资源但保持整体进度）
+
+请返回 JSON，不要其他文字：
+{
+  "tasks": [
+    {
+      "id": "唯一ID",
+      "nameZH": "工序中文名称",
+      "nameEN": "Task name in English",
+      "nameMS": "Nama dalam Bahasa Melayu",
+      "workDays": 整数施工工作天数,
+      "offsetDays": 从开工日算的工作天数偏移,
+      "color": "#十六进制颜色",
+      "parallelNote": "可同步施工的说明（如有）或null",
+      "realismNote": "为什么这个工期合理的说明"
+    }
+  ],
+  "totalCalendarWeeks": 总日历周数,
+  "feasibilityNote": "对业主期望工期的评估（如提供了目标日期）",
+  "criticalPath": ["关键路径工序ID列表"]
+}`
           }]
         })
       });
@@ -6684,23 +6134,6 @@ Return ONLY valid JSON, no markdown:
   icon.textContent = '✨';
   label.textContent = t('btn_ai_schedule') || 'AI 智能编排';
   checkDeadlineFeasibility();
-}
-
-// ── Helper: map section name to trade category ──────────────────
-function sectionToTradeCategory(text) {
-  const t = (text||'').toLowerCase();
-  if (/hack|demolish|structural|construct|brick wall|brickwork|raise.*floor|rc|brc|extension/.test(t)) return 'demolition_structural';
-  if (/plumb|pipe|inlet|outlet|water|wet kitchen.*sink|modify.*pipe|sanitary/.test(t)) return 'plumbing';
-  if (/wiring|electrical|power point|cable|lighting|circuit|mcb|conduit|air.cond.*point/.test(t)) return 'electrical';
-  if (/waterproof|kalis air/.test(t)) return 'waterproofing';
-  if (/tile|tiling|floor tile|wall tile|touch.up.*tile|lay.*tile/.test(t)) return 'tiling';
-  if (/false ceiling|plaster ceiling|ceiling|l.box|cornice/.test(t)) return 'ceiling';
-  if (/carpet|vinyl|timber floor|laminate|parquet|flooring/.test(t)) return 'flooring';
-  if (/cabinet|wardrobe|carpentry|kitchen.*cabinet|island|table top|shoe cabinet|display|tv console|bed head|study table|drawer/.test(t)) return 'carpentry';
-  if (/glass door|sliding door|folding door|glass roof|louver|shower glass|glass roofing|aluminium/.test(t)) return 'glass_door';
-  if (/paint|nippon|jotun|dulux|texture paint|cement effect/.test(t)) return 'painting';
-  if (/clean|cleaning|clear|disposal/.test(t)) return 'cleaning';
-  return 'other';
 }
 
 // ── Rule-based schedule from quotation items ────────────────────
@@ -8251,12 +7684,9 @@ function getPricingLeft() {
   return Math.max(0, getPricingTotal() - getPricingUsed());
 }
 function canUploadQuotation() {
-  // PDF upload is always allowed — quota only gates AI analysis
-  // Free users get 3 lifetime AI analyses (totalFree = 3)
   if (PRICING_STATE.plan === 'elite') return true;
-  if (PRICING_STATE.plan === 'pro')   return true; // 50/month, checked in AI call
-  // Free: allow if they still have AI quota left
-  return getPricingLeft() > 0;
+  if (PRICING_STATE.plan === 'pro')   return PRICING_STATE.quotaUploadsThisMonth < PRICING_STATE.quotaUploadsPro;
+  return false; // free: no monthly uploads
 }
 function getRemainingUploads() {
   if (PRICING_STATE.plan === 'elite') return Infinity;
@@ -8347,173 +7777,43 @@ function handleUpgradeClick(e, targetPlan) {
   const plan = targetPlan || 'pro';
 
   if (PRICING_STATE.plan === plan) {
-    showToast('⚙️', '已是 ' + (plan === 'elite' ? 'Elite' : 'Pro') + ' 用户');
+    showToast('⚙️', '订阅管理页面（演示模式）');
     return;
   }
 
-  // Show Billplz payment modal
-  openBillplzCheckout(plan);
-}
+  // Animate button
+  const labelId = plan === 'elite' ? 'upgrade-elite-label' : 'upgrade-btn-label';
+  const label = document.getElementById(labelId);
+  if (label) label.textContent = '⏳ 处理中...';
 
-// ── Billplz Payment Checkout ─────────────────────────────────
-function openBillplzCheckout(plan) {
-  const prices = { pro: 99, elite: 499 };
-  const labels = { pro: 'Pro 专业版 ✦', elite: 'Elite 无限版 ⚡' };
-  const amount = prices[plan] || 99;
-  const label  = labels[plan] || 'Pro';
-  const phone  = localStorage.getItem('rs_phone_designer') || '';
+  setTimeout(() => {
+    PRICING_STATE.plan = plan;
+    if (plan === 'pro')   PRICING_STATE.usedPro   = PRICING_STATE.usedFree;
+    if (plan === 'elite') PRICING_STATE.usedElite  = 0;
 
-  const existing = document.getElementById('billplz-modal');
-  if (existing) existing.remove();
+    const resetDate = new Date(TODAY_DATE);
+    resetDate.setMonth(resetDate.getMonth() + 1);
+    const fmtDate = `${resetDate.getFullYear()}年${resetDate.getMonth()+1}月${resetDate.getDate()}日`;
 
-  const modal = document.createElement('div');
-  modal.id = 'billplz-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
-  modal.innerHTML = `
-    <div style="background:var(--surface);border-radius:16px;width:100%;max-width:440px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-      <!-- Header -->
-      <div style="background:linear-gradient(135deg,rgba(240,185,11,.15),rgba(240,185,11,.05));border-bottom:1px solid var(--border2);padding:20px 24px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-          <div>
-            <div style="font-size:18px;font-weight:700;color:var(--text)">✦ 升级 ${label}</div>
-            <div style="font-size:12px;color:var(--text3);margin-top:2px;">RenoSmart · 按月付款 · 随时取消</div>
-          </div>
-          <button onclick="document.getElementById('billplz-modal').remove()" style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;color:var(--text);font-family:'DM Sans',sans-serif;">✕</button>
-        </div>
-      </div>
+    // Populate upgrade modal
+    const resetEl = document.getElementById('upgrade-reset-date');
+    if (resetEl) resetEl.textContent = fmtDate;
+    const planNameEl = document.getElementById('upgrade-plan-name');
+    if (planNameEl) planNameEl.textContent = plan === 'elite' ? 'Elite 无限版 ⚡' : 'Pro 专业版 ✦';
+    const creditsEl = document.getElementById('upgrade-credits-line');
+    if (creditsEl) creditsEl.textContent = plan === 'elite' ? '∞ 无限次 AI 分析额度' : '50 次 AI 分析额度/月';
+    const quotaEl = document.getElementById('upgrade-quota-line');
+    if (quotaEl) quotaEl.textContent = '每月无限上传报价单';
+    const priceEl = document.getElementById('upgrade-price-line');
+    if (priceEl) priceEl.textContent = plan === 'elite' ? 'RM 499/月' : 'RM 99/月';
 
-      <!-- Order summary -->
-      <div style="padding:20px 24px 0;">
-        <div style="background:var(--surface2);border-radius:10px;padding:14px 16px;border:1px solid var(--border2);">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-            <span style="font-size:13px;color:var(--text2);">${label} — 1 个月</span>
-            <span style="font-size:16px;font-weight:700;color:var(--gold);">RM ${amount}.00</span>
-          </div>
-          <div style="font-size:11px;color:var(--text3);border-top:1px solid var(--border2);padding-top:8px;margin-top:4px;">
-            付款后立即激活 · 下期续费提醒 · 可随时取消
-          </div>
-        </div>
-
-        <!-- Phone / email for receipt -->
-        <div style="margin-top:14px;">
-          <label style="font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.5px;text-transform:uppercase;display:block;margin-bottom:6px;">收据发送至</label>
-          <input id="bp-email" type="email" placeholder="your@email.com（选填）"
-            style="width:100%;box-sizing:border-box;padding:10px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;">
-        </div>
-
-        <!-- Payment method choice -->
-        <div style="margin-top:14px;">
-          <label style="font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.5px;text-transform:uppercase;display:block;margin-bottom:8px;">选择付款方式</label>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            ${[
-              {id:'fpx',    icon:'🏦', label:'FPX 网银',     sub:'Maybank · CIMB · RHB...'},
-              {id:'card',   icon:'💳', label:'信用卡/借记卡', sub:'Visa · Mastercard'},
-              {id:'tng',    icon:'📱', label:'TNG eWallet',  sub:"Touch 'n Go"},
-              {id:'manual', icon:'🏧', label:'银行转账',       sub:'账号: 人工核实 (1-2h)'}
-            ].map(m => `
-              <div onclick="selectPayMethod('${m.id}')" id="pm-${m.id}" class="pay-method-card"
-                style="cursor:pointer;border:2px solid var(--border2);border-radius:10px;padding:10px 12px;transition:.15s;background:var(--surface2);">
-                <div style="font-size:18px;margin-bottom:4px;">${m.icon}</div>
-                <div style="font-size:12px;font-weight:600;color:var(--text)">${m.label}</div>
-                <div style="font-size:10px;color:var(--text3);margin-top:2px;">${m.sub}</div>
-              </div>`).join('')}
-          </div>
-        </div>
-
-        <!-- Manual transfer info (hidden by default) -->
-        <div id="manual-transfer-info" style="display:none;margin-top:12px;background:rgba(96,165,250,.07);border:1px solid rgba(96,165,250,.2);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--text2);line-height:1.8;">
-          <div style="font-weight:700;color:var(--blue);margin-bottom:8px;">📋 银行转账资料</div>
-          <div>银行名称: <strong style="color:var(--text)">Maybank</strong></div>
-          <div>账户名称: <strong style="color:var(--text)">RENOSMART SDN BHD</strong></div>
-          <div>账户号码: <strong style="color:var(--text)">5621 2345 6789</strong></div>
-          <div>参考号码: <strong style="color:var(--gold)" id="manual-ref">RS-PRO-${Date.now().toString(36).toUpperCase()}</strong></div>
-          <div style="margin-top:8px;font-size:11px;color:var(--text3);">转账后 WhatsApp 截图至 <strong>+60 12-345 6789</strong> 人工核实（1-2小时内激活）</div>
-        </div>
-
-        <!-- Pay button -->
-        <button id="bp-pay-btn" onclick="submitBillplzPayment('${plan}', ${amount})"
-          style="width:100%;margin-top:16px;padding:14px;background:var(--gold);color:#000;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:.15s;">
-          🔒 立即付款 RM ${amount}.00
-        </button>
-        <div style="text-align:center;font-size:10px;color:var(--text3);margin:8px 0 4px;">
-          🔒 由 <strong>Billplz</strong> 安全处理 · PCI-DSS Level 1 · SSL 加密
-        </div>
-      </div>
-      <div style="height:20px;"></div>
-    </div>`;
-  document.body.appendChild(modal);
-  // Select FPX by default
-  selectPayMethod('fpx');
-}
-
-let _selectedPayMethod = 'fpx';
-function selectPayMethod(id) {
-  _selectedPayMethod = id;
-  ['fpx','card','tng','manual'].forEach(m => {
-    const el = document.getElementById('pm-' + m);
-    if (!el) return;
-    if (m === id) {
-      el.style.borderColor = 'var(--gold)';
-      el.style.background  = 'rgba(240,185,11,0.08)';
-    } else {
-      el.style.borderColor = 'var(--border2)';
-      el.style.background  = 'var(--surface2)';
+    syncUsageUI();
+    // Refresh price library gate if panel is open
+    if (document.getElementById('panel-pricelibrary')?.classList.contains('active')) {
+      checkPriceLibAccess();
     }
-  });
-  const manInfo = document.getElementById('manual-transfer-info');
-  if (manInfo) manInfo.style.display = id === 'manual' ? '' : 'none';
-  const payBtn = document.getElementById('bp-pay-btn');
-  if (payBtn) payBtn.textContent = id === 'manual' ? '✓ 我已完成转账' : `🔒 立即付款 RM ${_currentCheckoutAmount || '99'}.00`;
-}
-let _currentCheckoutAmount = 99;
-let _currentCheckoutPlan = 'pro';
-
-async function submitBillplzPayment(plan, amount) {
-  _currentCheckoutAmount = amount;
-  _currentCheckoutPlan = plan;
-  const email  = document.getElementById('bp-email')?.value.trim() || '';
-  const phone  = localStorage.getItem('rs_phone_designer') || '';
-  const payBtn = document.getElementById('bp-pay-btn');
-  const method = _selectedPayMethod;
-
-  if (method === 'manual') {
-    // Manual transfer: just close modal + show instructions
-    document.getElementById('billplz-modal')?.remove();
-    showToast('📋', '请按银行转账资料付款，WhatsApp 截图给我们激活');
-    return;
-  }
-
-  if (payBtn) { payBtn.textContent = '⏳ 正在跳转付款页面...'; payBtn.disabled = true; }
-
-  try {
-    // Call our serverless function to create a Billplz bill
-    const res = await fetch('/api/payment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan, amount, email, phone, method })
-    });
-    const data = await res.json();
-
-    if (data.url) {
-      // Redirect to Billplz payment page
-      window.location.href = data.url;
-    } else if (data.demo) {
-      // Demo mode (Billplz keys not configured yet) - simulate success
-      document.getElementById('billplz-modal')?.remove();
-      PRICING_STATE.plan = plan;
-      syncUsageUI();
-      showToast('✅', `已升级至 ${plan === 'elite' ? 'Elite ⚡' : 'Pro ✦'}（演示模式）`);
-      if (document.getElementById('panel-pricelibrary')?.classList.contains('active')) {
-        checkPriceLibAccess?.();
-      }
-    } else {
-      throw new Error(data.error || 'Payment init failed');
-    }
-  } catch(err) {
-    console.warn('Payment error:', err);
-    if (payBtn) { payBtn.textContent = `🔒 立即付款 RM ${amount}.00`; payBtn.disabled = false; }
-    showToast('❌', '付款跳转失败：' + err.message + '（请联系客服）');
-  }
+    openModal('modal-upgrade');
+  }, 1000);
 }
 
 // ── Compare table data ────────────────────
@@ -8604,18 +7904,9 @@ function toggleFAQ(i) {
 
 // ── Init pricing page ─────────────────────
 function initPricingPage() {
-  // Update account status in new pricing portal
-  try {
-    const badge = document.getElementById('pricing-acct-badge');
-    if (badge) {
-      const plan = PRICING_STATE.plan;
-      const used = getPricingUsed(), total = getPricingTotal();
-      if (plan === 'elite') badge.textContent = 'Elite ⚡ · Unlimited';
-      else if (plan === 'pro') badge.textContent = `Pro ✦ · ${used}/${total} used`;
-      else badge.textContent = `Free · ${used}/${total} used`;
-    }
-  } catch(e) {}
-  try { syncUsageUI(); } catch(e) {}
+  renderPricingCompareTable();
+  renderPricingFAQ();
+  syncUsageUI();
 }
 
 
@@ -8786,20 +8077,6 @@ function authSelectPlan(el, plan) {
 const REGISTERED_PHONES = new Set(['11-2345 6789','0112345678']);
 
 // ── Smart login: skip OTP if phone already registered ───────────
-// ── Get auth token for API calls ─────────────────────────────
-async function getAuthHeader() {
-  try {
-    const { data } = await _supa.auth.getSession();
-    const token = data?.session?.access_token;
-    if (token) return { 'Authorization': 'Bearer ' + token };
-  } catch(e) {}
-  // Fallback: phone-only mode (no OTP) — use phone as bearer
-  // Server will allow through if SUPABASE_SERVICE_ROLE_KEY not set
-  const phone = localStorage.getItem('rs_phone_designer') ||
-                localStorage.getItem('rs_phone_owner') || '';
-  return phone ? { 'Authorization': 'Bearer phone:' + phone } : {};
-}
-
 async function authLoginWithPhone(portal) {
   const p = portal === 'designer' ? 'd' : portal === 'owner' ? 'o' : 'w';
   const phoneInput = document.getElementById('auth-' + p + '-phone');
@@ -8820,9 +8097,8 @@ async function authLoginWithPhone(portal) {
 
   showToast('✅', `欢迎！${phone}`);
 
-  // Save phone to localStorage + reset user cache
+  // Save phone to localStorage for persistence
   try { localStorage.setItem('rs_phone_' + portal, phone); } catch(e) {}
-  _supaUser = null; // force getSupaUser() to re-evaluate with new phone
 
   authDemoLogin(portal);
   if (portal === 'designer') loadProjectsFromSupabase();
@@ -9397,7 +8673,7 @@ function buildItemBreakdown(lr) {
 // ── Initially show ROLE SELECT overlay (first entry point) ──────
 document.addEventListener('DOMContentLoaded', () => {
   // Apply Chinese language on load
-  if (typeof applyI18n === 'function') applyI18n('en');
+  if (typeof applyI18n === 'function') applyI18n('zh');
 
   // Role select is visible by default (not hidden in HTML)
   if (AUTH_STATE.designer || AUTH_STATE.owner || AUTH_STATE.worker) {
@@ -9511,31 +8787,24 @@ function confirmSaveProject() {
   showToast('✅', `「${name}」已保存到项目列表`);
   openProject(proj.id);
 
-  // ── Sync to Supabase (RLS-compliant) ──────────────────────
+  // 同步保存到 Supabase
   getSupaUser().then(user => {
     if (!user) return;
-    // Phone-only users: skip Supabase (no real auth session for RLS)
-    if (user.isPhoneOnly) {
-      // Already saved in localStorage via PROJECTS_DB serialization
-      return;
-    }
     _supa.from('projects').insert({
       id: proj.id,
-      user_id: user.id,        // ← MUST match RLS policy (user_id = auth.uid())
+      designer_id: user.id,
       project_name: name,
-      client_name: client.company || client.attention || '',
-      location: client.address || '',
-      total_amount: client.contractAmt || null,
-      status: 'active',
-      data: {                  // full JSON backup in JSONB column
-        client,
-        scheduleItems: proj.scheduleItems,
-        taskAssignments: proj.taskAssignments,
-        published: false,
-      }
+      owner_name: client.attention,
+      owner_phone: client.tel,
+      address: client.address,
+      contract_amount: client.contractAmt || null,
+      schedule_items: proj.scheduleItems,
+      task_assignments: proj.taskAssignments,
+      status: 'draft',
+      published: false,
     }).then(({ error }) => {
-      if (error) console.warn('Supabase save error:', error.message);
-      else showToast('☁️', 'Synced to cloud');
+      if (error) console.warn('Save project error:', error.message);
+      else showToast('☁️','已同步到云端');
     });
   });
 }
@@ -10077,25 +9346,6 @@ initWorkerPortal();
 initScheduleControls();
 rebuildGantt();
 syncUsageUI();
-
-// ── Handle Billplz payment return ────────────────────────────
-(function() {
-  const params = new URLSearchParams(window.location.search);
-  const payment = params.get('payment');
-  const plan    = params.get('plan');
-  if (payment === 'success' && plan) {
-    PRICING_STATE.plan = plan;
-    if (plan === 'pro')   { PRICING_STATE.usedPro = 0; }
-    if (plan === 'elite') { PRICING_STATE.usedElite = 0; }
-    syncUsageUI();
-    setTimeout(() => {
-      showToast('🎉', `成功升级至 ${plan === 'elite' ? 'Elite ⚡ 无限版' : 'Pro ✦ 专业版'}！欢迎使用全部功能`);
-      switchPortal('designer');
-    }, 600);
-    // Clean URL
-    history.replaceState({}, '', '/');
-  }
-})();
 
 // ══════════════════════════════════════════════════════════════════
 // EXPORT FUNCTIONS
