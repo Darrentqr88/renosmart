@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
-  LayoutDashboard, FolderOpen, FileText, Users, Database,
-  CreditCard, Settings, LogOut, Zap, Building2,
+  LayoutDashboard, FolderOpen, FileText, Users, TrendingUp,
+  DollarSign, CreditCard, Settings, LogOut, Zap,
 } from 'lucide-react';
 import { Profile } from '@/types';
 
@@ -30,6 +30,8 @@ export function Sidebar({ profile, aiUsed = 0, aiLimit = 3 }: SidebarProps) {
     { href: '/designer/projects', icon: FolderOpen, label: t.nav.projects },
     { href: '/designer/quotation', icon: FileText, label: t.nav.quotation },
     { href: '/designer/workers', icon: Users, label: t.nav.workers },
+    { href: '/designer/price-database', icon: TrendingUp, label: 'Price Database' },
+    { href: '/designer/cost-database', icon: DollarSign, label: 'Cost Database' },
     { href: '/designer/pricing', icon: CreditCard, label: t.nav.pricing },
     { href: '/designer/settings', icon: Settings, label: t.nav.settings },
   ];

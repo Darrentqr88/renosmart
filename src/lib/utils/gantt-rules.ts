@@ -60,14 +60,26 @@ function addWorkdays(startDate: Date, workdays: number): Date {
   return d;
 }
 
+export type ProjectType = 'residential' | 'condo' | 'landed' | 'commercial' | 'mall';
+
+const PROJECT_TYPE_MULTIPLIERS: Record<ProjectType, number> = {
+  residential: 1.0,
+  condo: 0.85,
+  landed: 1.2,
+  commercial: 1.5,
+  mall: 2.0,
+};
+
 export function generateGanttTasks(
   projectId: string,
   startDate: Date,
   sqft: number = 1000,
-  hasDemolition: boolean = true
+  hasDemolition: boolean = true,
+  projectType: ProjectType = 'residential'
 ): GanttTask[] {
   const tasks: GanttTask[] = [];
   let currentDate = new Date(startDate);
+  const typeMultiplier = PROJECT_TYPE_MULTIPLIERS[projectType] || 1.0;
 
   // Ensure start on workday
   while (isWeekend(currentDate) || MY_HOLIDAYS.has(format(currentDate, 'yyyy-MM-dd'))) {
@@ -81,13 +93,13 @@ export function generateGanttTasks(
   let falsecelingEnd: Date | null = null;
 
   for (const phase of phases) {
-    let duration = phase.baseDays;
+    let duration = Math.max(1, Math.round(phase.baseDays * typeMultiplier));
 
-    // Scale duration by sqft
-    if (phase.id === 'tiling') duration = Math.max(5, Math.ceil(sqft / 100));
-    if (phase.id === 'painting1' || phase.id === 'painting2') duration = Math.max(3, Math.ceil(sqft / 250));
-    if (phase.id === 'falseceiling') duration = Math.max(4, Math.ceil(sqft / 120));
-    if (phase.id === 'carpentry_mfg') duration = Math.max(21, Math.min(42, 28));
+    // Scale duration by sqft (then apply type multiplier on top)
+    if (phase.id === 'tiling') duration = Math.max(5, Math.ceil((sqft / 100) * typeMultiplier));
+    if (phase.id === 'painting1' || phase.id === 'painting2') duration = Math.max(3, Math.ceil((sqft / 250) * typeMultiplier));
+    if (phase.id === 'falseceiling') duration = Math.max(4, Math.ceil((sqft / 120) * typeMultiplier));
+    if (phase.id === 'carpentry_mfg') duration = Math.max(21, Math.min(42, Math.round(28 * typeMultiplier)));
 
     const taskStart = new Date(currentDate);
     const taskEnd = addWorkdays(taskStart, duration - 1);

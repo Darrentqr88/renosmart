@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/utils';
-import { CheckCircle2, Clock, Camera, LogOut, Wrench, Calendar } from 'lucide-react';
+import { CheckCircle2, Clock, Camera, LogOut, Wrench, Calendar, Receipt } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 interface Task {
@@ -154,6 +155,21 @@ export default function WorkerDashboard() {
               ))}
             </div>
           )}
+
+          {/* Receipt upload shortcut */}
+          <div className="mt-5">
+            <Link href="/worker/receipts">
+              <div className="flex items-center gap-3 p-4 bg-[#F0B90B]/10 border border-[#F0B90B]/20 rounded-xl hover:bg-[#F0B90B]/15 transition-colors cursor-pointer">
+                <div className="w-9 h-9 bg-[#F0B90B] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Receipt className="w-4 h-4 text-black" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm text-gray-900">Upload Receipt</p>
+                  <p className="text-xs text-gray-500">Submit material purchase receipts</p>
+                </div>
+              </div>
+            </Link>
+          </div>
 
           {upcomingTasks.length > 0 && (
             <div className="mt-5">

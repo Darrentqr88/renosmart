@@ -39,12 +39,18 @@ RULES:
 MY/SG Price Reference:
 ${PRICE_REFERENCE}
 
+7. Detect supplyType per item: "supply_install" | "labour_only" | "supply_only"
+8. Detect projectType: "residential" | "condo" | "landed" | "commercial" | "mall"
+9. Estimate projectSqft from context clues (room sizes, areas mentioned)
+
 Return JSON:
 {
+  "projectType": "residential",
+  "projectSqft": 1200,
   "client": {"company":"","address":"","attention":"","tel":"","email":null,"projectRef":"","projectName":""},
   "score": {"total":75,"completeness":70,"price":80,"logic":85,"risk":50},
   "summary": "one-line summary",
-  "items": [{"no":"1","section":"Section","name":"EXACT name from source","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"status":"ok","note":""}],
+  "items": [{"no":"1","section":"Section","name":"EXACT name from source","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"supplyType":"supply_install","status":"ok","note":""}],
   "subtotals": [{"label":"Section Total","amount":1000}],
   "totalAmount": 50000,
   "missing": ["Missing item 1"],

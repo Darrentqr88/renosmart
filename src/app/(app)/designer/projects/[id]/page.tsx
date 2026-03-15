@@ -13,7 +13,7 @@ import { generateGanttTasks } from '@/lib/utils/gantt-rules';
 import { Project, PaymentPhase, GanttTask } from '@/types';
 import {
   ArrowLeft, BarChart2, CreditCard, User, Camera, FileText, GitBranch,
-  Plus, Check, Clock, AlertCircle, Trash2, Edit3,
+  Plus, TrendingUp, TrendingDown,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
@@ -41,6 +41,7 @@ export default function ProjectDetailPage() {
   const [ganttTasks, setGanttTasks] = useState<GanttTask[]>([]);
   const [payments, setPayments] = useState<PaymentPhase[]>([]);
   const [photos, setPhotos] = useState<{ id: string; url: string; caption?: string; created_at: string }[]>([]);
+  const [costRecords, setCostRecords] = useState<{ category: string; description: string; total_amount: number; supplier: string; receipt_date: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('gantt');
 
@@ -77,6 +78,9 @@ export default function ProjectDetailPage() {
     const { data: ph } = await supabase.from('site_photos').select('*').eq('project_id', id).order('created_at', { ascending: false });
     if (ph) setPhotos(ph);
 
+    const { data: costs } = await supabase.from('cost_records').select('*').eq('project_id', id).order('receipt_date', { ascending: false });
+    if (costs) setCostRecords(costs);
+
     setLoading(false);
   };
 
@@ -99,6 +103,25 @@ export default function ProjectDetailPage() {
 
   const totalCollected = payments.filter(p => p.status === 'collected').reduce((s, p) => s + p.amount, 0);
   const totalOutstanding = payments.filter(p => p.status !== 'collected').reduce((s, p) => s + p.amount, 0);
+  const totalCost = costRecords.reduce((s, r) => s + (r.total_amount || 0), 0);
+  const revenue = project?.contract_amount || 0;
+  const grossProfit = revenue - totalCost;
+  const margin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
+
+  const COST_COLORS: Record<string, string> = {
+    tiling_material: '#3B82F6', electrical_material: '#F59E0B', plumbing_material: '#10B981',
+    carpentry_material: '#8B5CF6', paint: '#EC4899', cement: '#6B7280', steel: '#64748B',
+    general_labour: '#F97316', other: '#9CA3AF',
+  };
+  const COST_LABELS: Record<string, string> = {
+    tiling_material: 'Tiling', electrical_material: 'Electrical', plumbing_material: 'Plumbing',
+    carpentry_material: 'Carpentry', paint: 'Paint', cement: 'Cement', steel: 'Steel',
+    general_labour: 'Labour', other: 'Other',
+  };
+  const costByCategory: Record<string, number> = {};
+  for (const r of costRecords) {
+    costByCategory[r.category] = (costByCategory[r.category] || 0) + r.total_amount;
+  }
 
   if (loading) {
     return (
@@ -143,6 +166,7 @@ export default function ProjectDetailPage() {
                 { value: 'photos', label: '工地照片', icon: Camera },
                 { value: 'quotations', label: '报价单', icon: FileText },
                 { value: 'vo', label: 'VO变更', icon: GitBranch },
+                { value: 'profit', label: '利润分析', icon: TrendingUp },
               ].map(({ value, label, icon: Icon }) => (
                 <TabsTrigger key={value} value={value}
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#F0B90B] data-[state=active]:bg-transparent data-[state=active]:text-[#F0B90B] px-4 py-3 text-sm">
@@ -297,6 +321,89 @@ export default function ProjectDetailPage() {
               <Button variant="gold" className="mt-4 gap-2">
                 <Plus className="w-4 h-4" /> Add Variation Order
               </Button>
+            </div>
+          </TabsContent>
+
+          {/* Profit Tab */}
+          <TabsContent value="profit" className="flex-1 p-6 overflow-y-auto mt-0">
+            <div className="max-w-3xl">
+              <h2 className="font-semibold text-gray-900 mb-5">Profit Analysis — {project?.name}</h2>
+
+              {/* Summary cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-white rounded-xl border border-gray-100 p-4">
+                  <p className="text-xs text-gray-500 mb-1">Revenue</p>
+                  <p className="text-lg font-bold text-gray-900">{formatCurrency(revenue)}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Contract amount</p>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-100 p-4">
+                  <p className="text-xs text-gray-500 mb-1">Total Cost</p>
+                  <p className="text-lg font-bold text-gray-900">{formatCurrency(totalCost)}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">From receipts</p>
+                </div>
+                <div className={`rounded-xl border p-4 ${grossProfit >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
+                  <p className="text-xs text-gray-500 mb-1">Gross Profit</p>
+                  <p className={`text-lg font-bold flex items-center gap-1 ${grossProfit >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                    {grossProfit >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                    {formatCurrency(Math.abs(grossProfit))}
+                  </p>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-100 p-4">
+                  <p className="text-xs text-gray-500 mb-1">Margin</p>
+                  <p className={`text-lg font-bold ${margin >= 20 ? 'text-green-600' : margin >= 10 ? 'text-yellow-600' : 'text-red-500'}`}>
+                    {margin.toFixed(1)}%
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">Profit / Revenue</p>
+                </div>
+              </div>
+
+              {/* Cost breakdown */}
+              {costRecords.length === 0 ? (
+                <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
+                  <TrendingUp className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                  <p className="text-gray-500">No cost data yet</p>
+                  <p className="text-sm text-gray-400 mt-1">Workers upload receipts from their portal to track project costs</p>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-5">
+                  {/* Category bars */}
+                  <div className="bg-white rounded-xl border border-gray-100 p-5">
+                    <h3 className="font-medium text-gray-800 mb-4">Cost by Category</h3>
+                    <div className="space-y-3">
+                      {Object.entries(costByCategory).sort(([,a],[,b]) => b-a).map(([cat, amount]) => {
+                        const pct = totalCost > 0 ? (amount / totalCost) * 100 : 0;
+                        return (
+                          <div key={cat}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-gray-600">{COST_LABELS[cat] || cat}</span>
+                              <span className="text-xs font-medium text-gray-800">{formatCurrency(amount)}</span>
+                            </div>
+                            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: COST_COLORS[cat] || '#9CA3AF' }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Recent receipts */}
+                  <div className="bg-white rounded-xl border border-gray-100 p-5">
+                    <h3 className="font-medium text-gray-800 mb-4">Recent Receipts</h3>
+                    <div className="space-y-2">
+                      {costRecords.slice(0, 8).map((r, i) => (
+                        <div key={i} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                          <div>
+                            <p className="text-sm text-gray-700 truncate max-w-[160px]">{r.description}</p>
+                            <p className="text-xs text-gray-400">{r.supplier} · {r.receipt_date ? new Date(r.receipt_date).toLocaleDateString('en-MY') : '—'}</p>
+                          </div>
+                          <span className="text-sm font-medium text-gray-800 ml-2">{formatCurrency(r.total_amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
