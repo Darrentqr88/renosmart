@@ -176,6 +176,17 @@ export default function QuotationPage() {
       // CRITICAL: Auto-generate Gantt after analysis
       setShowGantt(true);
 
+      // Background: update price database from analysis items (no await — non-blocking)
+      if (parsed.items?.length > 0) {
+        const { data: { session: s2 } } = await supabase.auth.getSession();
+        const userRegion = 'MY_KL'; // default; price-db groups by region
+        fetch('/api/price-db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(s2?.access_token ? { Authorization: `Bearer ${s2.access_token}` } : {}) },
+          body: JSON.stringify({ items: parsed.items, region: userRegion }),
+        }).catch(() => {}); // silent — not critical path
+      }
+
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Analysis failed';
       setStep('error');

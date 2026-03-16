@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input';
 import { useI18n } from '@/lib/i18n/context';
 import { Project } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Search, Bell, Plus, MapPin, User, Clock, MoreHorizontal, Eye, Edit, Archive } from 'lucide-react';
+import { Search, Bell, Plus, MapPin, User, Clock, MoreHorizontal } from 'lucide-react';
+import { MiniCalendar, CalendarEvent } from '@/components/designer/MiniCalendar';
 
 function ProjectCard({ project, onClick }: { project: Project; onClick: () => void }) {
   const { prices } = useI18n();
@@ -83,6 +84,7 @@ export default function DesignerDashboard() {
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectAddress, setNewProjectAddress] = useState('');
   const [newProjectClient, setNewProjectClient] = useState('');
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
 
   useEffect(() => {
     loadProjects();
@@ -165,42 +167,59 @@ export default function DesignerDashboard() {
         </Button>
       </div>
 
-      {/* Kanban board */}
-      <div className="flex-1 p-6 overflow-x-auto">
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-gray-400">Loading projects...</div>
-          </div>
-        ) : (
-          <div className="flex gap-6 min-w-max">
-            {columns.map(({ key, label, projects: colProjects, color, dot }) => (
-              <div key={key} className="w-80 flex-shrink-0">
-                {/* Column header */}
-                <div className="flex items-center gap-2 mb-4">
-                  <div className={`w-2 h-2 rounded-full ${dot}`} />
-                  <h2 className="font-semibold text-gray-700 text-sm">{label}</h2>
-                  <Badge className={`${color} ml-auto text-xs`}>{colProjects.length}</Badge>
-                </div>
-
-                {/* Cards */}
-                <div className="space-y-3">
-                  {colProjects.map((project) => (
-                    <ProjectCard
-                      key={project.id}
-                      project={project}
-                      onClick={() => router.push(`/designer/projects/${project.id}`)}
-                    />
-                  ))}
-                  {colProjects.length === 0 && (
-                    <div className="rounded-xl border-2 border-dashed border-gray-200 p-8 text-center">
-                      <p className="text-sm text-gray-400">No projects here</p>
-                    </div>
-                  )}
-                </div>
+      {/* Main content: Kanban + Calendar */}
+      <div className="flex-1 p-6 overflow-auto">
+        <div className="flex gap-6">
+          {/* Kanban board */}
+          <div className="flex-1 overflow-x-auto">
+            {loading ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-gray-400">Loading projects...</div>
               </div>
-            ))}
+            ) : (
+              <div className="flex gap-5 min-w-max">
+                {columns.map(({ key, label, projects: colProjects, color, dot }) => (
+                  <div key={key} className="w-72 flex-shrink-0">
+                    {/* Column header */}
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className={`w-2 h-2 rounded-full ${dot}`} />
+                      <h2 className="font-semibold text-gray-700 text-sm">{label}</h2>
+                      <Badge className={`${color} ml-auto text-xs`}>{colProjects.length}</Badge>
+                    </div>
+
+                    {/* Cards */}
+                    <div className="space-y-3">
+                      {colProjects.map((project) => (
+                        <ProjectCard
+                          key={project.id}
+                          project={project}
+                          onClick={() => router.push(`/designer/projects/${project.id}`)}
+                        />
+                      ))}
+                      {colProjects.length === 0 && (
+                        <div className="rounded-xl border-2 border-dashed border-gray-200 p-8 text-center">
+                          <p className="text-sm text-gray-400">No projects here</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Mini Calendar */}
+          <div className="w-72 flex-shrink-0">
+            <MiniCalendar
+              events={calendarEvents}
+              onAddEvent={(event) => {
+                const newEvent: CalendarEvent = { ...event, id: Date.now().toString() };
+                setCalendarEvents(prev => [...prev, newEvent]);
+              }}
+              onDeleteEvent={(id) => setCalendarEvents(prev => prev.filter(e => e.id !== id))}
+            />
+          </div>
+        </div>
       </div>
 
       {/* New project modal */}

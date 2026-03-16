@@ -13,7 +13,7 @@ import { generateGanttTasks } from '@/lib/utils/gantt-rules';
 import { Project, PaymentPhase, GanttTask } from '@/types';
 import {
   ArrowLeft, BarChart2, CreditCard, User, Camera, FileText, GitBranch,
-  Plus, TrendingUp, TrendingDown,
+  Plus, TrendingUp, TrendingDown, Star, Trash2, GitCompare,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
@@ -42,6 +42,8 @@ export default function ProjectDetailPage() {
   const [payments, setPayments] = useState<PaymentPhase[]>([]);
   const [photos, setPhotos] = useState<{ id: string; url: string; caption?: string; created_at: string }[]>([]);
   const [costRecords, setCostRecords] = useState<{ category: string; description: string; total_amount: number; supplier: string; receipt_date: string }[]>([]);
+  const [quotationVersions, setQuotationVersions] = useState<{ id: string; version: string; total_amount: number; created_at: string; is_active: boolean; file_name?: string }[]>([]);
+  const [compareMode, setCompareMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('gantt');
 
@@ -80,6 +82,9 @@ export default function ProjectDetailPage() {
 
     const { data: costs } = await supabase.from('cost_records').select('*').eq('project_id', id).order('receipt_date', { ascending: false });
     if (costs) setCostRecords(costs);
+
+    const { data: qvs } = await supabase.from('project_quotations').select('*').eq('project_id', id).order('created_at', { ascending: false });
+    if (qvs) setQuotationVersions(qvs);
 
     setLoading(false);
   };
@@ -282,6 +287,46 @@ export default function ProjectDetailPage() {
 
           {/* Photos Tab */}
           <TabsContent value="photos" className="flex-1 p-6 overflow-y-auto mt-0">
+            {photos.length > 0 && (
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-gray-900">Site Photos ({photos.length})</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => {
+                    // Print site photos as PDF using browser print
+                    const printWindow = window.open('', '_blank');
+                    if (!printWindow) return;
+                    const imgTags = photos.map(p =>
+                      `<div class="photo-item"><img src="${p.url}" alt="${p.caption || ''}" />${p.caption ? `<p class="caption">${p.caption}</p>` : ''}<p class="date">${new Date(p.created_at).toLocaleDateString('en-MY')}</p></div>`
+                    ).join('');
+                    printWindow.document.write(`
+                      <html><head><title>${project?.name || 'Site Photos'} — Site Progress Photos</title>
+                      <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        h1 { font-size: 18px; margin-bottom: 4px; }
+                        .subtitle { color: #666; font-size: 12px; margin-bottom: 20px; }
+                        .photo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+                        .photo-item img { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; }
+                        .caption { font-size: 11px; color: #333; margin: 4px 0 0; }
+                        .date { font-size: 10px; color: #999; margin: 2px 0; }
+                        @media print { .photo-grid { page-break-inside: avoid; } }
+                      </style></head>
+                      <body>
+                        <h1>${project?.name || 'Project'} — Site Progress Photos</h1>
+                        <p class="subtitle">${project?.address || ''} · Printed ${new Date().toLocaleDateString('en-MY')}</p>
+                        <div class="photo-grid">${imgTags}</div>
+                        <script>window.onload = function(){ window.print(); }</script>
+                      </body></html>
+                    `);
+                    printWindow.document.close();
+                  }}
+                >
+                  <FileText className="w-4 h-4" /> Print as PDF
+                </Button>
+              </div>
+            )}
             {photos.length === 0 ? (
               <div className="text-center py-16">
                 <Camera className="w-12 h-12 text-gray-200 mx-auto mb-4" />
@@ -302,14 +347,128 @@ export default function ProjectDetailPage() {
             )}
           </TabsContent>
 
-          {/* Quotations Tab */}
+          {/* Quotations Tab — Multi-version management */}
           <TabsContent value="quotations" className="flex-1 p-6 overflow-y-auto mt-0">
-            <div className="text-center py-16">
-              <FileText className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-              <p className="text-gray-500">No quotations attached</p>
-              <Button variant="gold" className="mt-4 gap-2" onClick={() => router.push('/designer/quotation')}>
-                <Plus className="w-4 h-4" /> Upload Quotation
-              </Button>
+            <div className="max-w-3xl">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="font-semibold text-gray-900">Quotation Versions</h2>
+                <div className="flex gap-2">
+                  {quotationVersions.length >= 2 && (
+                    <Button variant="outline" size="sm" onClick={() => setCompareMode(!compareMode)} className="gap-2">
+                      <GitCompare className="w-4 h-4" />
+                      {compareMode ? 'Hide Compare' : 'Compare Versions'}
+                    </Button>
+                  )}
+                  <Button variant="gold" size="sm" onClick={() => router.push('/designer/quotation')} className="gap-2">
+                    <Plus className="w-4 h-4" /> Upload New Version
+                  </Button>
+                </div>
+              </div>
+
+              {quotationVersions.length === 0 ? (
+                <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
+                  <FileText className="w-12 h-12 text-gray-200 mx-auto mb-4" />
+                  <p className="text-gray-500">No quotations attached yet</p>
+                  <p className="text-sm text-gray-400 mt-1">Upload a quotation and save it to this project from the Quotation Upload page</p>
+                  <Button variant="gold" className="mt-4 gap-2" onClick={() => router.push('/designer/quotation')}>
+                    <Plus className="w-4 h-4" /> Upload Quotation
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {quotationVersions.map((qv, idx) => (
+                    <div key={qv.id} className={`bg-white rounded-xl border-2 p-4 ${qv.is_active ? 'border-[#F0B90B]' : 'border-gray-100'}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${qv.is_active ? 'bg-[#F0B90B]/20' : 'bg-gray-100'}`}>
+                          <FileText className={`w-4 h-4 ${qv.is_active ? 'text-[#F0B90B]' : 'text-gray-400'}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-900 text-sm">
+                              {qv.file_name || `Version ${quotationVersions.length - idx}`}
+                            </span>
+                            {qv.is_active && (
+                              <Badge className="bg-[#F0B90B]/20 text-[#F0B90B] border-[#F0B90B]/30 text-xs">
+                                <Star className="w-3 h-3 mr-1" /> Active
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-0.5">
+                            {formatDate(qv.created_at)} · Total: {formatCurrency(qv.total_amount)}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {!qv.is_active && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-7"
+                              onClick={async () => {
+                                // Set this as active, deactivate others
+                                await supabase.from('project_quotations').update({ is_active: false }).eq('project_id', id);
+                                await supabase.from('project_quotations').update({ is_active: true }).eq('id', qv.id);
+                                setQuotationVersions(prev => prev.map(v => ({ ...v, is_active: v.id === qv.id })));
+                                toast({ title: 'Active quotation updated', description: 'Gantt will regenerate on next visit.' });
+                              }}
+                            >
+                              Set Active
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-7 text-red-500 hover:text-red-600 hover:border-red-200"
+                            onClick={async () => {
+                              await supabase.from('project_quotations').delete().eq('id', qv.id);
+                              setQuotationVersions(prev => prev.filter(v => v.id !== qv.id));
+                              toast({ title: 'Quotation version deleted' });
+                            }}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Compare mode */}
+              {compareMode && quotationVersions.length >= 2 && (
+                <div className="mt-6 bg-white rounded-xl border border-gray-100 p-5">
+                  <h3 className="font-medium text-gray-800 mb-4 flex items-center gap-2">
+                    <GitCompare className="w-4 h-4 text-[#F0B90B]" />
+                    Version Comparison
+                  </h3>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="text-left px-3 py-2 text-gray-500 font-medium">Version</th>
+                        <th className="text-right px-3 py-2 text-gray-500 font-medium">Total</th>
+                        <th className="text-right px-3 py-2 text-gray-500 font-medium">vs Active</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quotationVersions.map(qv => {
+                        const activeVersion = quotationVersions.find(v => v.is_active);
+                        const diff = activeVersion ? qv.total_amount - activeVersion.total_amount : 0;
+                        return (
+                          <tr key={qv.id} className={`border-t border-gray-50 ${qv.is_active ? 'bg-[#F0B90B]/5' : ''}`}>
+                            <td className="px-3 py-2">
+                              {qv.file_name || 'Quotation'}
+                              {qv.is_active && <span className="ml-2 text-xs text-[#F0B90B]">(Active)</span>}
+                            </td>
+                            <td className="px-3 py-2 text-right font-medium">{formatCurrency(qv.total_amount)}</td>
+                            <td className={`px-3 py-2 text-right font-medium ${diff > 0 ? 'text-red-500' : diff < 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                              {qv.is_active ? '—' : diff > 0 ? `+${formatCurrency(diff)}` : diff < 0 ? formatCurrency(diff) : '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </TabsContent>
 
