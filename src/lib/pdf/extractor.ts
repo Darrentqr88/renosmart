@@ -68,7 +68,7 @@ export async function extractPDFText(file: File): Promise<string> {
 
   if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://unpkg.com/pdfjs-dist@4.9.155/build/pdf.worker.min.mjs';
+      'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
   }
 
   const arrayBuffer = await file.arrayBuffer();
