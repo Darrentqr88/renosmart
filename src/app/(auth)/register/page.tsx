@@ -28,6 +28,7 @@ function RegisterPageContent() {
   // Step 1: Auth
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [signedUpUserId, setSignedUpUserId] = useState<string | null>(null);
 
   // Step 2: Phone
   const [phone, setPhone] = useState('');
@@ -61,8 +62,9 @@ function RegisterPageContent() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
+      if (data.user) setSignedUpUserId(data.user.id);
       setStep(2);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Error';
@@ -76,11 +78,29 @@ function RegisterPageContent() {
     setLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
+      const userId = session?.user?.id ?? signedUpUserId;
+      const userEmail = session?.user?.email ?? email;
+      if (!userId) throw new Error('Not authenticated. Please try signing in again.');
+
+      // If no session (email confirmation pending), store profile data in localStorage
+      // and redirect to a confirmation notice. Profile will be completed after confirmation.
+      if (!session) {
+        localStorage.setItem('pending_profile', JSON.stringify({
+          user_id: userId, email: userEmail, role,
+          phone: `${phonePrefix}${phone}`, name,
+          company: role === 'designer' ? company : null,
+          company_address: role === 'designer' ? companyAddress : null,
+          trades: role === 'worker' ? trades : null,
+          plan: 'free',
+        }));
+        toast({ title: 'Check your email!', description: 'Please confirm your email address to complete registration.' });
+        router.push('/login?message=check-email');
+        return;
+      }
 
       const profileData = {
-        user_id: session.user.id,
-        email: session.user.email,
+        user_id: userId,
+        email: userEmail,
         role,
         phone: `${phonePrefix}${phone}`,
         name,
@@ -98,7 +118,7 @@ function RegisterPageContent() {
       if (inviteId && role === 'worker') {
         await supabase.from('designer_workers').insert({
           designer_id: inviteId,
-          profile_id: session.user.id,
+          profile_id: userId,
           name,
           phone: `${phonePrefix}${phone}`,
           trades,

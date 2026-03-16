@@ -1,32 +1,56 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Mail } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const message = searchParams.get('message');
   const supabase = createClient();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  const completePendingProfile = async () => {
+    try {
+      const pending = localStorage.getItem('pending_profile');
+      if (!pending) return;
+      const profileData = JSON.parse(pending);
+      const { error } = await supabase.from('profiles').upsert({
+        ...profileData,
+        updated_at: new Date().toISOString(),
+      });
+      if (!error) {
+        localStorage.removeItem('pending_profile');
+      }
+    } catch {
+      // Non-critical — profile can be completed in settings
+    }
+  };
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      router.push('/designer');
+      await completePendingProfile();
+      // Redirect based on role
+      const role = data.user?.user_metadata?.role;
+      if (role === 'owner') router.push('/owner');
+      else if (role === 'worker') router.push('/worker');
+      else router.push('/designer');
       router.refresh();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Login failed';
@@ -51,6 +75,24 @@ export default function LoginPage() {
     }
   };
 
+  // Check if already logged in and has profile → redirect
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) return;
+      await completePendingProfile();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', session.user.id)
+        .single();
+      const role = profile?.role;
+      if (role === 'owner') router.replace('/owner');
+      else if (role === 'worker') router.replace('/worker');
+      else router.replace('/designer');
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#0A0F1A] flex items-center justify-center px-4">
       <Toaster />
@@ -62,6 +104,17 @@ export default function LoginPage() {
           </div>
           <span className="text-white font-bold text-2xl">RenoSmart</span>
         </div>
+
+        {/* Email confirmation notice */}
+        {message === 'check-email' && (
+          <div className="mb-4 p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-start gap-3">
+            <Mail className="w-5 h-5 text-blue-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-blue-300 font-medium text-sm">Check your email</p>
+              <p className="text-blue-400/70 text-xs mt-1">We sent a confirmation link. Click it, then sign in here to complete your account setup.</p>
+            </div>
+          </div>
+        )}
 
         <Card className="bg-[#0F1923] border-white/10 text-white">
           <CardHeader className="text-center">
@@ -136,5 +189,13 @@ export default function LoginPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0A0F1A] flex items-center justify-center"><div className="text-white">Loading...</div></div>}>
+      <LoginPageContent />
+    </Suspense>
   );
 }
