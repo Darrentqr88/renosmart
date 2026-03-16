@@ -111,8 +111,8 @@ function RegisterPageContent() {
         updated_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase.from('profiles').upsert(profileData);
-      if (error) throw error;
+      const { error } = await supabase.from('profiles').upsert(profileData, { onConflict: 'user_id' });
+      if (error) throw new Error(error.message);
 
       // If invited by designer
       if (inviteId && role === 'worker') {
