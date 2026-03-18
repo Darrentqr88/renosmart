@@ -9,6 +9,12 @@ export const createClient = async () => {
     {
       cookies: {
         get: (name: string) => cookieStore.get(name)?.value,
+        set: (name: string, value: string, options: Parameters<typeof cookieStore.set>[2]) => {
+          try { cookieStore.set(name, value, options); } catch { /* Server Components can't set cookies */ }
+        },
+        remove: (name: string, options: Parameters<typeof cookieStore.set>[2]) => {
+          try { cookieStore.set(name, '', { ...options, maxAge: 0 }); } catch { /* Server Components can't set cookies */ }
+        },
       },
     }
   );
