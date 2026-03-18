@@ -17,22 +17,25 @@ export async function GET(request: Request) {
 
   if (code) {
     const cookieStore = await cookies();
+    // Mutable overlay so that cookies written by setAll are visible to
+    // subsequent getAll calls within the same request (Next.js 15 fix)
+    const cookieMap = new Map(
+      cookieStore.getAll().map((c) => [c.name, c.value])
+    );
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           getAll() {
-            return cookieStore.getAll();
+            return Array.from(cookieMap.entries()).map(([name, value]) => ({ name, value }));
           },
           setAll(cookiesToSet: { name: string; value: string; options?: Parameters<typeof cookieStore.set>[2] }[]) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
-              );
-            } catch {
-              // ignore in Server Components
-            }
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieMap.set(name, value);
+              try { cookieStore.set(name, value, options); } catch { /* ignore in RSC */ }
+            });
           },
         },
       }
