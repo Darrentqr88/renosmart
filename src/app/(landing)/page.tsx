@@ -126,7 +126,7 @@ const PAIN_POINTS = [
       BM: 'Muat naik PDF atau Excel. AI menilai kelengkapan, menanda skop yang hilang, dan mengesan anomali harga.',
       ZH: '上传 PDF 或 Excel 报价单，AI 评分完整度、标记遗漏范围、检测价格异常、高亮不合理项目。',
     },
-    color: '#E8A317',
+    color: '#4F8EF7',
   },
   {
     id: 'schedule',
@@ -217,7 +217,7 @@ const ROLES = [
     id: 'designer',
     title: { EN: 'Designer', BM: 'Pereka', ZH: '设计师' },
     subtitle: { EN: 'Interior Design Firms', BM: 'Firma Rekabentuk Dalaman', ZH: '室内设计公司' },
-    color: '#E8A317',
+    color: '#4F8EF7',
     photo: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80',
     features: {
       EN: ['AI Quotation Audit & Scoring', 'Auto Gantt Scheduling', 'Price Intelligence Database', 'Real-time Profit Tracking', 'Multi-project Management'],
@@ -373,8 +373,8 @@ export default function LandingPage() {
           to   { opacity: 1; transform: scale(1); }
         }
         @keyframes ldPlayPulse {
-          0%, 100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 0 rgba(232,163,23,0.4); }
-          50%      { transform: translate(-50%, -50%) scale(1.08); box-shadow: 0 0 0 20px rgba(232,163,23,0); }
+          0%, 100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 0 rgba(79,142,247,0.4); }
+          50%      { transform: translate(-50%, -50%) scale(1.08); box-shadow: 0 0 0 20px rgba(79,142,247,0); }
         }
 
         .ld-reveal { opacity: 0; transform: translateY(40px); transition: opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1); }
@@ -392,10 +392,10 @@ export default function LandingPage() {
 
         .ld-pricing-card { border-radius: 16px; background: #111827; border: 1px solid rgba(255,255,255,0.06); padding: 32px; transition: transform 0.3s, border-color 0.3s; }
         .ld-pricing-card:hover { transform: translateY(-4px); }
-        .ld-pricing-card.featured { border-color: #E8A317; background: linear-gradient(145deg, #111827 0%, #1a1610 100%); }
+        .ld-pricing-card.featured { border-color: #4F8EF7; background: linear-gradient(145deg, #111827 0%, #0f1628 100%); }
 
-        .ld-btn-primary { display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px; background: #E8A317; color: #0B0F1A; font-weight: 600; font-size: 15px; border-radius: 12px; border: none; cursor: pointer; transition: all 0.2s; text-decoration: none; }
-        .ld-btn-primary:hover { background: #F5B731; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(232,163,23,0.3); }
+        .ld-btn-primary { display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px; background: linear-gradient(135deg, #4F8EF7, #8B5CF6, #EC4899); color: #fff; font-weight: 600; font-size: 15px; border-radius: 12px; border: none; cursor: pointer; transition: all 0.2s; text-decoration: none; }
+        .ld-btn-primary:hover { background: linear-gradient(135deg, #3B7BE8, #7C4FE0, #DB2777); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(79,142,247,0.3); }
 
         .ld-btn-secondary { display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px; background: transparent; color: #F1F5F9; font-weight: 500; font-size: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); cursor: pointer; transition: all 0.2s; text-decoration: none; }
         .ld-btn-secondary:hover { border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.04); }
@@ -420,8 +420,8 @@ export default function LandingPage() {
       }}>
         {/* Logo */}
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: '#F1F5F9' }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #E8A317, #D4940F)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, color: '#0B0F1A', fontFamily: 'var(--font-dm-mono)' }}>RS</div>
-          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>RenoSmart</span>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #4F8EF7, #8B5CF6, #EC4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, color: '#fff', fontFamily: 'var(--font-dm-mono)' }}>RS</div>
+          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', background: 'linear-gradient(135deg, #4F8EF7, #8B5CF6, #EC4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>RenoSmart</span>
         </Link>
 
         {/* Right side */}
@@ -431,8 +431,8 @@ export default function LandingPage() {
             {(['EN', 'BM', 'ZH'] as Language[]).map((l) => (
               <button key={l} onClick={() => setLang(l)} style={{
                 padding: '6px 10px', fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer',
-                background: lang === l ? 'rgba(232,163,23,0.15)' : 'transparent',
-                color: lang === l ? '#E8A317' : '#94A3B8',
+                background: lang === l ? 'rgba(79,142,247,0.15)' : 'transparent',
+                color: lang === l ? '#4F8EF7' : '#94A3B8',
                 transition: 'all 0.2s',
               }}>
                 {l === 'ZH' ? '中文' : l}
@@ -445,8 +445,8 @@ export default function LandingPage() {
             {(['MY', 'SG'] as Region[]).map((r) => (
               <button key={r} onClick={() => setRegion(r)} style={{
                 padding: '6px 10px', fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer',
-                background: region === r ? 'rgba(232,163,23,0.15)' : 'transparent',
-                color: region === r ? '#E8A317' : '#94A3B8',
+                background: region === r ? 'rgba(79,142,247,0.15)' : 'transparent',
+                color: region === r ? '#4F8EF7' : '#94A3B8',
                 transition: 'all 0.2s',
               }}>
                 {r === 'MY' ? '🇲🇾 MY' : '🇸🇬 SG'}
@@ -501,7 +501,7 @@ export default function LandingPage() {
         <div style={{
           position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)',
           width: 600, height: 600,
-          background: 'radial-gradient(circle, rgba(232,163,23,0.08) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(79,142,247,0.08) 0%, transparent 70%)',
           animation: 'ldPulseGlow 4s ease-in-out infinite',
           pointerEvents: 'none',
         }} />
@@ -511,7 +511,7 @@ export default function LandingPage() {
           <div style={{
             display: 'inline-block', padding: '6px 16px', borderRadius: 100, fontSize: 12, fontWeight: 600,
             letterSpacing: '0.08em', textTransform: 'uppercase',
-            background: 'rgba(232,163,23,0.1)', color: '#E8A317', border: '1px solid rgba(232,163,23,0.2)',
+            background: 'rgba(79,142,247,0.1)', color: '#4F8EF7', border: '1px solid rgba(79,142,247,0.2)',
             marginBottom: 32,
             animation: 'ldFadeUp 0.8s cubic-bezier(0.16,1,0.3,1) both',
           }}>
@@ -701,8 +701,8 @@ export default function LandingPage() {
           <div style={{
             position: 'absolute', inset: 0,
             backgroundImage: `
-              linear-gradient(rgba(232,163,23,0.03) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(232,163,23,0.03) 1px, transparent 1px)
+              linear-gradient(rgba(79,142,247,0.03) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(79,142,247,0.03) 1px, transparent 1px)
             `,
             backgroundSize: '40px 40px',
           }} />
@@ -710,7 +710,7 @@ export default function LandingPage() {
           <div style={{
             position: 'absolute', top: '50%', left: '50%',
             width: 80, height: 80, borderRadius: '50%',
-            background: '#E8A317',
+            background: 'linear-gradient(135deg, #4F8EF7, #8B5CF6, #EC4899)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             animation: 'ldPlayPulse 2s ease-in-out infinite',
           }}>
@@ -835,10 +835,10 @@ export default function LandingPage() {
             <div key={step.num} className={`ld-reveal ${isVisible('how-section') ? 'visible' : ''} ld-reveal-d${i + 1}`} style={{ textAlign: 'center' }}>
               <div style={{
                 width: 64, height: 64, borderRadius: '50%', margin: '0 auto 20px',
-                background: 'linear-gradient(135deg, rgba(232,163,23,0.15), rgba(232,163,23,0.05))',
-                border: '2px solid rgba(232,163,23,0.2)',
+                background: 'linear-gradient(135deg, rgba(79,142,247,0.15), rgba(79,142,247,0.05))',
+                border: '2px solid rgba(79,142,247,0.2)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 22, fontWeight: 800, color: '#E8A317', fontFamily: 'var(--font-dm-mono)',
+                fontSize: 22, fontWeight: 800, color: '#4F8EF7', fontFamily: 'var(--font-dm-mono)',
               }}>
                 {step.num}
               </div>
@@ -873,8 +873,8 @@ export default function LandingPage() {
             {(['monthly', 'quarterly', 'yearly'] as const).map((p) => (
               <button key={p} onClick={() => setPricingPeriod(p)} style={{
                 padding: '10px 24px', fontSize: 13, fontWeight: 500, border: 'none', cursor: 'pointer',
-                background: pricingPeriod === p ? 'rgba(232,163,23,0.15)' : 'transparent',
-                color: pricingPeriod === p ? '#E8A317' : '#94A3B8',
+                background: pricingPeriod === p ? 'rgba(79,142,247,0.15)' : 'transparent',
+                color: pricingPeriod === p ? '#4F8EF7' : '#94A3B8',
                 transition: 'all 0.2s', position: 'relative',
               }}>
                 {p === 'monthly' ? (lang === 'EN' ? 'Monthly' : lang === 'BM' ? 'Bulanan' : '月付') :
@@ -914,8 +914,8 @@ export default function LandingPage() {
           {/* Pro */}
           <div className="ld-pricing-card featured">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: '#E8A317' }}>{T.pro[lang]}</span>
-              <span style={{ padding: '2px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600, background: 'rgba(232,163,23,0.15)', color: '#E8A317' }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: '#4F8EF7' }}>{T.pro[lang]}</span>
+              <span style={{ padding: '2px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600, background: 'rgba(79,142,247,0.15)', color: '#4F8EF7' }}>
                 {lang === 'EN' ? 'POPULAR' : lang === 'BM' ? 'POPULAR' : '热门'}
               </span>
             </div>
@@ -926,7 +926,7 @@ export default function LandingPage() {
             <ul style={{ marginTop: 24, listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
               {PLAN_FEATURES.pro[lang].map((f, i) => (
                 <li key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: '#CBD5E1' }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 7l3 3L11.5 4" stroke="#E8A317" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 7l3 3L11.5 4" stroke="#4F8EF7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   {f}
                 </li>
               ))}
@@ -979,7 +979,7 @@ export default function LandingPage() {
         <div style={{
           position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
           width: 500, height: 500,
-          background: 'radial-gradient(circle, rgba(232,163,23,0.06) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(79,142,247,0.06) 0%, transparent 70%)',
           pointerEvents: 'none',
         }} />
         <h2 style={{
@@ -1007,7 +1007,7 @@ export default function LandingPage() {
           {/* Brand */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #E8A317, #D4940F)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: '#0B0F1A', fontFamily: 'var(--font-dm-mono)' }}>RS</div>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #4F8EF7, #8B5CF6, #EC4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: '#fff', fontFamily: 'var(--font-dm-mono)' }}>RS</div>
               <span style={{ fontSize: 16, fontWeight: 700 }}>RenoSmart</span>
             </div>
             <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>

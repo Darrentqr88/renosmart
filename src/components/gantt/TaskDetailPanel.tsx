@@ -114,23 +114,23 @@ export function TaskDetailPanel({
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="w-full max-w-[720px] bg-white rounded-t-2xl border border-[#D8DCE8] border-b-0 max-h-[82vh] overflow-y-auto shadow-2xl"
+        className="w-full max-w-[720px] bg-white rounded-t-2xl border border-rs-border border-b-0 max-h-[82vh] overflow-y-auto shadow-2xl"
         style={{ animation: 'slideUp 0.22s ease' }}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-white z-10 flex items-start gap-3 px-5 py-4 border-b border-[#D8DCE8]">
+        <div className="sticky top-0 bg-white z-10 flex items-start gap-3 px-5 py-4 border-b border-rs-border">
           <div className="w-3 h-3 rounded-full flex-shrink-0 mt-1.5" style={{ background: task.color }} />
           <div className="flex-1 min-w-0">
-            <div className="text-[16px] font-bold text-[#1B2336] leading-tight">
+            <div className="text-[16px] font-bold text-rs-text leading-tight">
               {lang === 'ZH' && task.name_zh ? task.name_zh : task.name}
             </div>
-            <div className="text-[12px] text-[#6B7A94] mt-1">
+            <div className="text-[12px] text-rs-text3 mt-1">
               {format(parseISO(task.start_date), 'dd MMM yyyy')} – {format(parseISO(task.end_date), 'dd MMM yyyy')}
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-full bg-[#F0F2F7] flex items-center justify-center text-[#6B7A94] hover:bg-[#D8DCE8] transition-colors text-sm flex-shrink-0"
+            className="w-7 h-7 rounded-full bg-[#F0F2F7] flex items-center justify-center text-rs-text3 hover:bg-rs-border transition-colors text-sm flex-shrink-0"
           >
             ✕
           </button>
@@ -140,10 +140,10 @@ export function TaskDetailPanel({
         <div className="px-5 py-4">
           {/* Info chips */}
           <div className="flex flex-wrap gap-2 mb-4">
-            <span className="px-3 py-1 rounded-full text-[11px] font-bold border border-[rgba(240,185,11,0.3)] text-[#F0B90B] bg-[rgba(240,185,11,0.07)]">
+            <span className="px-3 py-1 rounded-full text-[11px] font-bold border border-[rgba(79,142,247,0.3)] text-[#4F8EF7] bg-[rgba(79,142,247,0.07)]">
               {task.trade}
             </span>
-            <span className="px-3 py-1 rounded-full text-[11px] font-bold border border-[#D8DCE8] text-[#6B7A94] bg-[#FAFBFC]">
+            <span className="px-3 py-1 rounded-full text-[11px] font-bold border border-rs-border text-rs-text3 bg-[#FAFBFC]">
               {task.duration} {lang === 'ZH' ? '工作日' : 'workdays'} ({calDays} {lang === 'ZH' ? '日历日' : 'calendar days'})
             </span>
             {task.is_critical && (
@@ -166,14 +166,14 @@ export function TaskDetailPanel({
           </div>
 
           {/* ── Duration editor ── */}
-          <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-[#6B7A94] mb-2">
+          <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-rs-text3 mb-2">
             {lang === 'ZH' ? '调整工期' : 'ADJUST DURATION'}
           </div>
-          <div className="flex items-center gap-3 p-3 bg-[#FAFBFC] rounded-xl mb-5 border border-[#D8DCE8]">
+          <div className="flex items-center gap-3 p-3 bg-[#FAFBFC] rounded-xl mb-5 border border-rs-border">
             <div className="flex-1">
-              <p className="text-[12px] text-[#3D4A60]">
+              <p className="text-[12px] text-rs-text2">
                 {lang === 'ZH' ? '工作天数（当前：' : 'Work days (current: '}
-                <strong className="text-[#F0B90B]">{task.duration}</strong>
+                <strong className="text-[#4F8EF7]">{task.duration}</strong>
                 {lang === 'ZH' ? ' 天）' : ' days)'}
               </p>
               <p className="text-[11px] text-[#9CA3AF] mt-0.5">
@@ -183,11 +183,11 @@ export function TaskDetailPanel({
             <input
               type="number" min={1} max={200} value={editDuration}
               onChange={(e) => setEditDuration(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-16 bg-white border border-[#D8DCE8] rounded-lg px-2 py-1.5 text-center text-[13px] font-mono text-[#1B2336] focus:outline-none focus:border-[#F0B90B]"
+              className="w-16 bg-white border border-rs-border rounded-lg px-2 py-1.5 text-center text-[13px] font-mono text-rs-text focus:outline-none focus:border-[#4F8EF7]"
             />
             <button
               onClick={() => onDurationChange(editDuration)}
-              className="px-3 py-1.5 text-[11px] font-semibold bg-[#F0B90B] text-[#1B2336] rounded-lg hover:bg-[#F8D33A] transition-all whitespace-nowrap"
+              className="px-3 py-1.5 text-[11px] font-semibold bg-[#4F8EF7] text-white rounded-lg hover:bg-[#3B7BE8] transition-all whitespace-nowrap"
             >
               {lang === 'ZH' ? '应用' : 'Apply'}
             </button>
@@ -196,16 +196,16 @@ export function TaskDetailPanel({
           {/* ── AI Hints section ── */}
           {relatedItems.length > 0 && (
             <>
-              <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-[#6B7A94] mb-2 flex items-center gap-2">
+              <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-rs-text3 mb-2 flex items-center gap-2">
                 ✦ {lang === 'ZH' ? '事前准备 & 注意事项' : 'PREP REMINDERS & NOTES'}
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(240,185,11,0.1)] text-[#F0B90B] border border-[rgba(240,185,11,0.2)] normal-case font-normal">
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(79,142,247,0.1)] text-[#4F8EF7] border border-[rgba(79,142,247,0.2)] normal-case font-normal">
                   {lang === 'ZH' ? '基于报价单内容' : 'From quotation AI'}
                 </span>
               </div>
 
               {/* Loading state */}
               {hintLoading && (
-                <div className="flex items-center gap-2 px-3 py-3 rounded-xl bg-[rgba(240,185,11,0.05)] border border-[rgba(240,185,11,0.15)] mb-3">
+                <div className="flex items-center gap-2 px-3 py-3 rounded-xl bg-[rgba(79,142,247,0.05)] border border-[rgba(79,142,247,0.15)] mb-3">
                   <span className="text-[13px] animate-spin">⟳</span>
                   <p className="text-[11px] text-amber-700">
                     {lang === 'ZH' ? 'AI正在分析报价单内容...' : 'AI analyzing quotation content...'}
@@ -216,7 +216,7 @@ export function TaskDetailPanel({
               {/* AI quotation summary */}
               {aiHint?.quotationNotes && (
                 <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl mb-2 border"
-                  style={{ background: 'rgba(240,185,11,0.05)', borderColor: 'rgba(240,185,11,0.2)' }}>
+                  style={{ background: 'rgba(79,142,247,0.05)', borderColor: 'rgba(79,142,247,0.2)' }}>
                   <span className="text-[13px] flex-shrink-0">📋</span>
                   <p className="text-[11px] text-amber-800 leading-relaxed">{aiHint.quotationNotes}</p>
                 </div>
@@ -251,7 +251,7 @@ export function TaskDetailPanel({
                         }`}
                       >
                         <span className="flex-shrink-0 text-[14px] mt-0.5">{checked ? '✅' : '🛒'}</span>
-                        <span className={`text-[#3D4A60] leading-snug ${checked ? 'line-through opacity-60' : ''}`}>
+                        <span className={`text-rs-text2 leading-snug ${checked ? 'line-through opacity-60' : ''}`}>
                           {item}
                         </span>
                       </button>
@@ -263,7 +263,7 @@ export function TaskDetailPanel({
               {/* Fallback: static hint while AI loads or if no quotation items match */}
               {!hintLoading && !aiHint && staticHint && (
                 <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl mb-4 border"
-                  style={{ background: 'rgba(240,185,11,0.06)', borderColor: 'rgba(240,185,11,0.2)' }}>
+                  style={{ background: 'rgba(79,142,247,0.06)', borderColor: 'rgba(79,142,247,0.2)' }}>
                   <span className="text-[13px] flex-shrink-0">💡</span>
                   <p className="text-[11px] text-amber-800 leading-relaxed">{staticHint}</p>
                 </div>
@@ -290,7 +290,7 @@ export function TaskDetailPanel({
                         }`}
                       >
                         <span className="flex-shrink-0 text-[14px] mt-0.5">{checked ? '✅' : (iconMap[item.type] || '📋')}</span>
-                        <span className={`text-[#3D4A60] ${checked ? 'line-through opacity-60' : ''}`}>
+                        <span className={`text-rs-text2 ${checked ? 'line-through opacity-60' : ''}`}>
                           {lang === 'ZH' ? item.text_zh : item.text}
                         </span>
                       </button>
@@ -304,7 +304,7 @@ export function TaskDetailPanel({
           {/* No quotation — show static checklist */}
           {relatedItems.length === 0 && staticChecklist.length > 0 && (
             <>
-              <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-[#6B7A94] mb-2">
+              <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-rs-text3 mb-2">
                 🛠 {lang === 'ZH' ? '开工前准备事项' : 'PREP CHECKLIST'}
               </div>
               <div className="space-y-1.5 mb-4">
@@ -323,7 +323,7 @@ export function TaskDetailPanel({
                         checked ? 'bg-[rgba(22,163,74,0.08)] border-[rgba(22,163,74,0.25)]' : bgMap[item.type] || bgMap.info
                       }`}>
                       <span className="flex-shrink-0 text-[14px] mt-0.5">{checked ? '✅' : (iconMap[item.type] || '📋')}</span>
-                      <span className={`text-[#3D4A60] ${checked ? 'line-through opacity-60' : ''}`}>
+                      <span className={`text-rs-text2 ${checked ? 'line-through opacity-60' : ''}`}>
                         {lang === 'ZH' ? item.text_zh : item.text}
                       </span>
                     </button>
@@ -336,21 +336,21 @@ export function TaskDetailPanel({
           {/* Quotation items from the quotation */}
           {relatedItems.length > 0 && (
             <>
-              <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-[#6B7A94] mb-2 flex items-center gap-2">
+              <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-rs-text3 mb-2 flex items-center gap-2">
                 {lang === 'ZH' ? '报价单明细' : 'QUOTATION ITEMS'}
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(240,185,11,0.1)] text-[#F0B90B] border border-[rgba(240,185,11,0.2)] normal-case font-normal">
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(79,142,247,0.1)] text-[#4F8EF7] border border-[rgba(79,142,247,0.2)] normal-case font-normal">
                   {relatedItems.length} 项
                 </span>
               </div>
               <div className="mb-4 space-y-1.5">
                 {relatedItems.slice(0, 10).map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-2.5 px-3 py-2 rounded-lg bg-[rgba(240,185,11,0.04)] border border-[rgba(240,185,11,0.12)] text-[12px]">
-                    <span className="w-[17px] h-[17px] rounded flex-shrink-0 border border-[rgba(240,185,11,0.3)] flex items-center justify-center text-[9px] text-[#F0B90B] mt-0.5 font-bold">
+                  <div key={idx} className="flex items-start gap-2.5 px-3 py-2 rounded-lg bg-[rgba(79,142,247,0.04)] border border-[rgba(79,142,247,0.12)] text-[12px]">
+                    <span className="w-[17px] h-[17px] rounded flex-shrink-0 border border-[rgba(79,142,247,0.3)] flex items-center justify-center text-[9px] text-[#4F8EF7] mt-0.5 font-bold">
                       {idx + 1}
                     </span>
-                    <span className="flex-1 text-[#3D4A60] leading-snug">{item.name}</span>
+                    <span className="flex-1 text-rs-text2 leading-snug">{item.name}</span>
                     {item.total > 0 && (
-                      <span className="font-mono text-[11px] text-[#F0B90B] whitespace-nowrap flex-shrink-0">
+                      <span className="font-mono text-[11px] text-[#4F8EF7] whitespace-nowrap flex-shrink-0">
                         {region === 'SG' ? 'SGD' : 'RM'} {item.total.toLocaleString()}
                       </span>
                     )}
@@ -363,19 +363,19 @@ export function TaskDetailPanel({
           {/* Sub-tasks */}
           {task.subtasks.length > 0 && (
             <>
-              <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-[#6B7A94] mb-1">
+              <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-rs-text3 mb-1">
                 {lang === 'ZH' ? '施工步骤' : 'WORK STEPS'}
               </div>
               <div className="space-y-0 mb-4">
                 {task.subtasks.map((sub) => (
-                  <div key={sub.id} className="flex items-start gap-2 py-2 border-b border-[#D8DCE8] last:border-b-0">
+                  <div key={sub.id} className="flex items-start gap-2 py-2 border-b border-rs-border last:border-b-0">
                     <button
                       onClick={() => onSubtaskToggle(sub.id)}
                       className={`w-[17px] h-[17px] rounded flex-shrink-0 border-[1.5px] flex items-center justify-center text-[10px] mt-0.5 transition-all ${
-                        sub.completed ? 'bg-[#00C9A7] border-[#00C9A7] text-[#1B2336]' : 'bg-[#FAFBFC] border-[#D8DCE8] text-transparent'
+                        sub.completed ? 'bg-[#00C9A7] border-[#00C9A7] text-rs-text' : 'bg-[#FAFBFC] border-rs-border text-transparent'
                       }`}
                     >✓</button>
-                    <span className={`text-[12px] leading-relaxed ${sub.completed ? 'text-[#6B7A94] line-through' : 'text-[#3D4A60]'}`}>
+                    <span className={`text-[12px] leading-relaxed ${sub.completed ? 'text-rs-text3 line-through' : 'text-rs-text2'}`}>
                       {lang === 'ZH' && sub.name_zh ? sub.name_zh : sub.name}
                     </span>
                   </div>
@@ -387,7 +387,7 @@ export function TaskDetailPanel({
           {/* Dependencies */}
           {task.dependencies.length > 0 && (
             <>
-              <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-[#6B7A94] mb-2">
+              <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-rs-text3 mb-2">
                 {lang === 'ZH' ? '前置工序' : 'DEPENDENCIES'}
               </div>
               <div className="flex flex-wrap gap-1.5 mb-4">
@@ -395,7 +395,7 @@ export function TaskDetailPanel({
                   const depPhase = depId.replace(`${task.project_id}-`, '');
                   const depPhaseData = getPhaseById(depPhase);
                   return (
-                    <span key={depId} className="px-2.5 py-1 rounded-full text-[10px] font-semibold border border-[#D8DCE8] text-[#6B7A94] bg-[#FAFBFC]">
+                    <span key={depId} className="px-2.5 py-1 rounded-full text-[10px] font-semibold border border-rs-border text-rs-text3 bg-[#FAFBFC]">
                       {depPhaseData ? (lang === 'ZH' ? depPhaseData.name_zh : depPhaseData.name) : depPhase}
                     </span>
                   );

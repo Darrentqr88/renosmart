@@ -65,11 +65,29 @@ function workerInitials(name: string) {
   return name.slice(0, 2).toUpperCase();
 }
 
-const AVATAR_COLORS = ['#F0B90B','#3B82F6','#10B981','#8B5CF6','#F97316','#EC4899','#14B8A6','#EF4444'];
+const AVATAR_COLORS = ['#4F8EF7','#3B82F6','#10B981','#8B5CF6','#F97316','#EC4899','#14B8A6','#EF4444'];
 function avatarColor(id: string) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffffffff;
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+
+/* Auto-generate vibrant colors for each task based on its name */
+const TASK_PALETTE = [
+  '#4F8EF7', '#8B5CF6', '#EC4899', '#F97316', '#FBBF24',
+  '#10B981', '#06B6D4', '#EF4444', '#84CC16', '#6366F1',
+  '#F472B6', '#14B8A6', '#E11D48', '#0EA5E9', '#A855F7',
+  '#22C55E', '#FB923C', '#3B82F6', '#D946EF', '#F59E0B',
+];
+function autoTaskColor(name: string, index: number): string {
+  // Use a combination of name hash and index for maximum variety
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 37 + name.charCodeAt(i)) & 0xffffffff;
+  return TASK_PALETTE[(Math.abs(h) + index) % TASK_PALETTE.length];
+}
+/* Always auto-generate vibrant color from task name for visual variety */
+function resolveTaskColor(task: GanttTask, index: number): string {
+  return autoTaskColor(task.name, index);
 }
 
 export function GanttChart({
@@ -180,7 +198,7 @@ export function GanttChart({
   const getBarStyle = (t: GanttTask): React.CSSProperties => {
     const ts = t.taskStatus;
     if (ts === 'pending')   return { opacity: 0.55 };
-    if (ts === 'completed') return { opacity: 1, background: '#16a34a', boxShadow: 'inset 0 0 0 1.5px rgba(0,0,0,0.15)' };
+    if (ts === 'completed') return { opacity: 1, background: 'var(--rs-green, #16a34a)', boxShadow: 'inset 0 0 0 1.5px rgba(0,0,0,0.15)' };
     // confirmed or no status — normal color
     const past = isPast(t);
     const active = isActive(t);
@@ -247,10 +265,10 @@ export function GanttChart({
         {/* ── Project header bar ── */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '6px 8px 6px 0', borderBottom: '1px solid #e5e7eb', marginBottom: 2,
+          padding: '6px 8px 6px 0', borderBottom: '1px solid var(--rs-border2, #e5e7eb)', marginBottom: 2,
         }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', paddingLeft: LABEL_WIDTH + 4 }}>
-            {projectName ? `${projectName} · ` : ''}<span style={{ color: '#6B7A94' }}>施工进度</span>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--rs-text2, #374151)', paddingLeft: LABEL_WIDTH + 4 }}>
+            {projectName ? `${projectName} · ` : ''}<span style={{ color: 'var(--rs-text3)' }}>施工进度</span>
             {ganttStart && ganttEnd && (
               <span style={{ color: '#9CA3AF', fontWeight: 400, marginLeft: 8 }}>
                 {format(parseISO(ganttStart), 'dd MMM')} – {format(parseISO(ganttEnd), 'dd MMM')}
@@ -265,7 +283,7 @@ export function GanttChart({
               <button
                 onClick={onPublish}
                 style={{
-                  background: '#F0B90B', color: '#000', border: 'none',
+                  background: 'var(--accent)', color: '#000', border: 'none',
                   borderRadius: 8, padding: '4px 12px', fontSize: 11, fontWeight: 700,
                   cursor: 'pointer', whiteSpace: 'nowrap',
                 }}
@@ -283,7 +301,7 @@ export function GanttChart({
               const holDays = wk.days.filter(d => d.holidayName);
               const maxWorkdays = workOnSaturday && workOnSunday ? 7 : workOnSaturday || workOnSunday ? 6 : 5;
               const isLowWork = wk.workCount < maxWorkdays && wk.workCount > 0;
-              const workColor = wk.workCount < 3 ? '#E53935' : wk.workCount < maxWorkdays ? '#F97316' : '#6B7A94';
+              const workColor = wk.workCount < 3 ? 'var(--rs-red, #E53935)' : wk.workCount < maxWorkdays ? 'var(--rs-orange, #F97316)' : 'var(--rs-text3, #6B7A94)';
               const isHovered = hoveredWeek === i;
               return (
                 <div
@@ -305,12 +323,12 @@ export function GanttChart({
                   {isHovered && (
                     <div style={{
                       position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
-                      zIndex: 999, background: '#1B2336', color: '#fff',
+                      zIndex: 999, background: 'var(--rs-text, #1B2336)', color: '#fff',
                       borderRadius: 8, padding: '8px 10px', minWidth: 160,
                       boxShadow: '0 4px 16px rgba(0,0,0,0.25)', fontSize: 11, lineHeight: 1.6,
                       pointerEvents: 'none',
                     }}>
-                      <div style={{ fontWeight: 700, color: '#F0B90B', marginBottom: 4 }}>
+                      <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: 4 }}>
                         W{i + 1} · {format(wk.mon, 'dd MMM')} – {format(addDays(wk.mon, 6), 'dd MMM')}
                       </div>
                       {wk.days.map((d, di) => (
@@ -345,8 +363,8 @@ export function GanttChart({
           </div>
           {/* Right column header */}
           <div style={{
-            width: ASSIGN_WIDTH, flexShrink: 0, borderLeft: '1px solid #e5e7eb',
-            fontSize: 10, fontWeight: 700, color: '#6B7A94', textAlign: 'center',
+            width: ASSIGN_WIDTH, flexShrink: 0, borderLeft: '1px solid var(--rs-border2, #e5e7eb)',
+            fontSize: 10, fontWeight: 700, color: 'var(--rs-text3)', textAlign: 'center',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: '#fafafa',
           }}>
@@ -367,12 +385,13 @@ export function GanttChart({
             return groups.map((group) => (
               <div key={group.label}>
                 {/* Group header */}
-                <div style={{ display: 'flex', alignItems: 'center', marginLeft: LABEL_WIDTH, borderBottom: '1px solid rgba(240,185,11,0.12)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginLeft: LABEL_WIDTH, borderBottom: '1px solid rgba(79,142,247,0.12)' }}>
                   <div style={{ width: LABEL_WIDTH, fontSize: 10, fontWeight: 700, color: '#4a5a6a', textTransform: 'uppercase', letterSpacing: 1.2, padding: '6px 0 6px 4px', flexShrink: 0, marginLeft: -LABEL_WIDTH }}>
                     {lang === 'ZH' ? group.labelZh : group.label}
                   </div>
                 </div>
-                {group.items.map((task) => {
+                {group.items.map((task, taskIdx) => {
+            const tColor   = resolveTaskColor(task, taskIdx);
             const active   = isActive(task);
             const parallel = isParallelTask(task);
             const bLeft    = barLeft(task);
@@ -381,7 +400,7 @@ export function GanttChart({
             const isHov    = hoveredTask === task.id;
             const ts       = task.taskStatus;
 
-            const labelColor = ts === 'completed' ? '#16a34a' : ts === 'confirmed' ? '#F0B90B' : active ? '#F0B90B' : '#6B7A94';
+            const labelColor = ts === 'completed' ? 'var(--rs-green, #16a34a)' : ts === 'confirmed' ? 'var(--accent)' : active ? 'var(--accent)' : 'var(--rs-text3)';
             const prefix     = ts === 'completed' ? '✓ ' : active ? '▶ ' : '';
 
             const assignedWorkerIds = task.assigned_workers || [];
@@ -405,19 +424,20 @@ export function GanttChart({
                       <button
                         onClick={(e) => { e.stopPropagation(); onStatusToggle(task.id); }}
                         title={lang === 'ZH' ? '点击切换状态' : 'Click to cycle status'}
+                        aria-label={`${lang === 'ZH' ? '切换状态' : 'Cycle status'}: ${task.name} (${ts || 'confirmed'})`}
                         style={{
                           flexShrink: 0,
                           width: 18, height: 18,
                           borderRadius: '50%',
                           border: ts === 'completed' ? '1.5px solid #16a34a'
                                 : ts === 'pending'   ? '1.5px solid #9CA3AF'
-                                : `1.5px solid ${task.color}`,
+                                : `1.5px solid ${tColor}`,
                           background: ts === 'completed' ? '#16a34a'
                                     : ts === 'pending'   ? 'transparent'
-                                    : `${task.color}22`,
+                                    : `${tColor}22`,
                           color: ts === 'completed' ? '#fff'
                                : ts === 'pending'   ? '#9CA3AF'
-                               : task.color,
+                               : tColor,
                           fontSize: 10, fontWeight: 700,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           cursor: 'pointer', transition: 'all 0.18s',
@@ -453,6 +473,7 @@ export function GanttChart({
                     <div
                       key={si}
                       className={`rs-gantt-stripe${s.holiday ? ' stripe-holiday' : ' stripe-weekend'}`}
+                      aria-hidden="true"
                       style={{ left: `${s.left.toFixed(3)}%`, width: `${s.width.toFixed(3)}%` }}
                     />
                   ))}
@@ -464,7 +485,7 @@ export function GanttChart({
                     style={{
                       left:       `${bLeft.toFixed(3)}%`,
                       width:      `${bWidth.toFixed(3)}%`,
-                      background: barStyle.background || task.color,
+                      background: barStyle.background || tColor,
                       opacity:    barStyle.opacity,
                       cursor:     dragging ? 'grabbing' : 'grab',
                       boxShadow:  barStyle.boxShadow || (task.is_critical ? 'inset 0 0 0 1.5px rgba(27,35,54,0.6)' : undefined),
@@ -489,6 +510,7 @@ export function GanttChart({
                   {todayPct >= 0 && (
                     <div
                       className="rs-gantt-today-line"
+                      aria-hidden="true"
                       style={{ left: `${todayPct.toFixed(3)}%` }}
                       data-label={lang === 'ZH' ? '今天' : 'Today'}
                     />
@@ -498,6 +520,7 @@ export function GanttChart({
                   {deadlinePct >= 0 && (
                     <div
                       className="rs-gantt-deadline-line"
+                      aria-hidden="true"
                       style={{ left: `${deadlinePct.toFixed(3)}%` }}
                     />
                   )}
@@ -577,7 +600,7 @@ export function GanttChart({
                         cursor: 'pointer', whiteSpace: 'nowrap',
                         transition: 'all 0.15s',
                       }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#F0B90B'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#F0B90B'; }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#4F8EF7'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#4F8EF7'; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#9CA3AF'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#D1D5DB'; }}
                     >
                       + 分配

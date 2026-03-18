@@ -108,20 +108,20 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
 
   if (generating) {
     return (
-      <div className="bg-white border border-[#D8DCE8] rounded-xl p-10 text-center">
+      <div className="bg-white border border-rs-border rounded-xl p-10 text-center">
         <div className="flex items-center justify-center gap-2 mb-3">
           <div className="flex gap-1">
             {[0, 1, 2].map(i => (
-              <div key={i} className="w-1.5 h-1.5 rounded-full bg-[#F0B90B]" style={{
+              <div key={i} className="w-1.5 h-1.5 rounded-full bg-[#4F8EF7]" style={{
                 animation: `bounce 0.8s ease-in-out ${i * 0.15}s infinite`
               }} />
             ))}
           </div>
         </div>
-        <p className="text-[15px] font-semibold text-[#1B2336]">
+        <p className="text-[15px] font-semibold text-rs-text">
           {lang === 'ZH' ? '正在生成甘特图...' : 'Generating Gantt Chart...'}
         </p>
-        <p className="text-[13px] text-[#6B7A94] mt-1">
+        <p className="text-sm text-rs-text3 mt-1">
           {lang === 'ZH' ? '基于报价单范围和MY/SG施工流程' : 'Based on quotation scope and MY/SG construction workflow'}
         </p>
       </div>
@@ -155,11 +155,11 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
   return (
     <>
       {/* ── Top Schedule Controls ── */}
-      <div className="bg-white border border-[#D8DCE8] rounded-xl shadow-sm mb-4 overflow-hidden">
+      <div className="bg-white border border-rs-border rounded-xl shadow-sm mb-4 overflow-hidden">
         <div className="px-4 py-3 flex items-center gap-4 flex-wrap">
           {/* Start Date */}
           <div>
-            <div className="text-[11px] text-[#6B7A94] font-semibold tracking-wide mb-1">Start Date</div>
+            <div className="text-xs text-rs-text3 font-semibold tracking-wide mb-1">Start Date</div>
             <input
               type="date"
               value={startDate}
@@ -167,51 +167,51 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
                 setStartDate(e.target.value);
                 setTimeout(() => generateTasks(), 0);
               }}
-              className="text-[12px] border border-[#D8DCE8] rounded-lg px-2.5 py-1.5 text-[#1B2336] bg-white focus:outline-none focus:border-[#F0B90B] transition-colors font-sans"
+              className="text-xs border border-rs-border rounded-lg px-2.5 py-1.5 text-rs-text bg-white focus:outline-none focus:border-[#4F8EF7] transition-colors font-sans"
             />
           </div>
 
           {/* Target Deadline */}
           <div>
-            <div className="text-[11px] text-[#6B7A94] font-semibold tracking-wide mb-1 flex items-center gap-1">
+            <div className="text-xs text-rs-text3 font-semibold tracking-wide mb-1 flex items-center gap-1">
               <span className="text-[#EF4444]">🎯</span> Target Deadline
             </div>
             <input
               type="date"
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
-              className="text-[12px] border border-[#D8DCE8] rounded-lg px-2.5 py-1.5 text-[#1B2336] bg-white focus:outline-none focus:border-[#F0B90B] transition-colors font-sans"
+              className="text-xs border border-rs-border rounded-lg px-2.5 py-1.5 text-rs-text bg-white focus:outline-none focus:border-[#4F8EF7] transition-colors font-sans"
             />
           </div>
 
           {/* Work Days */}
           <div>
-            <div className="text-[11px] text-[#6B7A94] font-semibold tracking-wide mb-1">Work Days</div>
+            <div className="text-xs text-rs-text3 font-semibold tracking-wide mb-1">Work Days</div>
             <div className="flex items-center gap-3">
-              <label className="flex items-center gap-1.5 text-[12px] text-[#3D4A60] cursor-pointer">
+              <label className="flex items-center gap-1.5 text-xs text-rs-text2 cursor-pointer">
                 <input type="checkbox" checked={workSat} onChange={(e) => setWorkSat(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-[#D8DCE8] accent-[#F0B90B]" />
+                  className="w-3.5 h-3.5 rounded border-rs-border accent-[#4F8EF7]" />
                 Sat
               </label>
-              <label className="flex items-center gap-1.5 text-[12px] text-[#3D4A60] cursor-pointer">
+              <label className="flex items-center gap-1.5 text-xs text-rs-text2 cursor-pointer">
                 <input type="checkbox" checked={workSun} onChange={(e) => setWorkSun(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-[#D8DCE8] accent-[#F0B90B]" />
+                  className="w-3.5 h-3.5 rounded border-rs-border accent-[#4F8EF7]" />
                 Sun
               </label>
             </div>
-            <div className="text-[9px] text-[#6B7A94] mt-0.5">Weekends excluded by default</div>
+            <div className="text-[10px] text-rs-text3 mt-0.5">Weekends excluded by default</div>
           </div>
 
           {/* Divider */}
-          <div className="w-px h-10 bg-[#D8DCE8]" />
+          <div className="w-px h-10 bg-rs-border" />
 
           {/* Summary */}
-          <div className="text-[13px]">
-            <div className="text-[#1B2336]">
+          <div className="text-sm">
+            <div className="text-rs-text">
               <strong>{calWeeks}</strong> {lang === 'ZH' ? '日历周' : 'calendar weeks'}
-              <span className="text-[#6B7A94] ml-1">(≈{calMonths} {lang === 'ZH' ? '个月' : 'months'})</span>
+              <span className="text-rs-text3 ml-1">(≈{calMonths} {lang === 'ZH' ? '个月' : 'months'})</span>
             </div>
-            <div className="text-[11px] text-[#6B7A94] mt-0.5">
+            <div className="text-xs text-rs-text3 mt-0.5">
               {projectEnd ? `${format(new Date(startDate), 'dd MMM')} → ${format(parseISO(projectEnd), 'dd MMM')}` : ''}
             </div>
           </div>
@@ -220,14 +220,14 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
           <div className="ml-auto flex items-center gap-2 flex-wrap">
             <button
               onClick={generateTasks}
-              className="flex items-center gap-1.5 px-4 py-2 text-[12px] font-bold rounded-lg bg-[#F0B90B] text-[#1B2336] hover:bg-[#F8D33A] transition-all shadow-sm border border-[rgba(240,185,11,0.3)]"
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg bg-[#4F8EF7] text-white hover:bg-[#3B7BE8] transition-all shadow-sm border border-[#4F8EF7]/30"
             >
               <Sparkles className="w-3.5 h-3.5" />
               AI {lang === 'ZH' ? '智能编排' : 'Schedule'}
             </button>
             <button
               onClick={() => setShowOverrideModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2 text-[12px] font-semibold text-[#3D4A60] border border-[#D8DCE8] rounded-lg bg-white hover:border-[#F0B90B] hover:text-[#C89B09] transition-all"
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-rs-text2 border border-rs-border rounded-lg bg-white hover:border-[#4F8EF7] hover:text-[#2563EB] transition-all"
             >
               <Pencil className="w-3.5 h-3.5" />
               Override Special Work Days
@@ -237,22 +237,22 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
       </div>
 
       {/* ── Gantt Card ── */}
-      <div className="bg-white border border-[#D8DCE8] rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white border border-rs-border rounded-xl shadow-sm overflow-hidden">
         {/* Gantt Header */}
-        <div className="px-4 py-3 border-b border-[#D8DCE8] flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-rs-border flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="bg-[#F0B90B] text-[#1B2336] text-[10px] font-bold tracking-[1.5px] px-2 py-0.5 rounded">GANTT</span>
-            <span className="text-[15px] font-semibold text-[#1B2336]">
+            <span className="bg-[#4F8EF7] text-white text-[10px] font-bold tracking-[1.5px] px-2 py-0.5 rounded">GANTT</span>
+            <span className="text-[15px] font-semibold text-rs-text">
               Construction Gantt Chart (Calendar Sync)
             </span>
           </div>
-          <span className="text-[12px] text-[#6B7A94]">
+          <span className="text-xs text-rs-text3">
             {projectEnd ? `${format(new Date(startDate), 'dd MMM')} – ${format(parseISO(projectEnd), 'dd MMM')}` : ''}
           </span>
         </div>
 
         {/* Instruction hint */}
-        <div className="px-4 py-2 bg-[rgba(96,165,250,0.04)] border-b border-[#D8DCE8] text-[11px] text-[#6B7A94]">
+        <div className="px-4 py-2 bg-[rgba(96,165,250,0.04)] border-b border-rs-border text-xs text-rs-text3">
           {lang === 'ZH'
             ? '💡 点击任意施工行查看细分内容和备料清单 · 拖拽条形图右边缘可调整工期 · 拖拽条形图主体可移动开始时间'
             : '💡 Click any task row for details & prep checklist · Drag bar right edge to resize · Drag bar body to move start date'}
@@ -271,9 +271,9 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
 
         {/* Holiday legend */}
         {holidaysInRange.length > 0 && (
-          <div className="px-4 py-2.5 border-t border-[#D8DCE8] flex flex-wrap gap-2 items-center">
+          <div className="px-4 py-2.5 border-t border-rs-border flex flex-wrap gap-2 items-center">
             {holidaysInRange.map(h => (
-              <span key={h.date} className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border border-[rgba(251,146,60,0.2)] bg-[rgba(251,146,60,0.1)] text-[#F97316]">
+              <span key={h.date} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border border-rs-orange/20 bg-rs-orange/10 text-rs-orange">
                 <span>🎌</span>
                 {lang === 'ZH' ? h.name_zh : h.name} {format(parseISO(h.date), 'MM-dd')}
               </span>
@@ -287,17 +287,17 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
         {onSave && (
           <button
             onClick={() => onSave?.(tasks)}
-            className="flex items-center gap-1.5 px-5 py-2.5 text-[13px] font-bold text-[#1B2336] bg-[#F0B90B] rounded-lg hover:bg-[#F8D33A] transition-all shadow-sm"
+            className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-bold text-rs-text bg-[#4F8EF7] rounded-lg hover:bg-[#3B7BE8] transition-all shadow-sm"
           >
             📁 {lang === 'ZH' ? '保存为项目' : 'Save to Project'}
           </button>
         )}
         <button
-          className="flex items-center gap-1.5 px-5 py-2.5 text-[13px] font-semibold text-[#3D4A60] border border-[#D8DCE8] rounded-lg bg-white hover:border-[#F0B90B] hover:text-[#C89B09] transition-all"
+          className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold text-rs-text2 border border-rs-border rounded-lg bg-white hover:border-[#4F8EF7] hover:text-[#2563EB] transition-all"
         >
           Export Excel Schedule
         </button>
-        <span className="ml-auto text-[11px] text-[#6B7A94]">
+        <span className="ml-auto text-xs text-rs-text3">
           {lang === 'ZH' ? '排好进度后保存，即可在项目列表中分配工人' : 'Save schedule to assign workers in project view'}
         </span>
       </div>
@@ -388,25 +388,25 @@ function OverrideModal({ tasks, startDate, projectEnd, onClose }: {
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white rounded-2xl border border-[#D8DCE8] w-full max-w-[480px] p-5 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-2xl border border-rs-border w-full max-w-[480px] p-5 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between mb-4">
-          <div className="text-[15px] font-bold text-[#1B2336]">
+          <div className="text-[15px] font-bold text-rs-text">
             <Pencil className="w-4 h-4 inline mr-2" />
             手动调整施工日
           </div>
-          <button onClick={onClose} className="w-7 h-7 rounded-full bg-[#F0F2F7] flex items-center justify-center text-[#6B7A94] hover:bg-[#D8DCE8] transition-colors text-sm">
+          <button onClick={onClose} className="w-7 h-7 rounded-full bg-rs-surface2 flex items-center justify-center text-rs-text3 hover:bg-rs-border transition-colors text-sm">
             ✕
           </button>
         </div>
-        <p className="text-[12px] text-[#6B7A94] mb-3">
+        <p className="text-xs text-rs-text3 mb-3">
           设定特殊日期是否施工（覆盖系统默认）。橙色 = 公共假期，灰色 = 周末。
         </p>
         <div className="flex-1 overflow-y-auto space-y-2 mb-4">
           {days.map((day, idx) => (
-            <div key={day.date} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border ${day.type === 'holiday' ? 'border-l-[3px] border-l-[rgba(251,146,60,0.5)] border-[#D8DCE8]' : 'border-l-[3px] border-l-[#D8DCE8] border-[#D8DCE8]'} bg-[#FAFBFC]`}>
+            <div key={day.date} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border ${day.type === 'holiday' ? 'border-l-[3px] border-l-rs-orange/50 border-rs-border' : 'border-l-[3px] border-l-rs-border border-rs-border'} bg-[#FAFBFC]`}>
               <div className="flex-1">
-                <div className="text-[12px] font-semibold text-[#1B2336]">{format(parseISO(day.date), 'EEE, dd MMM yyyy')}</div>
-                <div className="text-[11px] text-[#6B7A94]">{day.name}</div>
+                <div className="text-xs font-semibold text-rs-text">{format(parseISO(day.date), 'EEE, dd MMM yyyy')}</div>
+                <div className="text-xs text-rs-text3">{day.name}</div>
               </div>
               <button
                 onClick={() => {
@@ -415,8 +415,8 @@ function OverrideModal({ tasks, startDate, projectEnd, onClose }: {
                   setDays(updated);
                 }}
                 className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${day.work
-                  ? 'bg-[rgba(22,163,74,0.08)] border-[rgba(74,222,128,0.3)] text-[#16A34A]'
-                  : 'bg-[#F0F2F7] border-[#D8DCE8] text-[#6B7A94]'
+                  ? 'bg-rs-green/10 border-rs-green/30 text-rs-green'
+                  : 'bg-rs-surface2 border-rs-border text-rs-text3'
                 }`}
               >
                 {day.work ? 'WORK' : 'OFF'}
@@ -424,14 +424,14 @@ function OverrideModal({ tasks, startDate, projectEnd, onClose }: {
             </div>
           ))}
           {days.length === 0 && (
-            <p className="text-center text-[13px] text-[#6B7A94] py-6">No weekends or holidays in project range.</p>
+            <p className="text-center text-sm text-rs-text3 py-6">No weekends or holidays in project range.</p>
           )}
         </div>
         <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 px-4 py-2 text-[12px] font-semibold bg-[#F0B90B] text-[#1B2336] rounded-lg hover:bg-[#F8D33A] transition-all">
+          <button onClick={onClose} className="flex-1 px-4 py-2 text-xs font-semibold bg-[#4F8EF7] text-white rounded-lg hover:bg-[#3B7BE8] transition-all">
             保存调整
           </button>
-          <button onClick={onClose} className="px-4 py-2 text-[12px] font-semibold text-[#6B7A94] border border-[#D8DCE8] rounded-lg bg-white hover:bg-[#F0F2F7] transition-all">
+          <button onClick={onClose} className="px-4 py-2 text-xs font-semibold text-rs-text3 border border-rs-border rounded-lg bg-white hover:bg-rs-surface2 transition-all">
             取消
           </button>
         </div>

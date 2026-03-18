@@ -70,14 +70,14 @@ export function DesignerHeader({ profile }: DesignerHeaderProps) {
                 width: 26,
                 height: 26,
                 borderRadius: '50%',
-                background: 'rgba(240,185,11,0.12)',
-                border: '1px solid rgba(240,185,11,0.25)',
+                background: 'rgba(79,142,247,0.12)',
+                border: '1px solid rgba(79,142,247,0.25)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: 11,
                 fontWeight: 700,
-                color: 'var(--gold)',
+                color: 'var(--accent)',
               }}
             >
               {profile?.name?.[0]?.toUpperCase() || 'U'}

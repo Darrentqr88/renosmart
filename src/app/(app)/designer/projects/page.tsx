@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Search, Plus, MapPin, MoreVertical, Pencil, Trash2, Check, X } from 'lucide-react';
+import { Search, Plus, MapPin, MoreVertical, Pencil, Trash2, Check, X, FolderOpen } from 'lucide-react';
 
 export default function ProjectsListPage() {
   const router = useRouter();
@@ -17,6 +17,7 @@ export default function ProjectsListPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Menu state
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
@@ -50,10 +51,12 @@ export default function ProjectsListPage() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const filtered = projects.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.client_name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = projects
+    .filter(p => statusFilter === 'all' || p.status === statusFilter)
+    .filter(p =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.client_name.toLowerCase().includes(search.toLowerCase())
+    );
 
   const handleRenameStart = (project: Project, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -102,9 +105,43 @@ export default function ProjectsListPage() {
         </Button>
       </div>
 
-      <div className="relative max-w-sm mb-6">
+      <div className="relative max-w-sm mb-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search projects..." className="pl-9" />
+      </div>
+
+      {/* Status filter tabs */}
+      <div className="flex items-center gap-2 mb-4">
+        {['all', 'pending', 'active', 'completed'].map(s => (
+          <button key={s} onClick={() => setStatusFilter(s)}
+            className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
+              statusFilter === s
+                ? 'bg-gradient-to-r from-[#4F8EF7] via-[#8B5CF6] to-[#EC4899] text-white shadow-sm'
+                : 'bg-[#F3F4F8] text-[#4A4A6A] hover:bg-[#E2E4EE]'
+            }`}>
+            {s === 'all' ? `All (${projects.length})` : s.charAt(0).toUpperCase() + s.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Statistics summary */}
+      <div className="grid grid-cols-4 gap-3 mb-6">
+        <div className="bg-white rounded-xl border border-[#ECEEF5] p-4">
+          <div className="text-2xl font-bold text-[#1A1A2E]">{projects.length}</div>
+          <div className="text-xs text-[#8B8BA8]">Total Projects</div>
+        </div>
+        <div className="bg-white rounded-xl border border-[#ECEEF5] p-4">
+          <div className="text-2xl font-bold text-[#4F8EF7]">{projects.filter(p => p.status === 'active').length}</div>
+          <div className="text-xs text-[#8B8BA8]">Active</div>
+        </div>
+        <div className="bg-white rounded-xl border border-[#ECEEF5] p-4">
+          <div className="text-2xl font-bold text-[#22C55E]">{projects.filter(p => p.status === 'completed').length}</div>
+          <div className="text-xs text-[#8B8BA8]">Completed</div>
+        </div>
+        <div className="bg-white rounded-xl border border-[#ECEEF5] p-4">
+          <div className="text-2xl font-bold text-[#1A1A2E]">{formatCurrency(projects.reduce((s,p) => s + (p.contract_amount || 0), 0))}</div>
+          <div className="text-xs text-[#8B8BA8]">Total Value</div>
+        </div>
       </div>
 
       {/* Delete confirmation modal */}
@@ -136,8 +173,11 @@ export default function ProjectsListPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" ref={menuRef}>
           {filtered.map((project) => (
             <div key={project.id}
-              className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-all cursor-pointer relative"
+              className="bg-white rounded-xl border border-[#ECEEF5] overflow-hidden hover:shadow-md transition-all cursor-pointer relative group"
               onClick={() => renamingId !== project.id && router.push(`/designer/projects/${project.id}`)}>
+              {/* Gradient top decoration */}
+              <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #4F8EF7, #8B5CF6, #EC4899, #F97316)' }} />
+              <div className="p-5">
 
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0 pr-2">
@@ -152,11 +192,11 @@ export default function ProjectsListPage() {
                           if (e.key === 'Enter') handleRenameSave(project.id);
                           if (e.key === 'Escape') handleRenameCancel();
                         }}
-                        className="flex-1 min-w-0 text-sm font-semibold border border-[#F0B90B] rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#F0B90B]"
+                        className="flex-1 min-w-0 text-sm font-semibold border border-[#4F8EF7] rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#4F8EF7]"
                       />
                       <button onClick={e => handleRenameSave(project.id, e)}
-                        className="w-7 h-7 bg-[#F0B90B] rounded-lg flex items-center justify-center flex-shrink-0 hover:bg-[#d4a20a]">
-                        <Check className="w-3.5 h-3.5 text-black" />
+                        className="w-7 h-7 bg-[#4F8EF7] rounded-lg flex items-center justify-center flex-shrink-0 hover:bg-[#3B7BE8]">
+                        <Check className="w-3.5 h-3.5 text-white" />
                       </button>
                       <button onClick={handleRenameCancel}
                         className="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 hover:bg-gray-200">
@@ -212,18 +252,54 @@ export default function ProjectsListPage() {
               </div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs text-gray-500">Progress</span>
-                <span className="text-xs font-medium text-[#F0B90B]">{project.progress}%</span>
+                <span className="text-xs font-medium text-[#4F8EF7]">{project.progress}%</span>
               </div>
               <Progress value={project.progress} className="h-1.5 mb-3" />
               <div className="flex items-center justify-between text-sm">
                 <span className="font-semibold text-gray-900">{formatCurrency(project.contract_amount)}</span>
                 <span className="text-xs text-gray-400">{formatDate(project.updated_at)}</span>
               </div>
+              </div>
             </div>
           ))}
-          {filtered.length === 0 && (
-            <div className="col-span-full text-center py-16 text-gray-400">
-              No projects found
+          {filtered.length === 0 && !loading && (
+            <div className="col-span-full flex flex-col items-center justify-center py-20 px-8">
+              <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-[#4F8EF7]/10 via-[#8B5CF6]/10 to-[#EC4899]/10 flex items-center justify-center mb-6 border-2 border-dashed border-[#E2E4EE]">
+                <FolderOpen className="w-12 h-12 text-[#8B8BA8]" />
+              </div>
+              <h3 className="text-lg font-bold text-[#1A1A2E] mb-2">
+                {search ? '没有找到匹配的项目' : '还没有项目'}
+              </h3>
+              <p className="text-sm text-[#8B8BA8] mb-6 text-center max-w-sm">
+                {search ? '尝试不同的搜索关键词' : '上传报价单来创建你的第一个项目，AI 将自动分析并生成施工计划'}
+              </p>
+              {!search && (
+                <div className="flex items-center gap-6 mb-8">
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <div className="w-10 h-10 rounded-lg bg-[#4F8EF7]/10 flex items-center justify-center">
+                      <span className="text-lg">📄</span>
+                    </div>
+                    <span className="text-[10px] text-[#8B8BA8] max-w-[60px]">上传报价单</span>
+                  </div>
+                  <div className="text-[#E2E4EE]">→</div>
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <div className="w-10 h-10 rounded-lg bg-[#8B5CF6]/10 flex items-center justify-center">
+                      <span className="text-lg">🤖</span>
+                    </div>
+                    <span className="text-[10px] text-[#8B8BA8] max-w-[60px]">AI 分析</span>
+                  </div>
+                  <div className="text-[#E2E4EE]">→</div>
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <div className="w-10 h-10 rounded-lg bg-[#EC4899]/10 flex items-center justify-center">
+                      <span className="text-lg">📊</span>
+                    </div>
+                    <span className="text-[10px] text-[#8B8BA8] max-w-[60px]">自动甘特图</span>
+                  </div>
+                </div>
+              )}
+              <Button variant="gold" onClick={() => router.push('/designer/quotation')} className="gap-2">
+                <Plus className="w-4 h-4" /> {search ? '创建新项目' : '上传报价单开始'}
+              </Button>
             </div>
           )}
         </div>

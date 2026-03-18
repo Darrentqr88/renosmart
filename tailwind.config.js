@@ -48,8 +48,42 @@ module.exports = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        gold: '#F0B90B',
-        sidebar: '#0F1923',
+        /* Legacy alias — keeps old `bg-gold` references working during migration */
+        gold: {
+          DEFAULT: '#4F8EF7',
+          hover: '#3B7BE8',
+          light: '#EEF4FF',
+          dark: '#2563EB',
+        },
+        /* New colorful accent system */
+        accent: {
+          DEFAULT: '#4F8EF7',
+          hover: '#3B7BE8',
+          light: '#EEF4FF',
+          dark: '#2563EB',
+          purple: '#8B5CF6',
+          pink: '#EC4899',
+          orange: '#F97316',
+          yellow: '#FBBF24',
+        },
+        sidebar: '#FAFCFF',
+        rs: {
+          bg: '#F8F9FC',
+          surface: '#FFFFFF',
+          surface2: '#F3F4F8',
+          surface3: '#ECEEF5',
+          text: '#1A1A2E',
+          text2: '#4A4A6A',
+          text3: '#8B8BA8',
+          border: '#E2E4EE',
+          'border-light': '#ECEEF5',
+          separator: '#E2E4EE',
+          green: '#22C55E',
+          orange: '#F97316',
+          red: '#EF4444',
+          blue: '#4F8EF7',
+          purple: '#8B5CF6',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -57,9 +91,8 @@ module.exports = {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        sans: ['var(--font-dm-sans)', 'var(--font-geist-sans)', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-dm-mono)', 'var(--font-geist-mono)', 'monospace'],
-        serif: ['var(--font-cormorant)', 'Georgia', 'serif'],
+        sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', 'system-ui', 'sans-serif'],
+        mono: ['SF Mono', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
       keyframes: {
         'accordion-down': {

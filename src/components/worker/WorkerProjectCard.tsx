@@ -221,7 +221,7 @@ export default function WorkerProjectCard({
             <button
               onClick={handleCheckin}
               style={{ touchAction: 'manipulation' }}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#F0B90B] text-black rounded-xl text-sm font-semibold transition-colors active:scale-[0.97]"
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#4F8EF7] text-white rounded-xl text-sm font-semibold transition-colors active:scale-[0.97]"
             >
               <MapPin className="w-4 h-4" />
               Check In to Site
@@ -335,7 +335,7 @@ export default function WorkerProjectCard({
                   />
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full border-2 border-dashed border-gray-200 rounded-2xl py-10 flex flex-col items-center gap-3 hover:border-[#F0B90B]/60 hover:bg-[#F0B90B]/5 transition-colors"
+                    className="w-full border-2 border-dashed border-gray-200 rounded-2xl py-10 flex flex-col items-center gap-3 hover:border-[#4F8EF7]/60 hover:bg-[#4F8EF7]/5 transition-colors"
                   >
                     <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center">
                       <Camera className="w-6 h-6 text-amber-600" />
@@ -356,14 +356,14 @@ export default function WorkerProjectCard({
               {invoiceStep === 'scanning' && (
                 <div className="py-10 flex flex-col items-center gap-4">
                   <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center">
-                    <Loader2 className="w-8 h-8 text-[#F0B90B] animate-spin" />
+                    <Loader2 className="w-8 h-8 text-[#4F8EF7] animate-spin" />
                   </div>
                   <div className="text-center">
                     <p className="font-semibold text-gray-700 text-sm">AI 正在识别单据...</p>
                     <p className="text-xs text-gray-400 mt-1">通常需要 5-10 秒</p>
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                    <div className="bg-[#F0B90B] h-full rounded-full animate-pulse" style={{ width: '65%' }} />
+                    <div className="bg-[#4F8EF7] h-full rounded-full animate-pulse" style={{ width: '65%' }} />
                   </div>
                 </div>
               )}
@@ -377,7 +377,7 @@ export default function WorkerProjectCard({
                       <input
                         value={ocrResult.supplier || ''}
                         onChange={(e) => setOcrResult(p => p ? { ...p, supplier: e.target.value } : p)}
-                        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#F0B90B]"
+                        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#4F8EF7]"
                         placeholder="Supplier name"
                       />
                     </div>
@@ -387,7 +387,7 @@ export default function WorkerProjectCard({
                         type="date"
                         value={ocrResult.date || ''}
                         onChange={(e) => setOcrResult(p => p ? { ...p, date: e.target.value } : p)}
-                        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#F0B90B]"
+                        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#4F8EF7]"
                       />
                     </div>
                   </div>
@@ -424,7 +424,7 @@ export default function WorkerProjectCard({
                     </button>
                     <button
                       onClick={handleSaveInvoice}
-                      className="flex-1 py-3 bg-[#F0B90B] text-black rounded-2xl text-sm font-bold hover:bg-[#d9a50a] transition-colors"
+                      className="flex-1 py-3 bg-[#4F8EF7] text-white rounded-2xl text-sm font-bold hover:bg-[#4F8EF7]-hover transition-colors"
                     >
                       <Check className="w-4 h-4" /> Confirm Save
                     </button>
@@ -435,7 +435,7 @@ export default function WorkerProjectCard({
               {/* saving */}
               {invoiceStep === 'saving' && (
                 <div className="py-10 flex flex-col items-center gap-3">
-                  <Loader2 className="w-10 h-10 text-[#F0B90B] animate-spin" />
+                  <Loader2 className="w-10 h-10 text-[#4F8EF7] animate-spin" />
                   <p className="font-medium text-gray-700 text-sm">Saving to project...</p>
                 </div>
               )}

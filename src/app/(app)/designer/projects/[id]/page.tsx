@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
+import { useI18n } from '@/lib/i18n/context';
 
 type PaymentStatus = 'pending' | 'collected' | 'overdue';
 
@@ -80,6 +81,7 @@ export default function ProjectDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const supabase = createClient();
+  const { t } = useI18n();
 
   const [project, setProject] = useState<Project | null>(null);
   const [ganttTasks, setGanttTasks] = useState<GanttTask[]>([]);
@@ -102,7 +104,7 @@ export default function ProjectDetailPage() {
       const tab = params.get('tab');
       if (tab) return tab;
     }
-    return 'gantt';
+    return 'quotations';
   });
 
   // Gantt schedule controls
@@ -1002,20 +1004,26 @@ export default function ProjectDetailPage() {
       <Toaster />
       {/* Header + Client Info (merged into one bar) */}
       <div className="bg-white border-b border-gray-100 px-6 pt-4 pb-3">
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-1.5 text-xs text-gray-400 mb-2" aria-label="Breadcrumb">
+          <button onClick={() => router.push('/designer/projects')} className="hover:text-[#4F8EF7] transition-colors">Projects</button>
+          <span>/</span>
+          <span className="text-gray-700 font-medium truncate max-w-[200px]">{project?.name || 'Project'}</span>
+        </nav>
         {/* Row 1: back / title / status */}
         <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} className="p-2 rounded-lg hover:bg-gray-100 flex-shrink-0">
+          <button onClick={() => router.back()} className="p-2 rounded-lg hover:bg-gray-100 flex-shrink-0" aria-label="Go back">
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold text-gray-900 leading-tight">{project?.name || 'Project'}</h1>
           </div>
           <Badge className={`flex-shrink-0 ${
-            project?.status === 'active' ? 'bg-amber-100 text-amber-700' :
+            project?.status === 'active' ? 'bg-orange-100 text-orange-700' :
             project?.status === 'completed' ? 'bg-green-100 text-green-700' :
             'bg-blue-100 text-blue-700'
           }`}>
-            {project?.status === 'pending' ? '待开工' : project?.status === 'active' ? '在施工' : '已完工'}
+            {project?.status === 'pending' ? t.proj.statusPending : project?.status === 'active' ? t.proj.statusActive : t.proj.statusCompleted}
           </Badge>
         </div>
 
@@ -1029,25 +1037,25 @@ export default function ProjectDetailPage() {
                   <label className="text-[10px] text-gray-400 uppercase tracking-wide block mb-1">客户姓名</label>
                   <input value={editClientName} onChange={e => setEditClientName(e.target.value)}
                     placeholder="客户姓名"
-                    className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#F0B90B]" />
+                    className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#4F8EF7]" />
                 </div>
                 <div>
                   <label className="text-[10px] text-gray-400 uppercase tracking-wide block mb-1">手机号码</label>
                   <input value={editClientPhone} onChange={e => setEditClientPhone(e.target.value)}
                     placeholder="+60 12-345 6789"
-                    className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#F0B90B]" />
+                    className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#4F8EF7]" />
                 </div>
                 <div>
                   <label className="text-[10px] text-gray-400 uppercase tracking-wide block mb-1">电子邮件</label>
                   <input value={editClientEmail} onChange={e => setEditClientEmail(e.target.value)}
                     placeholder="email@example.com"
-                    className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#F0B90B]" />
+                    className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#4F8EF7]" />
                 </div>
                 <div>
                   <label className="text-[10px] text-gray-400 uppercase tracking-wide block mb-1">地址</label>
                   <input value={editClientAddress} onChange={e => setEditClientAddress(e.target.value)}
                     placeholder="施工地址"
-                    className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#F0B90B]" />
+                    className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#4F8EF7]" />
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
@@ -1056,7 +1064,7 @@ export default function ProjectDetailPage() {
                   取消
                 </button>
                 <button onClick={saveClientInfo}
-                  className="text-xs px-4 py-1 bg-[#F0B90B] text-black rounded-lg hover:bg-[#d4a20a] font-semibold">
+                  className="text-xs px-4 py-1 bg-[#4F8EF7] text-white rounded-lg hover:bg-[#3B7BE8] font-semibold">
                   ✓ 保存
                 </button>
               </div>
@@ -1077,8 +1085,8 @@ export default function ProjectDetailPage() {
               {/* Client name */}
               {project?.client_name && (
                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <div className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center">
-                    <User className="w-3 h-3 text-amber-600" />
+                  <div className="w-5 h-5 rounded-full bg-[#4F8EF7]/10 flex items-center justify-center">
+                    <User className="w-3 h-3 text-[#4F8EF7]" />
                   </div>
                   <span className="text-sm font-semibold text-gray-800">{project.client_name}</span>
                 </div>
@@ -1087,7 +1095,7 @@ export default function ProjectDetailPage() {
               {/* Phone */}
               {project?.client_phone && (
                 <a href={`tel:${project.client_phone}`}
-                  className="text-xs text-gray-500 hover:text-amber-600 transition-colors flex-shrink-0">
+                  className="text-xs text-gray-500 hover:text-[#4F8EF7] transition-colors flex-shrink-0">
                   📞 {project.client_phone}
                 </a>
               )}
@@ -1095,7 +1103,7 @@ export default function ProjectDetailPage() {
               {/* Email */}
               {project?.client_email && (
                 <a href={`mailto:${project.client_email}`}
-                  className="text-xs text-gray-500 hover:text-amber-600 transition-colors flex-shrink-0 hidden sm:block">
+                  className="text-xs text-gray-500 hover:text-[#4F8EF7] transition-colors flex-shrink-0 hidden sm:block">
                   ✉️ {project.client_email}
                 </a>
               )}
@@ -1120,7 +1128,7 @@ export default function ProjectDetailPage() {
                 }}
                 className="text-xs px-2.5 py-0.5 border border-gray-200 text-gray-400 rounded-md hover:text-gray-600 hover:border-gray-300 transition-colors flex-shrink-0"
               >
-                ✏️ 编辑
+                {`✏️ ${t.proj.edit}`}
               </button>
             </div>
           )}
@@ -1131,12 +1139,12 @@ export default function ProjectDetailPage() {
       <div className="bg-white border-b border-gray-100 px-6 py-3">
         <div className="grid grid-cols-4 gap-3">
           {[
-            { label: '合同总额', value: formatCurrency(revenue), sub: '来自报价单', color: '#1B2336' },
-            { label: '已录成本', value: formatCurrency(totalCost), sub: '来自单据', color: '#1B2336' },
-            { label: '毛利', value: formatCurrency(grossProfit), sub: '收入 − 成本', color: grossProfit >= 0 ? '#16A34A' : '#E53935' },
-            { label: '利润率', value: `${margin.toFixed(1)}%`, sub: margin >= 20 ? '健康' : margin >= 10 ? '一般' : revenue === 0 ? '—' : '偏低', color: revenue === 0 ? '#9CA3AF' : margin >= 20 ? '#16A34A' : margin >= 10 ? '#F0B90B' : '#E53935' },
-          ].map(({ label, value, sub, color }) => (
-            <div key={label} className="bg-gray-50 rounded-xl p-3 text-center">
+            { label: t.proj.contractTotal, value: formatCurrency(revenue), sub: t.proj.fromQuotation, color: '#3B82F6', bg: 'rgba(59,130,246,0.06)', borderColor: 'rgba(59,130,246,0.12)' },
+            { label: t.proj.recordedCost, value: formatCurrency(totalCost), sub: t.proj.fromReceipts, color: '#F97316', bg: 'rgba(249,115,22,0.06)', borderColor: 'rgba(249,115,22,0.12)' },
+            { label: t.proj.grossProfit, value: formatCurrency(grossProfit), sub: t.proj.revenueCost, color: grossProfit >= 0 ? '#22C55E' : '#EF4444', bg: grossProfit >= 0 ? 'rgba(34,197,94,0.06)' : 'rgba(239,68,68,0.06)', borderColor: grossProfit >= 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)' },
+            { label: t.proj.profitMargin, value: `${margin.toFixed(1)}%`, sub: margin >= 20 ? t.proj.healthy : margin >= 10 ? '一般' : revenue === 0 ? '—' : '偏低', color: revenue === 0 ? '#9CA3AF' : margin >= 20 ? '#22C55E' : margin >= 10 ? '#4F8EF7' : '#EF4444', bg: 'rgba(139,92,246,0.06)', borderColor: 'rgba(139,92,246,0.12)' },
+          ].map(({ label, value, sub, color, bg, borderColor }) => (
+            <div key={label} className="rounded-xl p-3 text-center" style={{ background: bg, border: `1px solid ${borderColor}` }}>
               <div className="text-xs text-gray-500 mb-1">{label}</div>
               <div className="font-bold text-sm" style={{ color }}>{value}</div>
               <div className="text-xs text-gray-400">{sub}</div>
@@ -1148,23 +1156,22 @@ export default function ProjectDetailPage() {
       {/* Tabs */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <div className="bg-white border-b border-gray-100 px-4" style={{ overflowX: 'auto', scrollbarWidth: 'none' }}>
-            <TabsList className="bg-transparent h-auto p-0 gap-1 flex-nowrap" style={{ display: 'flex', minWidth: 'max-content', padding: '8px 0' }}>
+          <div className="bg-white border-b border-gray-100 px-6" style={{ overflowX: 'auto', scrollbarWidth: 'none' }}>
+            <TabsList className="bg-transparent h-auto p-0 gap-1.5 w-full justify-start" style={{ display: 'flex', padding: '8px 0' }}>
               {[
-                { value: 'gantt',      label: '进度表', icon: BarChart2 },
-                { value: 'payments',   label: '分阶段付款', icon: CreditCard },
-                { value: 'photos',     label: '工地照片', icon: Camera },
-                { value: 'quotations', label: '报价单 & VO', icon: FileText },
-                { value: 'profit',     label: '利润', icon: TrendingUp },
+                { value: 'quotations', label: t.proj.quotationsVO, icon: FileText },
+                { value: 'gantt',      label: t.proj.gantt, icon: BarChart2 },
+                { value: 'payments',   label: t.proj.payments, icon: CreditCard },
+                { value: 'photos',     label: t.proj.photos, icon: Camera },
+                { value: 'profit',     label: t.proj.profit, icon: TrendingUp },
               ].map(({ value, label, icon: Icon }) => (
                 <TabsTrigger key={value} value={value}
                   className={`
-                    flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium flex-shrink-0 transition-all
+                    flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all
                     border border-transparent
                     data-[state=inactive]:text-gray-500 data-[state=inactive]:hover:text-gray-700 data-[state=inactive]:hover:bg-gray-50
-                    data-[state=active]:bg-[#F0B90B] data-[state=active]:text-black data-[state=active]:border-[#F0B90B] data-[state=active]:shadow-sm
-                  `}
-                  style={{ whiteSpace: 'nowrap' }}>
+                    data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#4F8EF7] data-[state=active]:via-[#8B5CF6] data-[state=active]:to-[#EC4899] data-[state=active]:text-white data-[state=active]:border-transparent data-[state=active]:shadow-md
+                  `}>
                   <Icon className="w-3.5 h-3.5" />
                   {label}
                 </TabsTrigger>
@@ -1177,9 +1184,9 @@ export default function ProjectDetailPage() {
 
             {/* ── Dirty banner (info only, no extra button) ── */}
             {isDirty && (
-              <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl mb-3">
-                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse flex-shrink-0" />
-                <p className="text-xs text-amber-700">
+              <div className="flex items-center gap-3 px-4 py-2.5 bg-[#4F8EF7]/5 border border-[#4F8EF7]/20 rounded-xl mb-3">
+                <span className="w-2 h-2 rounded-full bg-[#4F8EF7] animate-pulse flex-shrink-0" />
+                <p className="text-xs text-[#4A4A6A]">
                   <span className="font-semibold">进度已修改，尚未同步。</span>
                   完成分配工人后点击「保存并分配工人」按钮发布。
                 </p>
@@ -1214,7 +1221,7 @@ export default function ProjectDetailPage() {
                         type="date"
                         value={ganttStartDate}
                         onChange={e => setGanttStartDate(e.target.value)}
-                        className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:outline-none focus:border-[#F0B90B] bg-gray-50 w-36"
+                        className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:outline-none focus:border-[#4F8EF7] bg-gray-50 w-36"
                       />
                     </div>
 
@@ -1225,13 +1232,13 @@ export default function ProjectDetailPage() {
                         <label className="flex items-center gap-1 text-xs text-gray-600 cursor-pointer select-none">
                           <input type="checkbox" checked={workOnSaturday}
                             onChange={e => setWorkOnSaturday(e.target.checked)}
-                            className="accent-[#F0B90B] w-3.5 h-3.5" />
+                            className="accent-[#4F8EF7] w-3.5 h-3.5" />
                           周六
                         </label>
                         <label className="flex items-center gap-1 text-xs text-gray-600 cursor-pointer select-none">
                           <input type="checkbox" checked={workOnSunday}
                             onChange={e => setWorkOnSunday(e.target.checked)}
-                            className="accent-[#F0B90B] w-3.5 h-3.5" />
+                            className="accent-[#4F8EF7] w-3.5 h-3.5" />
                           周日
                         </label>
                         <span className="text-[10px] text-gray-400">默认排除周末</span>
@@ -1247,16 +1254,16 @@ export default function ProjectDetailPage() {
                         type="date"
                         value={ganttDeadline}
                         onChange={e => setGanttDeadline(e.target.value)}
-                        className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:outline-none focus:border-[#F0B90B] bg-gray-50 w-36"
+                        className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:outline-none focus:border-[#4F8EF7] bg-gray-50 w-36"
                       />
                     </div>
 
                     {/* AI Duration Summary + Deadline status */}
                     {calDays > 0 && (
-                      <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-100 rounded-xl">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-[#4F8EF7]/5 border border-[#4F8EF7]/15 rounded-xl">
                         <div>
-                          <div className="text-sm font-bold text-amber-800">{calWeeks} 日历周 <span className="text-xs font-normal text-amber-600">(≈{calMonths}个月)</span></div>
-                          <div className="text-[11px] text-amber-600">{fmtDate(gStart)} → {fmtDate(gEnd)}</div>
+                          <div className="text-sm font-bold text-[#1A1A2E]">{calWeeks} 日历周 <span className="text-xs font-normal text-[#4A4A6A]">(≈{calMonths}个月)</span></div>
+                          <div className="text-[11px] text-[#4F8EF7]">{fmtDate(gStart)} → {fmtDate(gEnd)}</div>
                           {ganttDeadline && (() => {
                             const deadlineDays = Math.ceil((new Date(ganttDeadline).getTime() - new Date(gStart).getTime()) / 86400000) + 1;
                             const diff = deadlineDays - calDays;
@@ -1308,20 +1315,21 @@ export default function ProjectDetailPage() {
                             await regenerateAndSaveGantt(activeQ?.parsed_items, ganttStartDate || undefined, activeQ?.analysis_result?.ganttParams);
                             toast({ title: '✅ 进度表已更新', description: '已根据报价单智能重新排程' });
                           }}
-                          className="text-xs px-3 py-1.5 bg-[#F0B90B]/10 text-amber-700 border border-[#F0B90B]/30 rounded-lg hover:bg-[#F0B90B]/20 transition-colors whitespace-nowrap flex items-center gap-1"
+                          className="text-xs px-3 py-1.5 bg-[#4F8EF7]/10 text-[#4F8EF7] border border-[#4F8EF7]/30 rounded-lg hover:bg-[#4F8EF7]/20 transition-colors whitespace-nowrap flex items-center gap-1"
                         >
                           ✨ 根据报价重新排程
                         </button>
                       )}
                       {ganttStartDate && !(quotationVersions.find(q => q.is_active)?.parsed_items) && (
                         <button onClick={handleRegenerateGantt}
-                          className="text-xs px-3 py-1.5 bg-[#F0B90B]/10 text-amber-700 border border-[#F0B90B]/30 rounded-lg hover:bg-[#F0B90B]/20 transition-colors whitespace-nowrap flex items-center gap-1">
+                          className="text-xs px-3 py-1.5 bg-[#4F8EF7]/10 text-[#4F8EF7] border border-[#4F8EF7]/30 rounded-lg hover:bg-[#4F8EF7]/20 transition-colors whitespace-nowrap flex items-center gap-1">
                           ✨ AI 重新推算工期
                         </button>
                       )}
                       <button
                         onClick={() => setShowPublishModal(true)}
-                        className="text-xs px-3 py-1.5 bg-[#F0B90B] text-black rounded-lg hover:bg-[#d4a20a] font-semibold whitespace-nowrap flex items-center gap-1"
+                        className="text-xs px-3 py-1.5 text-white rounded-lg font-semibold whitespace-nowrap flex items-center gap-1 hover:brightness-110 shadow-sm"
+                        style={{ background: 'linear-gradient(135deg, #4F8EF7, #8B5CF6, #EC4899)' }}
                       >
                         📤 保存并分配工人
                       </button>
@@ -1410,11 +1418,11 @@ export default function ProjectDetailPage() {
                         </div>
                         <div className="text-xs text-green-600">已完成</div>
                       </div>
-                      <div className="bg-amber-50 rounded-xl p-3 text-center">
-                        <div className="text-xl font-bold text-amber-700">
+                      <div className="bg-[#8B5CF6]/5 rounded-xl p-3 text-center">
+                        <div className="text-xl font-bold text-[#8B5CF6]">
                           {ganttTasks.filter(t => (t.assigned_workers || []).length > 0).length}
                         </div>
-                        <div className="text-xs text-amber-600">已分配工人</div>
+                        <div className="text-xs text-[#8B8BA8]">已分配工人</div>
                       </div>
                     </div>
 
@@ -1453,7 +1461,7 @@ export default function ProjectDetailPage() {
 
                     <div className="flex gap-3">
                       <Button
-                        className="flex-1 bg-[#F0B90B] text-black hover:bg-[#d4a20a] font-semibold"
+                        className="flex-1 bg-[#4F8EF7] text-white hover:bg-[#3B7BE8] font-semibold"
                         onClick={handlePublish}
                         disabled={isPublishing}
                       >
@@ -1504,7 +1512,7 @@ export default function ProjectDetailPage() {
                 );
               };
 
-              const avatarColors = ['#F0B90B','#3B82F6','#10B981','#8B5CF6','#F97316','#EC4899'];
+              const avatarColors = ['#4F8EF7','#3B82F6','#10B981','#8B5CF6','#F97316','#EC4899'];
               const initials = (name: string) => {
                 const p = name.trim().split(/\s+/);
                 return p.length >= 2 ? (p[0][0]+p[p.length-1][0]).toUpperCase() : name.slice(0,2).toUpperCase();
@@ -1524,7 +1532,7 @@ export default function ProjectDetailPage() {
                     className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all border-b border-gray-50 hover:bg-gray-50 ${checked ? 'bg-amber-50' : ''}`}
                   >
                     {/* Checkbox */}
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${checked ? 'border-[#F0B90B] bg-[#F0B90B]' : 'border-gray-300'}`}>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${checked ? 'border-[#4F8EF7] bg-[#4F8EF7]' : 'border-gray-300'}`}>
                       {checked && <span className="text-black text-[10px] font-bold">✓</span>}
                     </div>
                     {/* Avatar */}
@@ -1576,7 +1584,7 @@ export default function ProjectDetailPage() {
                           placeholder="搜索姓名或电话..."
                           value={workerSearch}
                           onChange={e => setWorkerSearch(e.target.value)}
-                          className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#F0B90B] bg-gray-50"
+                          className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#4F8EF7] bg-gray-50"
                         />
                       </div>
                     </div>
@@ -1589,7 +1597,7 @@ export default function ProjectDetailPage() {
                           onClick={() => setWorkerTradeFilter(trade)}
                           className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${
                             workerTradeFilter === trade
-                              ? 'bg-[#F0B90B] border-[#F0B90B] text-black'
+                              ? 'bg-[#4F8EF7] border-[#4F8EF7] text-white'
                               : 'border-gray-200 text-gray-600 hover:border-gray-300'
                           }`}
                         >
@@ -1636,7 +1644,7 @@ export default function ProjectDetailPage() {
                     {/* Footer */}
                     <div className="px-5 py-4 border-t border-gray-100 flex gap-3">
                       <Button
-                        className="flex-1 bg-[#F0B90B] text-black hover:bg-[#d4a20a] font-semibold"
+                        className="flex-1 bg-[#4F8EF7] text-white hover:bg-[#3B7BE8] font-semibold"
                         onClick={confirmAssignWorkers}
                         disabled={selectedWorkerIds.length === 0}
                       >
@@ -1752,7 +1760,7 @@ export default function ProjectDetailPage() {
                     </div>
                     <button
                       onClick={savePayments}
-                      className="text-xs px-4 py-1.5 bg-[#F0B90B] text-black rounded-lg hover:bg-[#d4a20a] font-semibold flex items-center gap-1"
+                      className="text-xs px-4 py-1.5 bg-[#4F8EF7] text-white rounded-lg hover:bg-[#3B7BE8] font-semibold flex items-center gap-1"
                     >
                       💾 保存付款计划
                     </button>
@@ -1795,7 +1803,7 @@ export default function ProjectDetailPage() {
                                     type="number"
                                     value={pay.amount || ''}
                                     onChange={e => updatePhase(pay.id, 'amount', e.target.value)}
-                                    className="w-28 text-sm font-semibold text-right text-gray-900 border border-transparent hover:border-gray-200 focus:border-[#F0B90B] focus:outline-none rounded-lg px-2 py-1 bg-transparent"
+                                    className="w-28 text-sm font-semibold text-right text-gray-900 border border-transparent hover:border-gray-200 focus:border-[#4F8EF7] focus:outline-none rounded-lg px-2 py-1 bg-transparent"
                                     step="100"
                                     min="0"
                                   />
@@ -1809,7 +1817,7 @@ export default function ProjectDetailPage() {
                                   type="date"
                                   value={pay.due_date || ''}
                                   onChange={e => updatePhase(pay.id, 'due_date', e.target.value)}
-                                  className="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 focus:outline-none focus:border-[#F0B90B] bg-gray-50"
+                                  className="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 focus:outline-none focus:border-[#4F8EF7] bg-gray-50"
                                 />
                               </td>
                               <td className="px-4 py-2.5 text-center">
@@ -1848,7 +1856,7 @@ export default function ProjectDetailPage() {
                   {/* Add phase button */}
                   <button
                     onClick={addPhase}
-                    className="w-full py-3 rounded-xl border-2 border-dashed border-gray-200 text-sm text-gray-500 hover:border-[#F0B90B] hover:text-amber-600 transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-3 rounded-xl border-2 border-dashed border-gray-200 text-sm text-gray-500 hover:border-[#4F8EF7] hover:text-[#4F8EF7] transition-colors flex items-center justify-center gap-2"
                   >
                     <Plus className="w-4 h-4" /> 添加付款阶段
                   </button>
@@ -1922,7 +1930,7 @@ export default function ProjectDetailPage() {
 
           {/* Quotations + VO unified tab */}
           <TabsContent value="quotations" className="flex-1 p-6 overflow-y-auto mt-0">
-            <div className="max-w-3xl">
+            <div className="w-full">
 
               {/* ── Active Quotation + AI Audit Report (shown at top) ─────────── */}
               {(() => {
@@ -1943,22 +1951,22 @@ export default function ProjectDetailPage() {
                 const criticalCount = alerts.filter(a => a.level === 'critical').length;
                 const warnCount = alerts.filter(a => a.level === 'warning').length;
                 return (
-                  <div className="mb-6 bg-white rounded-2xl border-2 border-[#F0B90B] overflow-hidden shadow-sm">
+                  <div className="mb-6 bg-white rounded-2xl border-2 border-[#4F8EF7] overflow-hidden shadow-sm">
                     {/* Gold header bar */}
-                    <div className="bg-gradient-to-r from-[#F0B90B]/15 to-amber-50 px-5 py-3 border-b border-[#F0B90B]/20 flex items-center justify-between">
+                    <div className="bg-gradient-to-r from-[#4F8EF7]/15 to-blue-50 px-5 py-3 border-b border-[#4F8EF7]/20 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Star className="w-4 h-4 text-[#F0B90B]" />
-                        <span className="font-semibold text-gray-900 text-sm">Active Quotation</span>
-                        <Badge className="bg-[#F0B90B]/20 text-[#F0B90B] border-[#F0B90B]/30 text-xs">Active</Badge>
+                        <Star className="w-4 h-4 text-[#4F8EF7]" />
+                        <span className="font-semibold text-gray-900 text-sm">{t.proj.activeQuotation}</span>
+                        <Badge className="bg-[#4F8EF7]/20 text-[#4F8EF7] border-[#4F8EF7]/30 text-xs">Active</Badge>
                       </div>
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" className="text-xs h-7 gap-1"
                           onClick={() => { setViewingQuotation(aq); setQuotationViewTab('items'); }}>
-                          <Eye className="w-3 h-3" /> 查看品项
+                          <Eye className="w-3 h-3" /> {t.proj.viewItems}
                         </Button>
                         <Button variant="outline" size="sm" className="text-xs h-7 gap-1"
                           onClick={() => printQuotation(aq)}>
-                          <Printer className="w-3 h-3" /> 打印
+                          <Printer className="w-3 h-3" /> {t.proj.print}
                         </Button>
                         <Button
                           variant="outline"
@@ -1987,8 +1995,8 @@ export default function ProjectDetailPage() {
 
                     {/* File info row */}
                     <div className="px-5 py-3 flex items-center gap-4 border-b border-gray-50">
-                      <div className="w-9 h-9 rounded-lg bg-[#F0B90B]/15 flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-4 h-4 text-[#F0B90B]" />
+                      <div className="w-9 h-9 rounded-lg bg-[#4F8EF7]/15 flex items-center justify-center flex-shrink-0">
+                        <FileText className="w-4 h-4 text-[#4F8EF7]" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 text-sm truncate">{aq.file_name || 'Quotation'}</p>
@@ -2067,7 +2075,7 @@ export default function ProjectDetailPage() {
                             ))}
                             {alerts.filter(a => a.level !== 'tip').length > 4 && (
                               <button className="text-xs text-gray-400 hover:text-gray-600 pl-1" onClick={() => { setViewingQuotation(aq); setQuotationViewTab('audit'); }}>
-                                + {alerts.filter(a => a.level !== 'tip').length - 4} more — 查看完整报告 →
+                                + {alerts.filter(a => a.level !== 'tip').length - 4} {t.proj.more} — {t.proj.viewFullReport} →
                               </button>
                             )}
                           </div>
@@ -2076,15 +2084,15 @@ export default function ProjectDetailPage() {
                         {/* Missing items */}
                         {ar.missing && ar.missing.length > 0 && (
                           <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
-                            <span className="font-semibold">缺少项目：</span>{ar.missing.slice(0, 3).join(' · ')}
-                            {ar.missing.length > 3 && ` · +${ar.missing.length - 3} more`}
+                            <span className="font-semibold">{t.proj.missingItems}：</span>{ar.missing.slice(0, 3).join(' · ')}
+                            {ar.missing.length > 3 && ` · +${ar.missing.length - 3} ${t.proj.more}`}
                           </div>
                         )}
 
                         {/* View full audit link */}
-                        <button className="mt-3 text-xs text-[#F0B90B] hover:underline font-medium flex items-center gap-1"
+                        <button className="mt-3 text-xs text-[#4F8EF7] hover:underline font-medium flex items-center gap-1"
                           onClick={() => { setViewingQuotation(aq); setQuotationViewTab('audit'); }}>
-                          <FileText className="w-3 h-3" /> 查看完整 AI 审核报告 →
+                          <FileText className="w-3 h-3" /> {t.proj.viewFullReport} →
                         </button>
                       </div>
                     ) : (
@@ -2099,7 +2107,7 @@ export default function ProjectDetailPage() {
               {/* ── Quotation Versions (history list) ─────────────────────────── */}
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="font-semibold text-gray-900">Quotation Versions</h2>
+                  <h2 className="font-semibold text-gray-900">{t.proj.quotationVersions}</h2>
                   <p className="text-xs text-gray-400 mt-0.5">
                     设为 Active 的版本将自动重新生成进度表 · 删除 Active 版本将自动切换至上一版
                   </p>
@@ -2108,11 +2116,11 @@ export default function ProjectDetailPage() {
                   {quotationVersions.length >= 2 && (
                     <Button variant="outline" size="sm" onClick={() => setCompareMode(!compareMode)} className="gap-2">
                       <GitCompare className="w-4 h-4" />
-                      {compareMode ? 'Hide Compare' : 'Compare Versions'}
+                      {compareMode ? 'Hide Compare' : t.proj.compareVersions}
                     </Button>
                   )}
                   <Button variant="gold" size="sm" onClick={() => router.push('/designer/quotation')} className="gap-2">
-                    <Plus className="w-4 h-4" /> Upload New Version
+                    <Plus className="w-4 h-4" /> {t.proj.uploadNewVersion}
                   </Button>
                 </div>
               </div>
@@ -2120,10 +2128,10 @@ export default function ProjectDetailPage() {
               {quotationVersions.length === 0 ? null : (
                 <div className="space-y-3">
                   {quotationVersions.map((qv, idx) => (
-                    <div key={qv.id} className={`bg-white rounded-xl border-2 p-4 ${qv.is_active ? 'border-[#F0B90B]' : 'border-gray-100'}`}>
+                    <div key={qv.id} className={`bg-white rounded-xl border-2 p-4 ${qv.is_active ? 'border-[#4F8EF7]' : 'border-gray-100'}`}>
                       <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${qv.is_active ? 'bg-[#F0B90B]/20' : 'bg-gray-100'}`}>
-                          <FileText className={`w-4 h-4 ${qv.is_active ? 'text-[#F0B90B]' : 'text-gray-400'}`} />
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${qv.is_active ? 'bg-[#4F8EF7]/20' : 'bg-gray-100'}`}>
+                          <FileText className={`w-4 h-4 ${qv.is_active ? 'text-[#4F8EF7]' : 'text-gray-400'}`} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -2131,7 +2139,7 @@ export default function ProjectDetailPage() {
                               {qv.file_name || `Version ${quotationVersions.length - idx}`}
                             </span>
                             {qv.is_active && (
-                              <Badge className="bg-[#F0B90B]/20 text-[#F0B90B] border-[#F0B90B]/30 text-xs">
+                              <Badge className="bg-[#4F8EF7]/20 text-[#4F8EF7] border-[#4F8EF7]/30 text-xs">
                                 <Star className="w-3 h-3 mr-1" /> Active
                               </Badge>
                             )}
@@ -2147,7 +2155,7 @@ export default function ProjectDetailPage() {
                           </Button>
                           <Button variant="outline" size="sm" className="text-xs h-7 gap-1"
                             onClick={() => printQuotation(qv)}>
-                            <Printer className="w-3 h-3" /> 打印
+                            <Printer className="w-3 h-3" /> {t.proj.print}
                           </Button>
                           {!qv.is_active && (
                             <Button
@@ -2164,7 +2172,7 @@ export default function ProjectDetailPage() {
                                 toast({ title: '✅ 进度表已更新', description: `已根据「${qv.file_name || '新版报价'}」重新生成施工排程` });
                               }}
                             >
-                              Set Active
+                              {t.proj.setActive}
                             </Button>
                           )}
                           <Button
@@ -2201,7 +2209,7 @@ export default function ProjectDetailPage() {
               {compareMode && quotationVersions.length >= 2 && (
                 <div className="mt-4 bg-white rounded-xl border border-gray-100 p-4">
                   <h3 className="font-medium text-gray-800 mb-3 flex items-center gap-2 text-sm">
-                    <GitCompare className="w-4 h-4 text-[#F0B90B]" /> 版本对比
+                    <GitCompare className="w-4 h-4 text-[#4F8EF7]" /> 版本对比
                   </h3>
                   <table className="w-full text-sm">
                     <thead><tr className="bg-gray-50">
@@ -2214,8 +2222,8 @@ export default function ProjectDetailPage() {
                         const activeVersion = quotationVersions.find(v => v.is_active);
                         const diff = activeVersion ? qv.total_amount - activeVersion.total_amount : 0;
                         return (
-                          <tr key={qv.id} className={`border-t border-gray-50 ${qv.is_active ? 'bg-[#F0B90B]/5' : ''}`}>
-                            <td className="px-3 py-2">{qv.file_name || 'Quotation'}{qv.is_active && <span className="ml-2 text-xs text-[#F0B90B]">(Active)</span>}</td>
+                          <tr key={qv.id} className={`border-t border-gray-50 ${qv.is_active ? 'bg-[#4F8EF7]/5' : ''}`}>
+                            <td className="px-3 py-2">{qv.file_name || 'Quotation'}{qv.is_active && <span className="ml-2 text-xs text-[#4F8EF7]">(Active)</span>}</td>
                             <td className="px-3 py-2 text-right font-medium">{formatCurrency(qv.total_amount)}</td>
                             <td className={`px-3 py-2 text-right font-medium ${diff > 0 ? 'text-red-500' : diff < 0 ? 'text-green-600' : 'text-gray-400'}`}>
                               {qv.is_active ? '—' : diff > 0 ? `+${formatCurrency(diff)}` : diff < 0 ? formatCurrency(diff) : '—'}
@@ -2233,10 +2241,10 @@ export default function ProjectDetailPage() {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-                      <GitBranch className="w-4 h-4 text-[#F0B90B]" /> 变更单 VO
+                      <GitBranch className="w-4 h-4 text-[#4F8EF7]" /> {t.proj.voTitle}
                     </h2>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {variationOrders.filter(v => v.status === 'approved').length} 已批准 · {formatCurrency(variationOrders.filter(v => v.status === 'approved').reduce((s, v) => s + v.amount, 0))}
+                      {variationOrders.filter(v => v.status === 'approved').length} {t.proj.approved} · {formatCurrency(variationOrders.filter(v => v.status === 'approved').reduce((s, v) => s + v.amount, 0))}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -2250,10 +2258,10 @@ export default function ProjectDetailPage() {
                     >
                       {voScanState === 'scanning'
                         ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> 扫描中…</>
-                        : <><Upload className="w-3.5 h-3.5" /> 上传VO文件</>}
+                        : <><Upload className="w-3.5 h-3.5" /> {t.proj.uploadVO}</>}
                     </button>
                     <Button variant="gold" size="sm" onClick={() => setShowAddVO(true)} className="gap-2">
-                      <Plus className="w-4 h-4" /> 新增 VO
+                      <Plus className="w-4 h-4" /> {t.proj.newVO}
                     </Button>
                   </div>
                 </div>
@@ -2267,9 +2275,9 @@ export default function ProjectDetailPage() {
 
                 {/* Add VO form */}
                 {showAddVO && (
-                  <div className="bg-white rounded-xl border border-[#F0B90B]/30 p-5 mb-4 shadow-sm">
+                  <div className="bg-white rounded-xl border border-[#4F8EF7]/30 p-5 mb-4 shadow-sm">
                     <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2 text-sm">
-                      <GitBranch className="w-4 h-4 text-[#F0B90B]" /> 新建变更单
+                      <GitBranch className="w-4 h-4 text-[#4F8EF7]" /> 新建变更单
                     </h3>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="col-span-2">
@@ -2298,15 +2306,15 @@ export default function ProjectDetailPage() {
                 {variationOrders.length === 0 ? (
                   <div className="text-center py-10 bg-white rounded-xl border border-gray-100 border-dashed">
                     <GitBranch className="w-8 h-8 text-gray-200 mx-auto mb-2" />
-                    <p className="text-sm text-gray-400">暂无变更单</p>
-                    <p className="text-xs text-gray-400 mt-1">点击「新增 VO」或上传VO文件自动识别</p>
+                    <p className="text-sm text-gray-400">{t.proj.noVO}</p>
+                    <p className="text-xs text-gray-400 mt-1">{t.proj.noVOHint}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {variationOrders.map((vo) => {
                       const statusCfg = {
                         pending:  { icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', label: '待审批' },
-                        approved: { icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200', label: '已批准' },
+                        approved: { icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200', label: t.proj.approved },
                         rejected: { icon: XCircle, color: 'text-red-500', bg: 'bg-red-50', border: 'border-red-200', label: '已拒绝' },
                       }[vo.status] || { icon: Clock, color: 'text-gray-500', bg: 'bg-gray-50', border: 'border-gray-200', label: vo.status };
                       const StatusIcon = statusCfg.icon;
@@ -2360,7 +2368,7 @@ export default function ProjectDetailPage() {
                     ))}
                     <div className="flex justify-between mt-3 pt-3 border-t border-gray-100 font-semibold">
                       <span className="text-gray-900">合同修订总额</span>
-                      <span className="text-[#F0B90B] text-base">{formatCurrency(project?.contract_amount || 0)}</span>
+                      <span className="text-[#4F8EF7] text-base">{formatCurrency(project?.contract_amount || 0)}</span>
                     </div>
                   </div>
                 )}
@@ -2388,13 +2396,13 @@ export default function ProjectDetailPage() {
                         <h3 className="font-bold text-gray-900">📄 {viewingQuotation.file_name || '报价单'}</h3>
                         <p className="text-xs text-gray-400 mt-0.5">
                           {formatDate(viewingQuotation.created_at)} · 合计 {formatCurrency(viewingQuotation.total_amount)}
-                          {score !== null && <span className="ml-2 text-[#F0B90B] font-semibold">· AI 评分 {score}/100</span>}
+                          {score !== null && <span className="ml-2 text-[#4F8EF7] font-semibold">· AI 评分 {score}/100</span>}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => printQuotation(viewingQuotation)}
                           className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 flex items-center gap-1.5">
-                          <Printer className="w-3.5 h-3.5" /> 打印
+                          <Printer className="w-3.5 h-3.5" /> {t.proj.print}
                         </button>
                         <button onClick={() => { setViewingQuotation(null); setQuotationViewTab('items'); }}
                           className="p-2 rounded-xl hover:bg-gray-100">
@@ -2411,7 +2419,7 @@ export default function ProjectDetailPage() {
                       ].map(({ key, label }) => (
                         <button key={key}
                           onClick={() => setQuotationViewTab(key as 'items' | 'audit')}
-                          className={`text-xs font-medium px-4 py-2.5 border-b-2 transition-colors ${quotationViewTab === key ? 'border-[#F0B90B] text-[#c9980a]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                          className={`text-xs font-medium px-4 py-2.5 border-b-2 transition-colors ${quotationViewTab === key ? 'border-[#4F8EF7] text-[#4F8EF7]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                           {label}
                         </button>
                       ))}
@@ -2458,7 +2466,7 @@ export default function ProjectDetailPage() {
                             <tfoot className="bg-amber-50 border-t-2 border-amber-200">
                               <tr>
                                 <td colSpan={4} className="px-3 py-3 font-bold text-gray-900">合计</td>
-                                <td className="px-3 py-3 text-right font-bold text-[#F0B90B] text-base">
+                                <td className="px-3 py-3 text-right font-bold text-[#4F8EF7] text-base">
                                   RM {(viewingQuotation.total_amount || 0).toLocaleString('en-MY', { minimumFractionDigits: 2 })}
                                 </td>
                               </tr>
@@ -2485,8 +2493,8 @@ export default function ProjectDetailPage() {
                                     { label: '逻辑性', val: ar.score.logic, max: 100 },
                                     { label: '风险', val: ar.score.risk, max: 100 },
                                   ].map(({ label, val, gold }) => (
-                                    <div key={label} className={`rounded-xl p-3 text-center ${gold ? 'bg-[#F0B90B]/10 border-2 border-[#F0B90B]/30' : 'bg-gray-50 border border-gray-100'}`}>
-                                      <div className={`text-xl font-bold ${gold ? 'text-[#c9980a]' : val != null && val >= 70 ? 'text-green-600' : val != null && val >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
+                                    <div key={label} className={`rounded-xl p-3 text-center ${gold ? 'bg-[#4F8EF7]/10 border-2 border-[#4F8EF7]/30' : 'bg-gray-50 border border-gray-100'}`}>
+                                      <div className={`text-xl font-bold ${gold ? 'text-[#4F8EF7]' : val != null && val >= 70 ? 'text-green-600' : val != null && val >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
                                         {val ?? '—'}
                                       </div>
                                       <div className="text-[10px] text-gray-500 mt-0.5">{label}</div>
@@ -2567,7 +2575,7 @@ export default function ProjectDetailPage() {
               {/* Header row */}
               <div className="flex items-center justify-between">
                 <h2 className="font-semibold text-gray-900">利润分析 — {project?.name}</h2>
-                <Button size="sm" className="bg-[#F0B90B] text-black hover:bg-[#d9a50a] gap-2"
+                <Button size="sm" className="bg-[#4F8EF7] text-white hover:bg-[#3B7BE8] gap-2"
                   onClick={() => { setShowUploadModal(true); setUploadOcrState('idle'); setUploadOcrResult(null); setUploadOcrError(null); setUploadTrade(''); }}>
                   <Upload className="w-4 h-4" /> 上传单据
                 </Button>
@@ -2576,24 +2584,24 @@ export default function ProjectDetailPage() {
               {/* Summary cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white rounded-xl border border-gray-100 p-4">
-                  <p className="text-xs text-gray-500 mb-1">合同总额</p>
+                  <p className="text-xs text-gray-500 mb-1">{t.proj.contractTotal}</p>
                   <p className="text-lg font-bold text-gray-900">{formatCurrency(revenue)}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">来自报价单</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{t.proj.fromQuotation}</p>
                 </div>
                 <div className="bg-white rounded-xl border border-gray-100 p-4">
-                  <p className="text-xs text-gray-500 mb-1">已录成本</p>
+                  <p className="text-xs text-gray-500 mb-1">{t.proj.recordedCost}</p>
                   <p className="text-lg font-bold text-gray-900">{formatCurrency(totalCost)}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">来自单据</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{t.proj.fromReceipts}</p>
                 </div>
                 <div className={`rounded-xl border p-4 ${grossProfit >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
-                  <p className="text-xs text-gray-500 mb-1">毛利</p>
+                  <p className="text-xs text-gray-500 mb-1">{t.proj.grossProfit}</p>
                   <p className={`text-lg font-bold flex items-center gap-1 ${grossProfit >= 0 ? 'text-green-700' : 'text-red-600'}`}>
                     {grossProfit >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
                     {formatCurrency(Math.abs(grossProfit))}
                   </p>
                 </div>
                 <div className="bg-white rounded-xl border border-gray-100 p-4">
-                  <p className="text-xs text-gray-500 mb-1">利润率</p>
+                  <p className="text-xs text-gray-500 mb-1">{t.proj.profitMargin}</p>
                   <p className={`text-lg font-bold ${margin >= 20 ? 'text-green-600' : margin >= 10 ? 'text-yellow-600' : revenue === 0 ? 'text-gray-400' : 'text-red-500'}`}>
                     {revenue === 0 ? '—' : margin.toFixed(1) + '%'}
                   </p>
@@ -2615,7 +2623,7 @@ export default function ProjectDetailPage() {
                       <tr className="bg-gray-50">
                         <th className="text-left px-5 py-2.5 text-gray-500 font-medium">工种</th>
                         <th className="text-right px-4 py-2.5 text-gray-500 font-medium">报价金额</th>
-                        <th className="text-right px-4 py-2.5 text-gray-500 font-medium">已录成本</th>
+                        <th className="text-right px-4 py-2.5 text-gray-500 font-medium">{t.proj.recordedCost}</th>
                         <th className="text-right px-4 py-2.5 text-gray-500 font-medium">差额</th>
                       </tr>
                     </thead>
@@ -2773,7 +2781,7 @@ export default function ProjectDetailPage() {
                         <select
                           value={uploadTrade}
                           onChange={e => setUploadTrade(e.target.value)}
-                          className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-[#F0B90B]"
+                          className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-[#4F8EF7]"
                         >
                           <option value="">— 请选择工种 —</option>
                           {projectTrades.map(pt => (
@@ -2789,7 +2797,7 @@ export default function ProjectDetailPage() {
                           onChange={e => { const f = e.target.files?.[0]; if (f) handleDesignerFileSelect(f); }} />
                         <button
                           onClick={() => { if (!uploadTrade) { setUploadOcrError('请先选择工种'); return; } uploadFileRef.current?.click(); }}
-                          className="w-full border-2 border-dashed border-gray-200 rounded-2xl py-8 flex flex-col items-center gap-3 hover:border-[#F0B90B]/50 hover:bg-[#F0B90B]/5 transition-colors"
+                          className="w-full border-2 border-dashed border-gray-200 rounded-2xl py-8 flex flex-col items-center gap-3 hover:border-[#4F8EF7]/50 hover:bg-[#4F8EF7]/5 transition-colors"
                         >
                           <Upload className="w-8 h-8 text-gray-400" />
                           <div className="text-center">
@@ -2803,10 +2811,10 @@ export default function ProjectDetailPage() {
 
                     {uploadOcrState === 'scanning' && (
                       <div className="py-10 flex flex-col items-center gap-4">
-                        <Loader2 className="w-10 h-10 text-[#F0B90B] animate-spin" />
+                        <Loader2 className="w-10 h-10 text-[#4F8EF7] animate-spin" />
                         <p className="font-medium text-gray-700 text-sm">AI 正在识别单据...</p>
                         <div className="w-full bg-gray-100 rounded-full h-2">
-                          <div className="bg-[#F0B90B] h-2 rounded-full animate-pulse" style={{ width: '65%' }} />
+                          <div className="bg-[#4F8EF7] h-2 rounded-full animate-pulse" style={{ width: '65%' }} />
                         </div>
                       </div>
                     )}
@@ -2817,12 +2825,12 @@ export default function ProjectDetailPage() {
                           <div>
                             <label className="text-xs text-gray-500">供应商</label>
                             <input value={uploadOcrResult.supplier || ''} onChange={e => setUploadOcrResult(p => p ? { ...p, supplier: e.target.value } : p)}
-                              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:border-[#F0B90B]" placeholder="供应商" />
+                              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:border-[#4F8EF7]" placeholder="供应商" />
                           </div>
                           <div>
                             <label className="text-xs text-gray-500">日期</label>
                             <input type="date" value={uploadOcrResult.date || ''} onChange={e => setUploadOcrResult(p => p ? { ...p, date: e.target.value } : p)}
-                              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:border-[#F0B90B]" />
+                              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:border-[#4F8EF7]" />
                           </div>
                         </div>
                         <div>
@@ -2850,7 +2858,7 @@ export default function ProjectDetailPage() {
                           <button onClick={() => setShowUploadModal(false)}
                             className="flex-1 py-3 border border-gray-200 rounded-2xl text-sm text-gray-600 font-medium hover:bg-gray-50">取消</button>
                           <button onClick={handleDesignerSave} disabled={!uploadTrade}
-                            className="flex-1 py-3 bg-[#F0B90B] text-black rounded-2xl text-sm font-bold hover:bg-[#d9a50a] disabled:opacity-50">
+                            className="flex-1 py-3 bg-[#4F8EF7] text-white rounded-2xl text-sm font-bold hover:bg-[#3B7BE8] disabled:opacity-50">
                             ✓ 确认保存
                           </button>
                         </div>
@@ -2859,7 +2867,7 @@ export default function ProjectDetailPage() {
 
                     {uploadOcrState === 'saving' && (
                       <div className="py-10 flex flex-col items-center gap-4">
-                        <Loader2 className="w-10 h-10 text-[#F0B90B] animate-spin" />
+                        <Loader2 className="w-10 h-10 text-[#4F8EF7] animate-spin" />
                         <p className="font-medium text-gray-700 text-sm">正在保存...</p>
                       </div>
                     )}
@@ -2889,7 +2897,7 @@ export default function ProjectDetailPage() {
                         onClick={() => handlePrintReceipt(viewingReceipt)}
                         className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 rounded-xl text-sm text-gray-700 hover:bg-gray-200"
                       >
-                        <Printer className="w-4 h-4" /> 打印
+                        <Printer className="w-4 h-4" /> {t.proj.print}
                       </button>
                       <button onClick={() => setViewingReceipt(null)} className="p-2 rounded-xl hover:bg-gray-100">
                         <X className="w-4 h-4 text-gray-500" />

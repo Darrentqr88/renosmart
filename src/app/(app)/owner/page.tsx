@@ -53,7 +53,7 @@ export default function OwnerDashboard() {
             <div className="big-progress">
               <svg width="110" height="110" style={{ transform: 'rotate(-90deg)' }}>
                 <circle cx="55" cy="55" r="46" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" />
-                <circle cx="55" cy="55" r="46" fill="none" stroke="#F0B90B" strokeWidth="8"
+                <circle cx="55" cy="55" r="46" fill="none" stroke="var(--accent, #4F8EF7)" strokeWidth="8"
                   strokeDasharray={`${((project?.progress as number || 0) / 100) * 289} 289`}
                   strokeLinecap="round" />
               </svg>
@@ -89,7 +89,7 @@ export default function OwnerDashboard() {
                 { value: 'notifications', icon: Bell, label: '通知' },
               ].map(({ value, icon: Icon, label }) => (
                 <TabsTrigger key={value} value={value}
-                  className="flex flex-col items-center gap-0.5 rounded-none text-xs data-[state=active]:text-[#F0B90B] data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#F0B90B] h-full">
+                  className="flex flex-col items-center gap-0.5 rounded-none text-xs data-[state=active]:text-[#4F8EF7] data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#4F8EF7] h-full">
                   <Icon className="w-4 h-4" />
                   {label}
                 </TabsTrigger>
@@ -112,7 +112,7 @@ export default function OwnerDashboard() {
                       {['Site Measurement', 'Demolition', 'Tiling Works', 'Carpentry', 'Final Touch'].map((m, i) => (
                         <div key={m} className="flex items-center gap-3">
                           <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
-                            i < 2 ? 'bg-green-500 text-white' : i === 2 ? 'bg-[#F0B90B] text-black' : 'bg-gray-200 text-gray-400'
+                            i < 2 ? 'bg-green-500 text-white' : i === 2 ? 'bg-[#4F8EF7] text-white' : 'bg-gray-200 text-gray-400'
                           }`}>
                             {i < 2 ? '✓' : i + 1}
                           </div>

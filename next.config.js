@@ -6,6 +6,7 @@ const nextConfig = {
       { protocol: 'https', hostname: 'obwcntliainlbxuzfeew.supabase.co' },
     ],
   },
+  serverExternalPackages: ['stripe'],
   webpack: (config) => {
     config.resolve.alias.canvas = false;
     config.resolve.alias.encoding = false;

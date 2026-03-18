@@ -137,14 +137,14 @@ export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTa
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <Images className="w-5 h-5 text-[#F0B90B]" />
+              <Images className="w-5 h-5 text-[#4F8EF7]" />
               <h1 className="font-bold text-lg">Site Photos</h1>
             </div>
             <p className="text-white/50 text-xs mt-1">{photos.length} photos submitted</p>
           </div>
           <button
             onClick={() => setUploadOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#F0B90B] text-black rounded-xl text-sm font-semibold hover:bg-[#d9a50a] transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#4F8EF7] text-white rounded-xl text-sm font-semibold hover:bg-[#3B7BE8] transition-colors"
           >
             <Camera className="w-4 h-4" />
             Upload
@@ -153,7 +153,7 @@ export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTa
       </div>
 
       {/* Gallery */}
-      <div className="flex-1 overflow-y-auto bg-[#F7F8FA] p-4 overscroll-contain">
+      <div className="flex-1 overflow-y-auto bg-rs-bg p-4 overscroll-contain">
         {loadingPhotos ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />
@@ -208,7 +208,7 @@ export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTa
             {/* Modal header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <div className="flex items-center gap-2">
-                  <Camera className="w-4 h-4 text-[#F0B90B]" />
+                  <Camera className="w-4 h-4 text-[#4F8EF7]" />
                   <h3 className="font-bold text-gray-900">Upload Photo</h3>
                 </div>
               <button
@@ -234,7 +234,7 @@ export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTa
                       <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="w-full border-2 border-dashed border-gray-200 rounded-2xl py-8 flex flex-col items-center gap-2 hover:border-[#F0B90B]/50 hover:bg-[#F0B90B]/5 transition-colors"
+                        className="w-full border-2 border-dashed border-gray-200 rounded-2xl py-8 flex flex-col items-center gap-2 hover:border-[#4F8EF7]/50 hover:bg-[#4F8EF7]/5 transition-colors"
                       >
                         <Camera className="w-8 h-8 text-gray-400" />
                         <p className="text-sm font-medium text-gray-700">Take Photo / Select Image</p>
@@ -265,7 +265,7 @@ export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTa
                           onClick={() => setPhotoType(pt.value)}
                           className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all ${
                             photoType === pt.value
-                              ? 'bg-[#F0B90B] text-black'
+                              ? 'bg-[#4F8EF7] text-white'
                               : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                           }`}
                         >
@@ -281,7 +281,7 @@ export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTa
                     <select
                       value={selectedProjectId}
                       onChange={e => setSelectedProjectId(e.target.value)}
-                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:border-[#F0B90B]"
+                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:border-[#4F8EF7]"
                     >
                       <option value="">Select project...</option>
                       {projects.map(p => (
@@ -296,7 +296,7 @@ export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTa
                     <select
                       value={selectedTrade}
                       onChange={e => setSelectedTrade(e.target.value)}
-                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:border-[#F0B90B]"
+                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:border-[#4F8EF7]"
                     >
                       <option value="">Select trade...</option>
                       {WORKER_TRADES.map(t => (
@@ -312,7 +312,7 @@ export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTa
                       value={caption}
                       onChange={e => setCaption(e.target.value)}
                       placeholder="Describe the photo..."
-                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-[#F0B90B]"
+                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-[#4F8EF7]"
                     />
                   </div>
 
@@ -321,7 +321,7 @@ export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTa
                   <button
                     onClick={handleUpload}
                     disabled={!selectedFile || uploading}
-                    className="w-full py-3 bg-[#F0B90B] text-black rounded-2xl font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-[#d9a50a] transition-colors"
+                    className="w-full py-3 bg-[#4F8EF7] text-white rounded-2xl font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-[#3B7BE8] transition-colors"
                   >
                     {uploading ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</> : <><Upload className="w-4 h-4" /> Upload Photo</>}
                   </button>

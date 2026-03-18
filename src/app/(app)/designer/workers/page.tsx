@@ -131,8 +131,8 @@ export default function WorkersPage() {
           {workers.map((worker) => (
             <div key={worker.id} className="bg-white rounded-xl border border-gray-100 p-5">
               <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 rounded-full bg-[#F0B90B]/20 flex items-center justify-center">
-                  <span className="font-bold text-[#F0B90B]">{worker.name?.[0]?.toUpperCase() || 'W'}</span>
+                <div className="w-10 h-10 rounded-full bg-[#4F8EF7]/20 flex items-center justify-center">
+                  <span className="font-bold text-[#4F8EF7]">{worker.name?.[0]?.toUpperCase() || 'W'}</span>
                 </div>
                 <Badge className={worker.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}>
                   {worker.status}
@@ -176,7 +176,7 @@ export default function WorkersPage() {
                   {WORKER_TRADES.map(trade => (
                     <button key={trade} type="button" onClick={() => toggleTrade(trade)}
                       className={`px-3 py-1.5 rounded-full text-xs border transition-all ${
-                        selectedTrades.includes(trade) ? 'bg-[#F0B90B] text-black border-[#F0B90B]' : 'border-gray-200 text-gray-600 hover:border-gray-400'
+                        selectedTrades.includes(trade) ? 'bg-[#4F8EF7] text-white border-[#4F8EF7]' : 'border-gray-200 text-gray-600 hover:border-gray-400'
                       }`}>
                       {trade}
                     </button>

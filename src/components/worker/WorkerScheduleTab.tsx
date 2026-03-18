@@ -49,7 +49,7 @@ export default function WorkerScheduleTab({ tasks }: WorkerScheduleTabProps) {
       {/* Header */}
       <div className="bg-[#0F1923] text-white px-5 pt-12 pb-5">
         <div className="flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-[#F0B90B]" />
+          <Calendar className="w-5 h-5 text-[#4F8EF7]" />
           <h1 className="font-bold text-lg">Schedule</h1>
         </div>
         <p className="text-white/50 text-xs mt-1">{tasks.length} assigned tasks</p>
@@ -82,10 +82,10 @@ export default function WorkerScheduleTab({ tasks }: WorkerScheduleTabProps) {
                 key={i}
                 onClick={() => setSelectedDate(day)}
                 className="flex flex-col items-center py-2 px-1 rounded-xl transition-all"
-                style={isSelected ? { background: '#F0B90B' } : isDayToday ? { background: '#FEF9EC' } : {}}
+                style={isSelected ? { background: 'var(--accent)' } : isDayToday ? { background: '#FEF9EC' } : {}}
               >
                 <span className={`text-[10px] font-medium mb-1 ${
-                  isSelected ? 'text-black' : isDayToday ? 'text-[#F0B90B]' : 'text-gray-400'
+                  isSelected ? 'text-black' : isDayToday ? 'text-[#4F8EF7]' : 'text-gray-400'
                 }`}>
                   {DAY_LABELS[i]}
                 </span>
@@ -111,7 +111,7 @@ export default function WorkerScheduleTab({ tasks }: WorkerScheduleTabProps) {
       </div>
 
       {/* Day content */}
-      <div className="flex-1 overflow-y-auto bg-[#F7F8FA] p-4">
+      <div className="flex-1 overflow-y-auto bg-rs-bg p-4">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="font-bold text-gray-900 text-sm">

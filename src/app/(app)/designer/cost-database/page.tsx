@@ -168,7 +168,7 @@ export default function CostDatabasePage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <DollarSign className="w-6 h-6 text-[#F0B90B]" />
+              <DollarSign className="w-6 h-6 text-[#4F8EF7]" />
               成本数据库
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
@@ -183,9 +183,9 @@ export default function CostDatabasePage() {
 
         {/* Free plan gate banner */}
         {isLocked && (
-          <div className="bg-gradient-to-r from-[#F0B90B]/10 to-amber-50 border border-[#F0B90B]/30 rounded-2xl p-5 mb-6 flex items-start gap-4">
-            <div className="w-10 h-10 bg-[#F0B90B]/20 rounded-full flex items-center justify-center flex-shrink-0">
-              <Lock className="w-5 h-5 text-[#F0B90B]" />
+          <div className="bg-gradient-to-r from-[#4F8EF7]/10 to-blue-50 border border-[#4F8EF7]/30 rounded-2xl p-5 mb-6 flex items-start gap-4">
+            <div className="w-10 h-10 bg-[#4F8EF7]/20 rounded-full flex items-center justify-center flex-shrink-0">
+              <Lock className="w-5 h-5 text-[#4F8EF7]" />
             </div>
             <div className="flex-1">
               <p className="font-semibold text-gray-900">Pro 功能 — 成本智能数据库</p>
@@ -194,7 +194,7 @@ export default function CostDatabasePage() {
               </p>
             </div>
             <a href="/designer/pricing">
-              <Button size="sm" className="bg-[#F0B90B] text-black hover:bg-[#d4a20a] font-semibold whitespace-nowrap">
+              <Button size="sm" className="bg-[#4F8EF7] text-white hover:bg-[#3B7BE8] font-semibold whitespace-nowrap">
                 立即升级
               </Button>
             </a>

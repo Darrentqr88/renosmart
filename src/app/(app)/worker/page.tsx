@@ -171,9 +171,9 @@ export default function WorkerDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0F1923] flex items-center justify-center">
+      <div className="min-h-screen bg-sidebar flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-10 h-10 text-[#F0B90B] animate-spin" />
+          <Loader2 className="w-10 h-10 text-[#4F8EF7] animate-spin" />
           <p className="text-white/50 text-sm">Loading your workspace...</p>
         </div>
       </div>
@@ -181,7 +181,7 @@ export default function WorkerDashboard() {
   }
 
   return (
-    <div className="min-h-dvh bg-[#F7F8FA] flex flex-col max-w-sm mx-auto relative">
+    <div className="min-h-dvh bg-rs-bg flex flex-col max-w-sm mx-auto relative">
       {/* TAB CONTENT */}
       <div className="flex-1 flex flex-col pb-20 overflow-hidden">
 
@@ -189,7 +189,7 @@ export default function WorkerDashboard() {
         {activeTab === 'tasks' && (
           <div className="flex flex-col h-full">
             {/* Header */}
-            <div className="bg-[#0F1923] text-white px-5 pt-12 pb-6">
+            <div className="bg-sidebar text-white px-5 pt-12 pb-6">
               {(() => { const { text, Icon } = GREETING(); return (
                 <div className="flex items-center gap-1.5 mb-1">
                   <Icon className="w-3.5 h-3.5 text-white/50" />
@@ -199,7 +199,7 @@ export default function WorkerDashboard() {
               <h1 className="font-bold text-xl">{profile?.name || 'Worker'}</h1>
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {((profile?.trades as string[]) || []).slice(0, 3).map(t => (
-                  <span key={t} className="text-[10px] px-2 py-0.5 bg-[#F0B90B]/15 text-[#F0B90B] rounded-full font-semibold">
+                  <span key={t} className="text-[10px] px-2 py-0.5 bg-[#4F8EF7]/15 text-[#4F8EF7] rounded-full font-semibold">
                     {t}
                   </span>
                 ))}
@@ -256,7 +256,7 @@ export default function WorkerDashboard() {
               {/* Upcoming tasks */}
               {upcomingTasks.length > 0 && (
                 <div className="mt-5">
-                  <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-3">
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">
                     Upcoming ({upcomingTasks.length})
                   </h3>
                   <div className="space-y-2">
@@ -273,7 +273,7 @@ export default function WorkerDashboard() {
                         <div className="text-right flex-shrink-0">
                           <p className="text-[10px] font-semibold text-gray-500">{task.start_date}</p>
                           <span
-                            className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+                            className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                             style={{ background: `${task.color}15`, color: task.color }}
                           >
                             {task.trade}
@@ -284,7 +284,7 @@ export default function WorkerDashboard() {
                     {upcomingTasks.length > 5 && (
                       <button
                         onClick={() => setActiveTab('schedule')}
-                        className="w-full py-2.5 text-xs text-[#F0B90B] font-semibold text-center hover:underline"
+                        className="w-full py-2.5 text-xs text-[#4F8EF7] font-semibold text-center hover:underline"
                       >
                         View all {upcomingTasks.length} upcoming tasks →
                       </button>
@@ -339,15 +339,15 @@ export default function WorkerDashboard() {
                 className="relative flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 transition-colors active:opacity-70"
               >
                 <tab.Icon
-                  className={`w-5 h-5 transition-colors ${isActive ? 'text-[#F0B90B]' : 'text-gray-400'}`}
+                  className={`w-5 h-5 transition-colors ${isActive ? 'text-[#4F8EF7]' : 'text-gray-400'}`}
                 />
                 <span
-                  className={`text-[10px] font-semibold transition-colors ${isActive ? 'text-[#F0B90B]' : 'text-gray-400'}`}
+                  className={`text-[10px] font-semibold transition-colors ${isActive ? 'text-[#4F8EF7]' : 'text-gray-400'}`}
                 >
                   {tab.label}
                 </span>
                 {isActive && (
-                  <div className="absolute bottom-0 w-8 h-0.5 bg-[#F0B90B] rounded-full" />
+                  <div className="absolute bottom-0 w-8 h-0.5 bg-[#4F8EF7] rounded-full" />
                 )}
               </button>
             );

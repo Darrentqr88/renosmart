@@ -44,27 +44,27 @@ function ScoreCircle({ score }: { score: number }) {
   return (
     <div className="relative w-20 h-20 flex-shrink-0">
       <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
-        <circle cx="40" cy="40" r={r} fill="rgba(240,185,11,0.08)" stroke="rgba(240,185,11,0.2)" strokeWidth="3" />
-        <circle cx="40" cy="40" r={r} fill="none" stroke="#F0B90B" strokeWidth="3"
+        <circle cx="40" cy="40" r={r} fill="rgba(79,142,247,0.08)" stroke="rgba(79,142,247,0.2)" strokeWidth="3" />
+        <circle cx="40" cy="40" r={r} fill="none" stroke="#4F8EF7" strokeWidth="3"
           strokeDasharray={`${dash} ${c}`} strokeLinecap="round" />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold text-[#F0B90B] leading-none">{score}</span>
-        <span className="text-[9px] text-[#6B7A94] mt-0.5">/ 100</span>
+        <span className="text-2xl font-bold text-[#4F8EF7] leading-none">{score}</span>
+        <span className="text-[9px] text-rs-text3 mt-0.5">/ 100</span>
       </div>
     </div>
   );
 }
 
 function ScoreBar({ label, value }: { label: string; value: number }) {
-  const color = value >= 75 ? '#16A34A' : value >= 50 ? '#F0B90B' : '#E53935';
+  const color = value >= 75 ? '#16A34A' : value >= 50 ? '#4F8EF7' : '#E53935';
   return (
     <div className="flex items-center gap-3">
-      <span className="text-[12px] text-[#3D4A60] w-20 shrink-0">{label}</span>
-      <div className="flex-1 h-1.5 bg-[#E4E7F0] rounded-full overflow-hidden">
+      <span className="text-[12px] text-rs-text2 w-20 shrink-0">{label}</span>
+      <div className="flex-1 h-1.5 bg-rs-surface3 rounded-full overflow-hidden">
         <div className="h-full rounded-full" style={{ width: `${value}%`, background: color }} />
       </div>
-      <span className="text-[12px] font-semibold text-[#1B2336] w-7 text-right">{value}</span>
+      <span className="text-[12px] font-semibold text-rs-text w-7 text-right">{value}</span>
     </div>
   );
 }
@@ -463,18 +463,18 @@ export default function QuotationPage() {
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; padding: 40px; color: #1B2336; line-height: 1.6; }
-  h1 { font-size: 22px; margin-bottom: 4px; } h2 { font-size: 16px; color: #F0B90B; margin: 24px 0 10px; border-bottom: 2px solid #F0B90B; padding-bottom: 6px; }
+  h1 { font-size: 22px; margin-bottom: 4px; } h2 { font-size: 16px; color: #4F8EF7; margin: 24px 0 10px; border-bottom: 2px solid #4F8EF7; padding-bottom: 6px; }
   h3 { font-size: 14px; margin: 16px 0 6px; }
   .meta { color: #6B7A94; font-size: 13px; margin-bottom: 24px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
   .field { padding: 8px 0; border-bottom: 1px solid #E4E7F0; }
   .label { font-size: 11px; color: #6B7A94; } .value { font-size: 13px; font-weight: 600; }
   .score-row { display: flex; gap: 16px; align-items: center; margin-bottom: 16px; }
-  .score-big { font-size: 36px; font-weight: 800; color: #F0B90B; }
+  .score-big { font-size: 36px; font-weight: 800; color: #4F8EF7; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
   th { background: #F0F2F7; padding: 8px; text-align: left; border: 1px solid #E4E7F0; }
   td { padding: 7px 8px; border: 1px solid #E4E7F0; }
-  .total-row td { background: rgba(240,185,11,0.1); font-weight: 700; font-size: 14px; }
+  .total-row td { background: rgba(79,142,247,0.1); font-weight: 700; font-size: 14px; }
   .alert { padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; }
   .critical { background: rgba(229,57,53,0.08); border-left: 3px solid #E53935; }
   .warning  { background: rgba(249,115,22,0.08); border-left: 3px solid #F97316; }
@@ -512,7 +512,7 @@ export default function QuotationPage() {
 ${analysis.items.map(item => `<tr><td>${item.no}</td><td><div style="font-size:10px;color:#6B7A94">${item.section||''}</div>${item.name}</td><td>${item.unit}</td><td style="text-align:right">${item.qty}</td><td style="text-align:right">${item.unitPrice.toFixed(2)}${item.unitPriceDerived ? '*' : ''}</td><td style="text-align:right;font-weight:600">${formatCurrency(item.total)}</td><td>${STATUS_CONFIG[item.status].label}${item.note ? '<br><span style="font-size:10px;color:#6B7A94">'+item.note+'</span>' : ''}</td></tr>`).join('')}
 </tbody>
 ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="5" style="text-align:right;font-weight:600">${s.label}</td><td style="text-align:right;font-weight:700">${formatCurrency(s.amount)}</td><td></td></tr></tfoot>`).join('')}
-<tfoot><tr class="total-row"><td colspan="5" style="text-align:right">报价总额</td><td style="text-align:right;color:#F0B90B">${formatCurrency(analysis.totalAmount)}</td><td></td></tr></tfoot></table>
+<tfoot><tr class="total-row"><td colspan="5" style="text-align:right">报价总额</td><td style="text-align:right;color:#4F8EF7">${formatCurrency(analysis.totalAmount)}</td><td></td></tr></tfoot></table>
 
 ${analysis.missing.length > 0 ? `<h2>可能漏算项目 (${analysis.missing.length} 项)</h2>${analysis.missing.map(m => `<div class="missing-item">✗ ${m}</div>`).join('')}` : ''}
 
@@ -537,19 +537,19 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
       <Toaster />
 
       {/* ── Page header ───────────────────────────────────────────────────── */}
-      <div className="px-8 py-5 border-b border-[#D8DCE8] bg-white flex-shrink-0">
+      <div className="px-8 py-5 border-b border-rs-border bg-white flex-shrink-0">
         <div className="flex items-center gap-3">
           <div>
-            <h1 className="text-[22px] font-semibold text-[#1B2336]">Upload Quotation</h1>
-            <p className="text-[13px] text-[#6B7A94] mt-0.5">
+            <h1 className="text-[22px] font-semibold text-rs-text">Upload Quotation</h1>
+            <p className="text-[13px] text-rs-text3 mt-0.5">
               Supports Excel (.xlsx/.xls), CSV, PDF · <span className="text-[#2E6BE6]">AI reads and auto-reviews content</span>
             </p>
           </div>
           {linkedProjectId && linkedProjectName && (
-            <div className="ml-4 flex items-center gap-2 px-3 py-1.5 bg-[rgba(240,185,11,0.1)] border border-[rgba(240,185,11,0.3)] rounded-xl">
-              <div className="w-2 h-2 rounded-full bg-[#F0B90B] animate-pulse" />
-              <span className="text-[12px] font-semibold text-[#1B2336]">{linkedProjectName}</span>
-              <span className="text-[11px] text-[#6B7A94]">· 上传后将自动关联此项目</span>
+            <div className="ml-4 flex items-center gap-2 px-3 py-1.5 bg-[rgba(79,142,247,0.1)] border border-[rgba(79,142,247,0.3)] rounded-xl">
+              <div className="w-2 h-2 rounded-full bg-[#4F8EF7] animate-pulse" />
+              <span className="text-[12px] font-semibold text-rs-text">{linkedProjectName}</span>
+              <span className="text-[11px] text-rs-text3">· 上传后将自动关联此项目</span>
             </div>
           )}
         </div>
@@ -563,11 +563,11 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
             ].map((s, i) => (
               <div key={i} className="flex items-center gap-1.5">
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
-                  s.done ? 'bg-green-500 text-white' : s.active ? 'bg-[#F0B90B] text-[#1B2336]' : 'bg-gray-200 text-gray-400'
+                  s.done ? 'bg-green-500 text-white' : s.active ? 'bg-[#4F8EF7] text-white' : 'bg-gray-200 text-gray-400'
                 }`}>
                   {s.done ? '✓' : s.step}
                 </div>
-                <span className={`text-[11px] font-semibold ${s.done ? 'text-green-600' : s.active ? 'text-[#F0B90B]' : 'text-gray-400'}`}>{s.label}</span>
+                <span className={`text-[11px] font-semibold ${s.done ? 'text-green-600' : s.active ? 'text-[#4F8EF7]' : 'text-gray-400'}`}>{s.label}</span>
                 {i < 3 && <div className="w-6 h-px bg-gray-200 mx-0.5" />}
               </div>
             ))}
@@ -586,7 +586,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
             onDrop={handleDrop}
             onClick={() => !isLoading && fileInputRef.current?.click()}
             className={`relative rounded-xl border-2 border-dashed p-12 text-center transition-all cursor-pointer bg-white
-              ${isDragging ? 'border-[#F0B90B] bg-[rgba(240,185,11,0.04)] scale-[1.01]' : 'border-[rgba(240,185,11,0.2)] hover:border-[#F0B90B] hover:bg-[rgba(240,185,11,0.04)]'}
+              ${isDragging ? 'border-[#4F8EF7] bg-[rgba(79,142,247,0.04)] scale-[1.01]' : 'border-[rgba(79,142,247,0.2)] hover:border-[#4F8EF7] hover:bg-[rgba(79,142,247,0.04)]'}
               ${isLoading ? 'pointer-events-none' : ''}`}
           >
             <input ref={fileInputRef} type="file" accept=".pdf,.xlsx,.xls,.csv,.txt" className="hidden" onChange={handleFileSelect} />
@@ -594,31 +594,31 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
             {!isLoading && step !== 'error' ? (
               <>
                 <div className="text-5xl mb-4">📄</div>
-                <p className="text-[15px] text-[#3D4A60] mb-1">
-                  Drop your quotation file here or <strong className="text-[#F0B90B]">click to browse</strong>
+                <p className="text-[15px] text-rs-text2 mb-1">
+                  Drop your quotation file here or <strong className="text-[#4F8EF7]">click to browse</strong>
                 </p>
                 <p className="text-[12px] text-[#9CA3AF]">PDF, Excel (.xlsx/.xls), CSV · Max 50MB</p>
               </>
             ) : isLoading ? (
               <div className="max-w-sm mx-auto">
                 <div className="flex items-center justify-center gap-3 mb-5">
-                  <FileText className="w-8 h-8 text-[#F0B90B]" />
+                  <FileText className="w-8 h-8 text-[#4F8EF7]" />
                   <div className="text-left">
-                    <p className="font-medium text-[#1B2336]">{fileName}</p>
-                    <p className="text-sm text-[#6B7A94]">{fileSize}</p>
+                    <p className="font-medium text-rs-text">{fileName}</p>
+                    <p className="text-sm text-rs-text3">{fileSize}</p>
                   </div>
                 </div>
                 <Progress value={progress} className="h-2 mb-3" />
-                <div className="flex items-center justify-center gap-2 text-sm text-[#3D4A60]">
-                  <Loader2 className="w-4 h-4 animate-spin text-[#F0B90B]" />
+                <div className="flex items-center justify-center gap-2 text-sm text-rs-text2">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#4F8EF7]" />
                   {progressLabel}
                 </div>
               </div>
             ) : (
               <div>
                 <XCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
-                <p className="text-[#E53935] font-medium">{progressLabel}</p>
-                <p className="text-[13px] text-[#6B7A94] mt-1">Click to try again</p>
+                <p className="text-rs-red font-medium">{progressLabel}</p>
+                <p className="text-[13px] text-rs-text3 mt-1">Click to try again</p>
               </div>
             )}
           </div>
@@ -628,15 +628,15 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
         {analysis && (
           <>
             {/* File banner */}
-            <div className="bg-white border border-[#E4E7F0] rounded-xl px-5 py-3.5 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-[rgba(240,185,11,0.1)] flex items-center justify-center flex-shrink-0">
-                <FileText className="w-5 h-5 text-[#F0B90B]" />
+            <div className="bg-white border border-rs-surface3 rounded-xl px-5 py-3.5 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-[rgba(79,142,247,0.1)] flex items-center justify-center flex-shrink-0">
+                <FileText className="w-5 h-5 text-[#4F8EF7]" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-[#1B2336] text-[14px] truncate">{fileName}</p>
-                <p className="text-[12px] text-[#6B7A94]">
-                  已识别 <span className="text-[#1B2336] font-semibold">{analysis.items.length}</span> 填工程 &nbsp;·&nbsp;
-                  <span className="text-[#F0B90B] font-semibold">{formatCurrency(analysis.totalAmount)}</span>
+                <p className="font-semibold text-rs-text text-[14px] truncate">{fileName}</p>
+                <p className="text-[12px] text-rs-text3">
+                  已识别 <span className="text-rs-text font-semibold">{analysis.items.length}</span> 填工程 &nbsp;·&nbsp;
+                  <span className="text-[#4F8EF7] font-semibold">{formatCurrency(analysis.totalAmount)}</span>
                 </p>
               </div>
               {savedProjectId && (
@@ -654,12 +654,12 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
             </div>
 
             {/* Client info (editable) */}
-            <div className="bg-white border border-[#E4E7F0] rounded-xl overflow-hidden">
+            <div className="bg-white border border-rs-surface3 rounded-xl overflow-hidden">
               <div className="px-5 py-3.5 border-b border-[#F0F2F7] bg-gradient-to-r from-[rgba(46,107,230,0.04)] to-transparent flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-[#2E6BE6]" />
-                  <span className="text-[13px] font-semibold text-[#1B2336]">已自动识别客户资料</span>
-                  <span className="text-[12px] text-[#6B7A94]">· 可直接编辑保存</span>
+                  <span className="text-[13px] font-semibold text-rs-text">已自动识别客户资料</span>
+                  <span className="text-[12px] text-rs-text3">· 可直接编辑保存</span>
                 </div>
                 {savedProjectId ? (
                   <div className="flex items-center gap-2">
@@ -668,7 +668,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                     </span>
                     <button
                       onClick={handleGoToGantt}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F0B90B] text-[#1B2336] rounded-lg text-[12px] font-bold hover:bg-[#d9a50a] transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#4F8EF7] text-white rounded-lg text-[12px] font-bold hover:bg-[#4F8EF7]-hover transition-colors"
                     >
                       生成工程进度 <ArrowRight className="w-3.5 h-3.5" />
                     </button>
@@ -676,7 +676,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                 ) : (
                   <Button
                     size="sm"
-                    className="bg-[#F0B90B] hover:bg-[#d9a50a] text-[#1B2336] font-semibold text-[12px] gap-1.5 h-8"
+                    className="bg-[#4F8EF7] hover:bg-[#3B7BE8] text-white font-semibold text-[12px] gap-1.5 h-8"
                     onClick={linkedProjectId ? handleDirectSaveToProject : handleOpenSaveDialog}
                     disabled={isSaving}
                   >
@@ -691,34 +691,34 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                 <div className="p-5">
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
-                      <label className="text-[11px] text-[#6B7A94] mb-1 block font-medium">公司</label>
+                      <label className="text-[11px] text-rs-text3 mb-1 block font-medium">公司</label>
                       <Input value={clientInfo.company || ''} onChange={e => setClientInfo(p => p ? { ...p, company: e.target.value } : p)}
-                        className="h-8 text-[13px] border-[#E4E7F0]" placeholder="公司名称" />
+                        className="h-8 text-[13px] border-rs-surface3" placeholder="公司名称" />
                     </div>
                     <div>
-                      <label className="text-[11px] text-[#6B7A94] mb-1 block font-medium">联系人</label>
+                      <label className="text-[11px] text-rs-text3 mb-1 block font-medium">联系人</label>
                       <Input value={clientInfo.attention || ''} onChange={e => setClientInfo(p => p ? { ...p, attention: e.target.value } : p)}
-                        className="h-8 text-[13px] border-[#E4E7F0]" placeholder="联系人姓名" />
+                        className="h-8 text-[13px] border-rs-surface3" placeholder="联系人姓名" />
                     </div>
                     <div>
-                      <label className="text-[11px] text-[#6B7A94] mb-1 block font-medium">电话</label>
+                      <label className="text-[11px] text-rs-text3 mb-1 block font-medium">电话</label>
                       <Input value={clientInfo.tel || ''} onChange={e => setClientInfo(p => p ? { ...p, tel: e.target.value } : p)}
-                        className="h-8 text-[13px] border-[#E4E7F0]" placeholder="+60xx-xxx xxxx" />
+                        className="h-8 text-[13px] border-rs-surface3" placeholder="+60xx-xxx xxxx" />
                     </div>
                     <div>
-                      <label className="text-[11px] text-[#6B7A94] mb-1 block font-medium">邮箱</label>
+                      <label className="text-[11px] text-rs-text3 mb-1 block font-medium">邮箱</label>
                       <Input value={clientInfo.email || ''} onChange={e => setClientInfo(p => p ? { ...p, email: e.target.value } : p)}
-                        className="h-8 text-[13px] border-[#E4E7F0]" placeholder="email@example.com" />
+                        className="h-8 text-[13px] border-rs-surface3" placeholder="email@example.com" />
                     </div>
                     <div className="col-span-2">
-                      <label className="text-[11px] text-[#6B7A94] mb-1 block font-medium">地址</label>
+                      <label className="text-[11px] text-rs-text3 mb-1 block font-medium">地址</label>
                       <Input value={clientInfo.address || ''} onChange={e => setClientInfo(p => p ? { ...p, address: e.target.value } : p)}
-                        className="h-8 text-[13px] border-[#E4E7F0]" placeholder="完整地址" />
+                        className="h-8 text-[13px] border-rs-surface3" placeholder="完整地址" />
                     </div>
                     <div>
-                      <label className="text-[11px] text-[#6B7A94] mb-1 block font-medium">报价单编号</label>
+                      <label className="text-[11px] text-rs-text3 mb-1 block font-medium">报价单编号</label>
                       <Input value={clientInfo.projectRef || ''} onChange={e => setClientInfo(p => p ? { ...p, projectRef: e.target.value } : p)}
-                        className="h-8 text-[13px] border-[#E4E7F0]" placeholder="QUO-YYYY/MM/DD" />
+                        className="h-8 text-[13px] border-rs-surface3" placeholder="QUO-YYYY/MM/DD" />
                     </div>
                   </div>
                   <p className="text-[11px] text-[#9CA3AF]">
@@ -729,11 +729,11 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
             </div>
 
             {/* AI Review */}
-            <div className="bg-white border border-[#E4E7F0] rounded-xl overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-[#F0F2F7] bg-gradient-to-r from-[rgba(240,185,11,0.06)] to-transparent flex items-center justify-between">
+            <div className="bg-white border border-rs-surface3 rounded-xl overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-[#F0F2F7] bg-gradient-to-r from-[rgba(79,142,247,0.06)] to-transparent flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="bg-[#F0B90B] text-[#1B2336] text-[10px] font-bold px-2 py-0.5 rounded tracking-wider">AI REVIEW</span>
-                  <span className="text-[14px] font-semibold text-[#1B2336]">Overall Score &amp; Risk Assessment</span>
+                  <span className="bg-[#4F8EF7] text-white text-[10px] font-bold px-2 py-0.5 rounded tracking-wider">AI REVIEW</span>
+                  <span className="text-[14px] font-semibold text-rs-text">Overall Score &amp; Risk Assessment</span>
                 </div>
                 <span className="text-[11px] text-[#9CA3AF]">Based on MY/SG 2025 market data</span>
               </div>
@@ -748,19 +748,19 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                   </div>
                 </div>
                 {analysis.summary && (
-                  <div className="bg-[#F8F9FB] rounded-xl px-4 py-3 text-[13px] text-[#3D4A60] leading-relaxed border border-[#E4E7F0]">
+                  <div className="bg-[#F8F9FB] rounded-xl px-4 py-3 text-[13px] text-rs-text2 leading-relaxed border border-rs-surface3">
                     <span className="text-base mr-1.5">🤖</span>
-                    <strong className="text-[#1B2336]">AI 总结：</strong>{analysis.summary}
+                    <strong className="text-rs-text">AI 总结：</strong>{analysis.summary}
                   </div>
                 )}
               </div>
             </div>
 
             {/* Work Items */}
-            <div className="bg-white border border-[#E4E7F0] rounded-xl overflow-hidden">
+            <div className="bg-white border border-rs-surface3 rounded-xl overflow-hidden">
               <div className="px-5 py-3.5 border-b border-[#F0F2F7] flex items-center justify-between">
-                <span className="text-[14px] font-semibold text-[#1B2336]">Identified Work Items</span>
-                <span className="text-[12px] text-[#6B7A94]">共 {analysis.items.length} 项</span>
+                <span className="text-[14px] font-semibold text-rs-text">Identified Work Items</span>
+                <span className="text-[12px] text-rs-text3">共 {analysis.items.length} 项</span>
               </div>
 
               {/* Section tabs */}
@@ -768,14 +768,14 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                 <div className="px-5 py-2.5 border-b border-[#F0F2F7] flex gap-1.5 flex-wrap">
                   <button
                     onClick={() => setActiveSection('all')}
-                    className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors ${activeSection === 'all' ? 'bg-[#F0B90B] text-[#1B2336]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                    className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors ${activeSection === 'all' ? 'bg-[#4F8EF7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                   >
                     全部 {analysis.items.length}
                   </button>
                   {sections.map(({ name, count }) => (
                     <button key={name}
                       onClick={() => setActiveSection(name)}
-                      className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors whitespace-nowrap ${activeSection === name ? 'bg-[#F0B90B] text-[#1B2336]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                      className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors whitespace-nowrap ${activeSection === name ? 'bg-[#4F8EF7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                     >
                       {name} {count}
                     </button>
@@ -787,15 +787,15 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
               <div className="overflow-x-auto">
                 <table className="w-full text-[13px]">
                   <thead>
-                    <tr className="border-b border-[#E4E7F0]">
-                      <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-[#6B7A94] uppercase tracking-wide w-10">#</th>
-                      <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-[#6B7A94] uppercase tracking-wide">DESCRIPTION</th>
-                      <th className="text-center px-3 py-2.5 text-[11px] font-semibold text-[#6B7A94] uppercase tracking-wide w-20">TYPE</th>
-                      <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-[#6B7A94] uppercase tracking-wide w-16">UNIT</th>
-                      <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-[#6B7A94] uppercase tracking-wide w-16">QTY</th>
-                      <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-[#6B7A94] uppercase tracking-wide w-28">UNIT PRICE</th>
-                      <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-[#6B7A94] uppercase tracking-wide w-28">SUBTOTAL</th>
-                      <th className="text-center px-4 py-2.5 text-[11px] font-semibold text-[#6B7A94] uppercase tracking-wide w-36">AI STATUS</th>
+                    <tr className="border-b border-rs-surface3">
+                      <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-rs-text3 uppercase tracking-wide w-10">#</th>
+                      <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-rs-text3 uppercase tracking-wide">DESCRIPTION</th>
+                      <th className="text-center px-3 py-2.5 text-[11px] font-semibold text-rs-text3 uppercase tracking-wide w-20">TYPE</th>
+                      <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-rs-text3 uppercase tracking-wide w-16">UNIT</th>
+                      <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-rs-text3 uppercase tracking-wide w-16">QTY</th>
+                      <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-rs-text3 uppercase tracking-wide w-28">UNIT PRICE</th>
+                      <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-rs-text3 uppercase tracking-wide w-28">SUBTOTAL</th>
+                      <th className="text-center px-4 py-2.5 text-[11px] font-semibold text-rs-text3 uppercase tracking-wide w-36">AI STATUS</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -806,17 +806,17 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                           <td className="px-4 py-3 text-[#9CA3AF] font-mono text-[11px]">{item.no}</td>
                           <td className="px-4 py-3">
                             {item.section && <div className="text-[10px] text-[#9CA3AF] mb-0.5">{item.section}</div>}
-                            <div className="text-[#1B2336] font-medium">{item.name}</div>
+                            <div className="text-rs-text font-medium">{item.name}</div>
                           </td>
                           <td className="px-3 py-3 text-center"><SupplyBadge type={item.supplyType} /></td>
-                          <td className="px-4 py-3 text-[#6B7A94]">{item.unit}</td>
-                          <td className="px-4 py-3 text-right text-[#3D4A60] font-mono">{item.qty}</td>
+                          <td className="px-4 py-3 text-rs-text3">{item.unit}</td>
+                          <td className="px-4 py-3 text-right text-rs-text2 font-mono">{item.qty}</td>
                           <td className="px-4 py-3 text-right font-mono">
-                            <span className={item.unitPriceDerived ? 'text-[#F97316] italic' : 'text-[#3D4A60]'}>
+                            <span className={item.unitPriceDerived ? 'text-[#F97316] italic' : 'text-rs-text2'}>
                               {item.unitPrice.toFixed(2)}{item.unitPriceDerived ? '*' : ''}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right font-mono font-semibold text-[#1B2336]">
+                          <td className="px-4 py-3 text-right font-mono font-semibold text-rs-text">
                             RM {item.total.toLocaleString()}
                           </td>
                           <td className="px-4 py-3">
@@ -824,7 +824,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                               <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium ${cfg.color} ${cfg.bg}`}>
                                 {cfg.label}
                               </span>
-                              {item.note && <span className="text-[10px] text-[#6B7A94] text-center leading-tight">{item.note}</span>}
+                              {item.note && <span className="text-[10px] text-rs-text3 text-center leading-tight">{item.note}</span>}
                             </div>
                           </td>
                         </tr>
@@ -836,8 +836,8 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                   {activeSection === 'all' && analysis.subtotals.map((sub, i) => (
                     <tfoot key={i}>
                       <tr className="bg-[#F8F9FB]">
-                        <td colSpan={6} className="px-4 py-2.5 text-right text-[13px] font-medium text-[#3D4A60]">{sub.label}</td>
-                        <td className="px-4 py-2.5 text-right font-semibold text-[#1B2336] font-mono">
+                        <td colSpan={6} className="px-4 py-2.5 text-right text-[13px] font-medium text-rs-text2">{sub.label}</td>
+                        <td className="px-4 py-2.5 text-right font-semibold text-rs-text font-mono">
                           RM {sub.amount.toLocaleString()}
                         </td>
                         <td />
@@ -848,9 +848,9 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                   {/* Total row */}
                   {activeSection === 'all' && (
                     <tfoot>
-                      <tr style={{ background: 'rgba(240,185,11,0.08)', borderTop: '2px solid #F0B90B' }}>
-                        <td colSpan={6} className="px-4 py-3 text-right font-bold text-[#1B2336] text-[13px] tracking-wide">报价总额</td>
-                        <td className="px-4 py-3 text-right font-bold text-[#F0B90B] text-[16px] font-mono">
+                      <tr style={{ background: 'rgba(79,142,247,0.08)', borderTop: '2px solid #4F8EF7' }}>
+                        <td colSpan={6} className="px-4 py-3 text-right font-bold text-rs-text text-[13px] tracking-wide">报价总额</td>
+                        <td className="px-4 py-3 text-right font-bold text-[#4F8EF7] text-[16px] font-mono">
                           RM {analysis.totalAmount.toLocaleString()}
                         </td>
                         <td />
@@ -862,9 +862,9 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
 
               {/* Show more */}
               {filteredItems.length > 20 && (
-                <div className="px-5 py-3 border-t border-[#E4E7F0] text-center">
+                <div className="px-5 py-3 border-t border-rs-surface3 text-center">
                   <button onClick={() => setShowAllItems(!showAllItems)}
-                    className="text-[13px] text-[#F0B90B] hover:underline flex items-center gap-1 mx-auto font-medium">
+                    className="text-[13px] text-[#4F8EF7] hover:underline flex items-center gap-1 mx-auto font-medium">
                     {showAllItems
                       ? <><ChevronUp className="w-4 h-4" /> 收起</>
                       : <><ChevronDown className="w-4 h-4" /> 显示全部 {filteredItems.length} 项</>}
@@ -874,7 +874,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
 
               {/* Legend */}
               <div className="px-5 py-3 border-t border-[#F0F2F7] flex flex-wrap gap-x-5 gap-y-1">
-                <div className="flex items-center gap-3 text-[11px] text-[#6B7A94]">
+                <div className="flex items-center gap-3 text-[11px] text-rs-text3">
                   {(['ok', 'warn', 'flag', 'nodata'] as AIItemStatus[]).map(s => (
                     <span key={s} className={`${STATUS_CONFIG[s].color} flex items-center gap-1`}>
                       {STATUS_CONFIG[s].label}
@@ -887,7 +887,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
 
             {/* Missing Items + Alerts */}
             {(analysis.missing.length > 0 || analysis.alerts.length > 0) && (
-              <div className="bg-white border border-[#E4E7F0] rounded-xl overflow-hidden">
+              <div className="bg-white border border-rs-surface3 rounded-xl overflow-hidden">
                 {/* Missing items */}
                 {analysis.missing.length > 0 && (
                   <div className="px-5 py-4 border-b border-[#F0F2F7] bg-[rgba(229,57,53,0.03)]">
@@ -897,7 +897,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                     </div>
                     <div className="space-y-1.5">
                       {analysis.missing.map((m, i) => (
-                        <div key={i} className="flex items-start gap-2 text-[13px] text-[#3D4A60]">
+                        <div key={i} className="flex items-start gap-2 text-[13px] text-rs-text2">
                           <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
                           <span>{m}</span>
                         </div>
@@ -920,7 +920,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                             <span className="flex-shrink-0 text-base">🔴</span>
                             <div>
                               <div className="text-[13px] font-semibold text-red-600 mb-1">{alert.title}</div>
-                              <div className="text-[12px] text-[#3D4A60] leading-relaxed">{alert.desc}</div>
+                              <div className="text-[12px] text-rs-text2 leading-relaxed">{alert.desc}</div>
                             </div>
                           </div>
                         ))}
@@ -937,7 +937,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                             <span className="flex-shrink-0 text-base">🟡</span>
                             <div>
                               <div className="text-[13px] font-semibold text-amber-700 mb-1">{alert.title}</div>
-                              <div className="text-[12px] text-[#3D4A60] leading-relaxed">{alert.desc}</div>
+                              <div className="text-[12px] text-rs-text2 leading-relaxed">{alert.desc}</div>
                             </div>
                           </div>
                         ))}
@@ -954,7 +954,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                             <span className="flex-shrink-0 text-base">💡</span>
                             <div>
                               <div className="text-[13px] font-semibold text-blue-600 mb-1">{alert.title}</div>
-                              <div className="text-[12px] text-[#3D4A60] leading-relaxed">{alert.desc}</div>
+                              <div className="text-[12px] text-rs-text2 leading-relaxed">{alert.desc}</div>
                             </div>
                           </div>
                         ))}
@@ -973,7 +973,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
 
       {/* ── Bottom action bar ─────────────────────────────────────────────── */}
       {analysis && (
-        <div className="flex-shrink-0 bg-white border-t border-[#E4E7F0] px-8 py-3 flex items-center gap-2"
+        <div className="flex-shrink-0 bg-white border-t border-rs-surface3 px-8 py-3 flex items-center gap-2"
           style={{ boxShadow: '0 -2px 12px rgba(27,35,54,0.06)' }}>
           <button
             onClick={() => setShowFullReport(true)}
@@ -987,7 +987,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
               onClick={handleGoToGantt}
               disabled={isSaving}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-bold transition-colors"
-              style={{ background: '#F0B90B', color: '#1B2336' }}
+              style={{ background: 'var(--accent)', color: '#fff' }}
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
               {savedProjectId ? '生成工程进度 →' : '保存并生成进度 →'}
@@ -995,21 +995,21 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
           ) : (
             <button
               onClick={() => setShowGantt(!showGantt)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-[#E4E7F0] text-[#3D4A60] rounded-lg text-[13px] font-medium hover:border-[#F0B90B] hover:text-[#F0B90B] transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-rs-surface3 text-rs-text2 rounded-lg text-[13px] font-medium hover:border-[#4F8EF7] hover:text-[#4F8EF7] transition-colors"
             >
               <Calendar className="w-4 h-4" /> Generate Schedule
             </button>
           )}
           <button
             onClick={handleExportPDF}
-            className="flex items-center gap-1.5 px-4 py-2 bg-white border border-[#E4E7F0] text-[#3D4A60] rounded-lg text-[13px] font-medium hover:border-[#F0B90B] hover:text-[#F0B90B] transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 bg-white border border-rs-surface3 text-rs-text2 rounded-lg text-[13px] font-medium hover:border-[#4F8EF7] hover:text-[#4F8EF7] transition-colors"
           >
             <Printer className="w-4 h-4" /> Export PDF Report
           </button>
           {pdfUrl && (
             <button
               onClick={() => setShowPdfViewer(true)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-[#E4E7F0] text-[#3D4A60] rounded-lg text-[13px] font-medium hover:border-[#F0B90B] hover:text-[#F0B90B] transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-rs-surface3 text-rs-text2 rounded-lg text-[13px] font-medium hover:border-[#4F8EF7] hover:text-[#4F8EF7] transition-colors"
             >
               View PDF
             </button>
@@ -1055,7 +1055,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                 </div>
               </div>
               {analysis.summary && (
-                <div className="bg-[#F8F9FB] rounded-xl px-4 py-3 text-[13px] text-[#3D4A60] leading-relaxed">
+                <div className="bg-[#F8F9FB] rounded-xl px-4 py-3 text-[13px] text-rs-text2 leading-relaxed">
                   🤖 <strong>AI 总结：</strong>{analysis.summary}
                 </div>
               )}
@@ -1066,7 +1066,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                   <h4 className="font-semibold text-gray-900 text-sm mb-2">📋 可能漏算项目</h4>
                   <div className="space-y-1.5">
                     {analysis.missing.map((m, i) => (
-                      <div key={i} className="flex items-start gap-2 text-[13px] text-[#3D4A60] bg-red-50 rounded-lg px-3 py-2">
+                      <div key={i} className="flex items-start gap-2 text-[13px] text-rs-text2 bg-red-50 rounded-lg px-3 py-2">
                         <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" /> {m}
                       </div>
                     ))}
@@ -1083,7 +1083,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                       <span className="text-lg flex-shrink-0">🔴</span>
                       <div>
                         <div className="text-[13px] font-semibold text-red-600 mb-1">{alert.title}</div>
-                        <div className="text-[13px] text-[#3D4A60] leading-relaxed">{alert.desc}</div>
+                        <div className="text-[13px] text-rs-text2 leading-relaxed">{alert.desc}</div>
                       </div>
                     </div>
                   ))}
@@ -1099,7 +1099,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                       <span className="text-lg flex-shrink-0">🟡</span>
                       <div>
                         <div className="text-[13px] font-semibold text-amber-700 mb-1">{alert.title}</div>
-                        <div className="text-[13px] text-[#3D4A60] leading-relaxed">{alert.desc}</div>
+                        <div className="text-[13px] text-rs-text2 leading-relaxed">{alert.desc}</div>
                       </div>
                     </div>
                   ))}
@@ -1115,7 +1115,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                       <span className="text-lg flex-shrink-0">💡</span>
                       <div>
                         <div className="text-[13px] font-semibold text-blue-700 mb-1">{alert.title}</div>
-                        <div className="text-[13px] text-[#3D4A60] leading-relaxed">{alert.desc}</div>
+                        <div className="text-[13px] text-rs-text2 leading-relaxed">{alert.desc}</div>
                       </div>
                     </div>
                   ))}
@@ -1129,14 +1129,14 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                 <button
                   onClick={async () => { setShowFullReport(false); await handleGoToGantt(); }}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-bold transition-colors"
-                  style={{ background: '#F0B90B', color: '#1B2336' }}
+                  style={{ background: 'var(--accent)', color: '#fff' }}
                 >
                   生成工程进度 <ArrowRight className="w-4 h-4" />
                 </button>
               )}
               <button
                 onClick={() => { setShowFullReport(false); handleExportPDF(); }}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-[13px] font-medium hover:border-[#F0B90B] hover:text-[#F0B90B] transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-[13px] font-medium hover:border-[#4F8EF7] hover:text-[#4F8EF7] transition-colors"
               >
                 <Printer className="w-4 h-4" /> 导出 PDF 报告
               </button>
@@ -1212,7 +1212,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" onClick={() => setShowSaveDialog(false)} className="flex-1">取消</Button>
                 <Button
-                  className="flex-1 bg-[#F0B90B] hover:bg-[#d9a50a] text-[#1B2336] font-semibold"
+                  className="flex-1 bg-[#4F8EF7] hover:bg-[#3B7BE8] text-white font-semibold"
                   onClick={handleSaveToProject}
                   disabled={isSaving || (saveMode === 'new' ? !newProjectName : !selectedProjectId)}
                 >

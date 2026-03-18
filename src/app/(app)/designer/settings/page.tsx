@@ -82,7 +82,7 @@ export default function SettingsPage() {
 
   const PLAN_CONFIG = {
     free:  { label: 'Free', color: 'bg-gray-100 text-gray-600', border: 'border-gray-200' },
-    pro:   { label: 'Pro ✦', color: 'bg-[#F0B90B]/15 text-[#c89b09]', border: 'border-[#F0B90B]/30' },
+    pro:   { label: 'Pro ✦', color: 'bg-[#4F8EF7]/15 text-[#2563EB]', border: 'border-[#4F8EF7]/30' },
     elite: { label: 'Elite ⚡', color: 'bg-purple-50 text-purple-700', border: 'border-purple-200' },
   };
   const planCfg = PLAN_CONFIG[currentPlan as keyof typeof PLAN_CONFIG] || PLAN_CONFIG.free;
@@ -122,11 +122,11 @@ export default function SettingsPage() {
 
             {/* Avatar placeholder */}
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 rounded-full bg-[#F0B90B]/20 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-[#4F8EF7]/20 flex items-center justify-center">
                 {avatarUrl ? (
                   <img src={avatarUrl} alt={name} className="w-full h-full rounded-full object-cover" />
                 ) : (
-                  <span className="text-2xl font-bold text-[#F0B90B]">{name?.[0]?.toUpperCase() || 'U'}</span>
+                  <span className="text-2xl font-bold text-[#4F8EF7]">{name?.[0]?.toUpperCase() || 'U'}</span>
                 )}
               </div>
               <div>
@@ -180,7 +180,7 @@ export default function SettingsPage() {
                   value={companyAddress}
                   onChange={e => setCompanyAddress(e.target.value)}
                   rows={3}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F0B90B]/30 focus:border-[#F0B90B] resize-none"
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4F8EF7]/30 focus:border-[#4F8EF7] resize-none"
                   placeholder="Full business address"
                 />
               </div>
@@ -245,7 +245,7 @@ export default function SettingsPage() {
                     <span className="text-gray-700">{row.feature}</span>
                     <span className={`font-medium ${
                       currentPlan === 'elite' ? 'text-purple-600' :
-                      currentPlan === 'pro' ? 'text-[#F0B90B]' : 'text-gray-600'
+                      currentPlan === 'pro' ? 'text-[#4F8EF7]' : 'text-gray-600'
                     }`}>
                       {currentPlan === 'elite' ? row.elite : currentPlan === 'pro' ? row.pro : row.free}
                     </span>
