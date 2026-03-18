@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { QuotationAnalysis, GanttTask } from '@/types';
-import { generateGanttTasks } from '@/lib/utils/gantt-rules';
+import { useState, useEffect, useCallback } from 'react';
+import { QuotationAnalysis, GanttTask, GanttParams } from '@/types';
+import { generateGanttTasks, generateGanttFromAIParams, getPhaseChecklist, getPhaseById, CONSTRUCTION_PHASES } from '@/lib/utils/gantt-rules';
 import { GanttChart } from './GanttChart';
-import { Button } from '@/components/ui/button';
-import { Loader2, BarChart2, RefreshCw, Download } from 'lucide-react';
-import { format } from 'date-fns';
+import { TaskDetailPanel } from './TaskDetailPanel';
+import { Sparkles, Pencil } from 'lucide-react';
+import { format, differenceInDays, parseISO } from 'date-fns';
+import { MY_HOLIDAYS, SG_HOLIDAYS } from '@/lib/utils/dates';
+import { useI18n } from '@/lib/i18n/context';
 
 interface GanttAutoGeneratorProps {
   analysis: QuotationAnalysis;
@@ -15,140 +17,424 @@ interface GanttAutoGeneratorProps {
 }
 
 export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: GanttAutoGeneratorProps) {
+  const { lang } = useI18n();
   const [tasks, setTasks] = useState<GanttTask[]>([]);
   const [generating, setGenerating] = useState(true);
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [deadline, setDeadline] = useState('');
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [showOverrideModal, setShowOverrideModal] = useState(false);
+  const [workSat, setWorkSat] = useState(false);
+  const [workSun, setWorkSun] = useState(false);
 
   useEffect(() => {
     generateTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analysis]);
 
-  const generateTasks = () => {
+  const generateTasks = useCallback(() => {
     setGenerating(true);
 
-    // Extract sqft from analysis items
+    // Use AI-extracted ganttParams when available (phase filtering by tradeScope)
+    const ganttParams = (analysis as QuotationAnalysis & { ganttParams?: GanttParams }).ganttParams;
+    if (ganttParams) {
+      const generatedTasks = generateGanttFromAIParams(projectId, ganttParams, new Date(startDate), 'MY', workSat, workSun);
+      setTasks(generatedTasks);
+      setGenerating(false);
+      return;
+    }
+
+    // Fallback: detect scope from items
     let sqft = 1000;
     for (const item of analysis.items) {
       const name = item.name.toLowerCase();
-      if ((name.includes('tiling') || name.includes('floor') || name.includes('wall')) && item.unit === 'sqft') {
+      if ((name.includes('tiling') || name.includes('floor') || name.includes('wall') || name.includes('tile')) && item.unit === 'sqft') {
         sqft = Math.max(sqft, item.qty);
       }
     }
 
-    // Check if demolition is in scope
     const hasDemolition = analysis.items.some(i =>
       i.name.toLowerCase().includes('demolition') ||
       i.name.toLowerCase().includes('hacking') ||
       i.section?.toLowerCase().includes('demolition')
     );
 
-    const generatedTasks = generateGanttTasks(
-      projectId,
-      new Date(startDate),
-      sqft,
-      hasDemolition
-    );
-
+    const generatedTasks = generateGanttTasks(projectId, new Date(startDate), sqft, hasDemolition);
     setTasks(generatedTasks);
     setGenerating(false);
-  };
+  }, [analysis, projectId, startDate, workSat, workSun]);
 
   const handleTaskUpdate = (taskId: string, updates: Partial<GanttTask>) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
   };
 
-  const handleSave = () => {
-    onSave?.(tasks);
+  const handleTaskClick = (taskId: string) => {
+    setSelectedTaskId(taskId);
+  };
+
+  const handleSubtaskToggle = (taskId: string, subtaskId: string) => {
+    setTasks(prev => prev.map(t => {
+      if (t.id !== taskId) return t;
+      return {
+        ...t,
+        subtasks: t.subtasks.map(s =>
+          s.id === subtaskId ? { ...s, completed: !s.completed } : s
+        ),
+      };
+    }));
+  };
+
+  const handleDurationChange = (taskId: string, newDuration: number) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task || newDuration < 1) return;
+
+    const startD = parseISO(task.start_date);
+    let d = new Date(startD);
+    let count = 0;
+    while (count < newDuration - 1) {
+      d = new Date(d.getTime() + 86400000);
+      const day = d.getDay();
+      const dateStr = format(d, 'yyyy-MM-dd');
+      if (day !== 0 && day !== 6 && !MY_HOLIDAYS.has(dateStr)) {
+        count++;
+      }
+    }
+
+    handleTaskUpdate(taskId, {
+      duration: newDuration,
+      end_date: format(d, 'yyyy-MM-dd'),
+    });
   };
 
   if (generating) {
     return (
-      <div className="bg-white border border-gray-100 rounded-xl p-8 text-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#F0B90B] mx-auto mb-3" />
-        <p className="text-gray-600 font-medium">Generating Gantt Chart...</p>
-        <p className="text-sm text-gray-400 mt-1">Based on quotation scope and MY/SG workflow</p>
+      <div className="bg-white border border-[#D8DCE8] rounded-xl p-10 text-center">
+        <div className="flex items-center justify-center gap-2 mb-3">
+          <div className="flex gap-1">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="w-1.5 h-1.5 rounded-full bg-[#F0B90B]" style={{
+                animation: `bounce 0.8s ease-in-out ${i * 0.15}s infinite`
+              }} />
+            ))}
+          </div>
+        </div>
+        <p className="text-[15px] font-semibold text-[#1B2336]">
+          {lang === 'ZH' ? '正在生成甘特图...' : 'Generating Gantt Chart...'}
+        </p>
+        <p className="text-[13px] text-[#6B7A94] mt-1">
+          {lang === 'ZH' ? '基于报价单范围和MY/SG施工流程' : 'Based on quotation scope and MY/SG construction workflow'}
+        </p>
       </div>
     );
   }
 
   const projectEnd = tasks.length > 0 ? tasks[tasks.length - 1].end_date : '';
+  const calWeeks = tasks.length > 0
+    ? ((new Date(tasks[tasks.length - 1].end_date).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24 * 7)).toFixed(1)
+    : '0';
+  const calMonths = (parseFloat(calWeeks) / 4.33).toFixed(1);
+
+  // Collect holidays in range
+  const holidaysInRange: { date: string; name: string; name_zh: string }[] = [];
+  if (tasks.length > 0) {
+    let d = new Date(startDate);
+    const end = parseISO(tasks[tasks.length - 1].end_date);
+    while (d <= end) {
+      const dateStr = format(d, 'yyyy-MM-dd');
+      if (MY_HOLIDAYS.has(dateStr)) {
+        const info = getHolidayInfo(dateStr);
+        holidaysInRange.push({ date: dateStr, name: info.name, name_zh: info.name_zh });
+      }
+      d = new Date(d.getTime() + 86400000);
+    }
+  }
+
+  const selectedTask = selectedTaskId ? tasks.find(t => t.id === selectedTaskId) : null;
+  const selectedPhaseId = selectedTaskId?.replace(`${projectId}-`, '') || '';
 
   return (
-    <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-      {/* Gantt header */}
-      <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <BarChart2 className="w-5 h-5 text-[#F0B90B]" />
+    <>
+      {/* ── Top Schedule Controls ── */}
+      <div className="bg-white border border-[#D8DCE8] rounded-xl shadow-sm mb-4 overflow-hidden">
+        <div className="px-4 py-3 flex items-center gap-4 flex-wrap">
+          {/* Start Date */}
           <div>
-            <h2 className="font-semibold text-gray-900">Auto-Generated Gantt Chart</h2>
-            <p className="text-xs text-gray-500">
-              {tasks.length} tasks · Est. completion: {projectEnd ? format(new Date(projectEnd), 'dd MMM yyyy') : 'N/A'}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-500">Start Date:</label>
+            <div className="text-[11px] text-[#6B7A94] font-semibold tracking-wide mb-1">Start Date</div>
             <input
               type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="text-sm border border-gray-200 rounded px-2 py-1"
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                setTimeout(() => generateTasks(), 0);
+              }}
+              className="text-[12px] border border-[#D8DCE8] rounded-lg px-2.5 py-1.5 text-[#1B2336] bg-white focus:outline-none focus:border-[#F0B90B] transition-colors font-sans"
             />
           </div>
-          <Button variant="outline" size="sm" onClick={generateTasks} className="gap-2">
-            <RefreshCw className="w-3 h-3" /> Regenerate
-          </Button>
-          {onSave && (
-            <Button variant="gold" size="sm" onClick={handleSave} className="gap-2">
-              <Download className="w-3 h-3" /> Save Gantt
-            </Button>
+
+          {/* Target Deadline */}
+          <div>
+            <div className="text-[11px] text-[#6B7A94] font-semibold tracking-wide mb-1 flex items-center gap-1">
+              <span className="text-[#EF4444]">🎯</span> Target Deadline
+            </div>
+            <input
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              className="text-[12px] border border-[#D8DCE8] rounded-lg px-2.5 py-1.5 text-[#1B2336] bg-white focus:outline-none focus:border-[#F0B90B] transition-colors font-sans"
+            />
+          </div>
+
+          {/* Work Days */}
+          <div>
+            <div className="text-[11px] text-[#6B7A94] font-semibold tracking-wide mb-1">Work Days</div>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1.5 text-[12px] text-[#3D4A60] cursor-pointer">
+                <input type="checkbox" checked={workSat} onChange={(e) => setWorkSat(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-[#D8DCE8] accent-[#F0B90B]" />
+                Sat
+              </label>
+              <label className="flex items-center gap-1.5 text-[12px] text-[#3D4A60] cursor-pointer">
+                <input type="checkbox" checked={workSun} onChange={(e) => setWorkSun(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-[#D8DCE8] accent-[#F0B90B]" />
+                Sun
+              </label>
+            </div>
+            <div className="text-[9px] text-[#6B7A94] mt-0.5">Weekends excluded by default</div>
+          </div>
+
+          {/* Divider */}
+          <div className="w-px h-10 bg-[#D8DCE8]" />
+
+          {/* Summary */}
+          <div className="text-[13px]">
+            <div className="text-[#1B2336]">
+              <strong>{calWeeks}</strong> {lang === 'ZH' ? '日历周' : 'calendar weeks'}
+              <span className="text-[#6B7A94] ml-1">(≈{calMonths} {lang === 'ZH' ? '个月' : 'months'})</span>
+            </div>
+            <div className="text-[11px] text-[#6B7A94] mt-0.5">
+              {projectEnd ? `${format(new Date(startDate), 'dd MMM')} → ${format(parseISO(projectEnd), 'dd MMM')}` : ''}
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="ml-auto flex items-center gap-2 flex-wrap">
+            <button
+              onClick={generateTasks}
+              className="flex items-center gap-1.5 px-4 py-2 text-[12px] font-bold rounded-lg bg-[#F0B90B] text-[#1B2336] hover:bg-[#F8D33A] transition-all shadow-sm border border-[rgba(240,185,11,0.3)]"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              AI {lang === 'ZH' ? '智能编排' : 'Schedule'}
+            </button>
+            <button
+              onClick={() => setShowOverrideModal(true)}
+              className="flex items-center gap-1.5 px-4 py-2 text-[12px] font-semibold text-[#3D4A60] border border-[#D8DCE8] rounded-lg bg-white hover:border-[#F0B90B] hover:text-[#C89B09] transition-all"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              Override Special Work Days
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Gantt Card ── */}
+      <div className="bg-white border border-[#D8DCE8] rounded-xl shadow-sm overflow-hidden">
+        {/* Gantt Header */}
+        <div className="px-4 py-3 border-b border-[#D8DCE8] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="bg-[#F0B90B] text-[#1B2336] text-[10px] font-bold tracking-[1.5px] px-2 py-0.5 rounded">GANTT</span>
+            <span className="text-[15px] font-semibold text-[#1B2336]">
+              Construction Gantt Chart (Calendar Sync)
+            </span>
+          </div>
+          <span className="text-[12px] text-[#6B7A94]">
+            {projectEnd ? `${format(new Date(startDate), 'dd MMM')} – ${format(parseISO(projectEnd), 'dd MMM')}` : ''}
+          </span>
+        </div>
+
+        {/* Instruction hint */}
+        <div className="px-4 py-2 bg-[rgba(96,165,250,0.04)] border-b border-[#D8DCE8] text-[11px] text-[#6B7A94]">
+          {lang === 'ZH'
+            ? '💡 点击任意施工行查看细分内容和备料清单 · 拖拽条形图右边缘可调整工期 · 拖拽条形图主体可移动开始时间'
+            : '💡 Click any task row for details & prep checklist · Drag bar right edge to resize · Drag bar body to move start date'}
+        </div>
+
+        {/* Gantt chart */}
+        <div className="p-0">
+          <GanttChart
+            tasks={tasks}
+            onTaskUpdate={handleTaskUpdate}
+            onTaskClick={handleTaskClick}
+            deadline={deadline}
+            projectId={projectId}
+          />
+        </div>
+
+        {/* Holiday legend */}
+        {holidaysInRange.length > 0 && (
+          <div className="px-4 py-2.5 border-t border-[#D8DCE8] flex flex-wrap gap-2 items-center">
+            {holidaysInRange.map(h => (
+              <span key={h.date} className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border border-[rgba(251,146,60,0.2)] bg-[rgba(251,146,60,0.1)] text-[#F97316]">
+                <span>🎌</span>
+                {lang === 'ZH' ? h.name_zh : h.name} {format(parseISO(h.date), 'MM-dd')}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Bottom Action Bar ── */}
+      <div className="mt-4 flex items-center gap-3 flex-wrap">
+        {onSave && (
+          <button
+            onClick={() => onSave?.(tasks)}
+            className="flex items-center gap-1.5 px-5 py-2.5 text-[13px] font-bold text-[#1B2336] bg-[#F0B90B] rounded-lg hover:bg-[#F8D33A] transition-all shadow-sm"
+          >
+            📁 {lang === 'ZH' ? '保存为项目' : 'Save to Project'}
+          </button>
+        )}
+        <button
+          className="flex items-center gap-1.5 px-5 py-2.5 text-[13px] font-semibold text-[#3D4A60] border border-[#D8DCE8] rounded-lg bg-white hover:border-[#F0B90B] hover:text-[#C89B09] transition-all"
+        >
+          Export Excel Schedule
+        </button>
+        <span className="ml-auto text-[11px] text-[#6B7A94]">
+          {lang === 'ZH' ? '排好进度后保存，即可在项目列表中分配工人' : 'Save schedule to assign workers in project view'}
+        </span>
+      </div>
+
+      {/* Task Detail Panel */}
+      {selectedTask && (
+        <TaskDetailPanel
+          task={selectedTask}
+          phaseId={selectedPhaseId}
+          onClose={() => setSelectedTaskId(null)}
+          onSubtaskToggle={(subtaskId) => handleSubtaskToggle(selectedTask.id, subtaskId)}
+          onDurationChange={(newDuration) => handleDurationChange(selectedTask.id, newDuration)}
+          quotationItems={analysis.items}
+        />
+      )}
+
+      {/* Override Modal */}
+      {showOverrideModal && (
+        <OverrideModal
+          tasks={tasks}
+          startDate={startDate}
+          projectEnd={projectEnd}
+          onClose={() => setShowOverrideModal(false)}
+        />
+      )}
+    </>
+  );
+}
+
+// Holiday info lookup
+function getHolidayInfo(dateStr: string): { name: string; name_zh: string } {
+  const info: Record<string, { name: string; name_zh: string }> = {
+    '2025-01-01': { name: 'New Year', name_zh: '元旦' },
+    '2025-01-29': { name: 'CNY Day 1', name_zh: '农历新年第一天' },
+    '2025-01-30': { name: 'CNY Day 2', name_zh: '农历新年第二天' },
+    '2025-03-30': { name: 'Hari Raya Aidilfitri (1)', name_zh: '开斋节(1)' },
+    '2025-03-31': { name: 'Hari Raya Aidilfitri (2)', name_zh: '开斋节(2)' },
+    '2025-04-14': { name: 'Agong Birthday (est.)', name_zh: '最高元首生日' },
+    '2025-05-01': { name: 'Labour Day', name_zh: '劳动节' },
+    '2025-05-12': { name: 'Wesak Day (est.)', name_zh: '卫塞节' },
+    '2025-06-06': { name: 'Hari Raya Aidiladha (est.)', name_zh: '哈芝节' },
+    '2025-08-31': { name: 'Merdeka Day', name_zh: '国庆日' },
+    '2025-09-16': { name: 'Malaysia Day', name_zh: '马来西亚日' },
+    '2025-10-20': { name: 'Deepavali', name_zh: '屠妖节' },
+    '2025-12-25': { name: 'Christmas', name_zh: '圣诞节' },
+    '2026-01-01': { name: 'New Year', name_zh: '元旦' },
+    '2026-02-17': { name: 'CNY Day 1', name_zh: '农历新年第一天' },
+    '2026-02-18': { name: 'CNY Day 2', name_zh: '农历新年第二天' },
+    '2026-03-20': { name: 'Hari Raya Aidilfitri (1)', name_zh: '开斋节(1)' },
+    '2026-03-21': { name: 'Hari Raya Aidilfitri (2)', name_zh: '开斋节(2)' },
+    '2026-05-01': { name: 'Labour Day', name_zh: '劳动节' },
+    '2026-05-31': { name: 'Wesak Day (est.)', name_zh: '卫塞节' },
+    '2026-08-31': { name: 'Merdeka Day', name_zh: '国庆日' },
+    '2026-09-16': { name: 'Malaysia Day', name_zh: '马来西亚日' },
+    '2026-12-25': { name: 'Christmas', name_zh: '圣诞节' },
+  };
+  return info[dateStr] || { name: 'Public Holiday', name_zh: '公共假期' };
+}
+
+// Override Special Work Days Modal
+function OverrideModal({ tasks, startDate, projectEnd, onClose }: {
+  tasks: GanttTask[];
+  startDate: string;
+  projectEnd: string;
+  onClose: () => void;
+}) {
+  const specialDays: { date: string; type: 'weekend' | 'holiday'; name: string; work: boolean }[] = [];
+  if (projectEnd) {
+    let d = new Date(startDate);
+    const end = parseISO(projectEnd);
+    while (d <= end) {
+      const dateStr = format(d, 'yyyy-MM-dd');
+      const day = d.getDay();
+      const isHol = MY_HOLIDAYS.has(dateStr);
+      if (day === 0 || day === 6 || isHol) {
+        specialDays.push({
+          date: dateStr,
+          type: isHol ? 'holiday' : 'weekend',
+          name: isHol ? getHolidayInfo(dateStr).name : (day === 0 ? 'Sunday' : 'Saturday'),
+          work: false,
+        });
+      }
+      d = new Date(d.getTime() + 86400000);
+    }
+  }
+
+  const [days, setDays] = useState(specialDays);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-2xl border border-[#D8DCE8] w-full max-w-[480px] p-5 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-[15px] font-bold text-[#1B2336]">
+            <Pencil className="w-4 h-4 inline mr-2" />
+            手动调整施工日
+          </div>
+          <button onClick={onClose} className="w-7 h-7 rounded-full bg-[#F0F2F7] flex items-center justify-center text-[#6B7A94] hover:bg-[#D8DCE8] transition-colors text-sm">
+            ✕
+          </button>
+        </div>
+        <p className="text-[12px] text-[#6B7A94] mb-3">
+          设定特殊日期是否施工（覆盖系统默认）。橙色 = 公共假期，灰色 = 周末。
+        </p>
+        <div className="flex-1 overflow-y-auto space-y-2 mb-4">
+          {days.map((day, idx) => (
+            <div key={day.date} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border ${day.type === 'holiday' ? 'border-l-[3px] border-l-[rgba(251,146,60,0.5)] border-[#D8DCE8]' : 'border-l-[3px] border-l-[#D8DCE8] border-[#D8DCE8]'} bg-[#FAFBFC]`}>
+              <div className="flex-1">
+                <div className="text-[12px] font-semibold text-[#1B2336]">{format(parseISO(day.date), 'EEE, dd MMM yyyy')}</div>
+                <div className="text-[11px] text-[#6B7A94]">{day.name}</div>
+              </div>
+              <button
+                onClick={() => {
+                  const updated = [...days];
+                  updated[idx] = { ...updated[idx], work: !updated[idx].work };
+                  setDays(updated);
+                }}
+                className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${day.work
+                  ? 'bg-[rgba(22,163,74,0.08)] border-[rgba(74,222,128,0.3)] text-[#16A34A]'
+                  : 'bg-[#F0F2F7] border-[#D8DCE8] text-[#6B7A94]'
+                }`}
+              >
+                {day.work ? 'WORK' : 'OFF'}
+              </button>
+            </div>
+          ))}
+          {days.length === 0 && (
+            <p className="text-center text-[13px] text-[#6B7A94] py-6">No weekends or holidays in project range.</p>
           )}
         </div>
-      </div>
-
-      {/* Legend */}
-      <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap gap-3">
-        {[
-          { color: '#EF4444', label: 'Demolition' },
-          { color: '#F59E0B', label: 'Electrical' },
-          { color: '#3B82F6', label: 'Plumbing' },
-          { color: '#8B5CF6', label: 'Waterproofing' },
-          { color: '#10B981', label: 'Tiling' },
-          { color: '#6366F1', label: 'False Ceiling' },
-          { color: '#EC4899', label: 'Painting' },
-          { color: '#D97706', label: 'Carpentry' },
-        ].map(({ color, label }) => (
-          <div key={label} className="flex items-center gap-1.5 text-xs text-gray-600">
-            <div className="w-3 h-3 rounded-sm" style={{ background: color }} />
-            {label}
-          </div>
-        ))}
-        <div className="flex items-center gap-1.5 text-xs text-gray-600 ml-auto">
-          <div className="w-3 h-3 rounded-sm border border-gray-900 bg-transparent" />
-          Critical Path
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 px-4 py-2 text-[12px] font-semibold bg-[#F0B90B] text-[#1B2336] rounded-lg hover:bg-[#F8D33A] transition-all">
+            保存调整
+          </button>
+          <button onClick={onClose} className="px-4 py-2 text-[12px] font-semibold text-[#6B7A94] border border-[#D8DCE8] rounded-lg bg-white hover:bg-[#F0F2F7] transition-all">
+            取消
+          </button>
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-gray-600">
-          <div className="w-3 h-0.5 bg-[#F0B90B]" style={{ borderTop: '2px dashed #F0B90B' }} />
-          Today
-        </div>
-      </div>
-
-      {/* Gantt chart */}
-      <div className="p-4">
-        <GanttChart tasks={tasks} onTaskUpdate={handleTaskUpdate} />
-      </div>
-
-      {/* Summary */}
-      <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between text-sm">
-        <span className="text-gray-600">
-          Project Duration: <strong className="text-gray-900">
-            {tasks.length > 0
-              ? Math.ceil((new Date(tasks[tasks.length - 1].end_date).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24 * 7))
-              : 0} weeks
-          </strong>
-        </span>
-        <span className="text-xs text-gray-400">Drag bars to adjust dates · Click to expand sub-tasks</span>
       </div>
     </div>
   );

@@ -54,6 +54,8 @@ export interface Quotation {
   created_at: string;
 }
 
+export type SupplyType = 'supply_install' | 'labour_only' | 'supply_only';
+
 export interface QuotationItem {
   no: string;
   section: string;
@@ -63,6 +65,7 @@ export interface QuotationItem {
   unitPrice: number;
   total: number;
   unitPriceDerived: boolean;
+  supplyType?: SupplyType;
   status: AIItemStatus;
   note?: string;
 }
@@ -96,6 +99,62 @@ export interface QuotationClient {
   projectName: string;
 }
 
+export interface QuotationPaymentTerm {
+  label: string;
+  percentage: number;
+  amount: number;
+  condition?: string;
+}
+
+export interface GanttTradeData {
+  sqft?: number;
+  points?: number;
+  units?: number;
+  ft?: number;
+  estimatedDays: number;
+  taskName?: string;       // quotation-specific task name, e.g. "Kitchen & Bathroom Tiling"
+  taskName_zh?: string;    // Chinese task name
+}
+
+export interface GanttCustomPhase {
+  name: string;
+  name_zh: string;
+  trade: string;
+  estimatedDays: number;
+  insertAfter: string; // phase id to insert after
+}
+
+export interface TradeHint {
+  prepItems: string[];       // pre-work reminders / 事前项目提醒
+  warnings?: string[];       // trade-specific risk warnings
+  quotationNotes?: string;   // summary of related quotation items
+}
+
+export interface GanttParams {
+  sqft: number;
+  projectType: 'residential' | 'condo' | 'landed' | 'commercial' | 'mall';
+  hasDemolition: boolean;
+  /** All trade/work categories found in this quotation (used to filter Gantt phases) */
+  detectedCategories?: string[];
+  tradeScope: {
+    demolition?:    GanttTradeData;
+    masonry?:       GanttTradeData;
+    tiling?:        GanttTradeData;
+    electrical?:    GanttTradeData;
+    plumbing?:      GanttTradeData;
+    painting?:      GanttTradeData;
+    carpentry?:     GanttTradeData;
+    falseCeiling?:  GanttTradeData;
+    waterproofing?: GanttTradeData;
+    flooring?:      GanttTradeData;
+    aluminium?:     GanttTradeData;
+    aircon?:        GanttTradeData;
+  };
+  customPhases?: GanttCustomPhase[];
+  riskNotes?: Record<string, string>;
+  tradeHints?: Record<string, TradeHint>;
+}
+
 export interface QuotationAnalysis {
   client: QuotationClient;
   score: QuotationScore;
@@ -105,7 +164,13 @@ export interface QuotationAnalysis {
   totalAmount: number;
   missing: string[];
   alerts: QuotationAlert[];
+  projectType?: string;
+  projectSqft?: number;
+  paymentTerms?: QuotationPaymentTerm[];
+  ganttParams?: GanttParams;
 }
+
+export type GanttTaskStatus = 'pending' | 'confirmed' | 'completed';
 
 export interface GanttTask {
   id: string;
@@ -120,6 +185,7 @@ export interface GanttTask {
   dependencies: string[];
   color: string;
   is_critical: boolean;
+  taskStatus?: GanttTaskStatus;
   subtasks: GanttSubtask[];
   assigned_workers: string[];
 }
@@ -127,6 +193,7 @@ export interface GanttTask {
 export interface GanttSubtask {
   id: string;
   name: string;
+  name_zh?: string;
   completed: boolean;
 }
 

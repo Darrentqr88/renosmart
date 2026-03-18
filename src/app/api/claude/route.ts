@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
 
     const response = await anthropic.messages.create({
       model: model || 'claude-haiku-4-5-20251001',
-      max_tokens: max_tokens || 8000,
+      max_tokens: max_tokens || 16000,
       messages,
       ...(system ? { system } : {}),
     });

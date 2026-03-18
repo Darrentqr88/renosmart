@@ -256,29 +256,93 @@ function RegisterPageContent() {
           {/* Step 3: Role */}
           {step === 3 && (
             <>
-              <CardHeader>
+              <CardHeader className="text-center pb-2">
                 <CardTitle className="text-white text-xl">What is your role?</CardTitle>
+                <p className="text-white/40 text-sm mt-1">Choose how you&apos;ll use RenoSmart</p>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 pt-2">
                 {[
-                  { role: 'designer' as UserRole, label: '🏠 Interior Designer', desc: 'Manage projects, upload quotations, generate Gantt charts' },
-                  { role: 'owner' as UserRole, label: '👤 Property Owner', desc: 'Track your renovation progress and approve payments' },
-                  { role: 'worker' as UserRole, label: '🔨 Contractor / Worker', desc: 'View assigned tasks and submit work updates' },
-                ].map(({ role: r, label, desc }) => (
+                  {
+                    role: 'designer' as UserRole,
+                    icon: '🏠',
+                    label: 'Interior Designer',
+                    desc: 'Manage projects and clients',
+                    features: ['AI quotation audit', 'Auto Gantt generation', 'Multi-project dashboard', 'Price database'],
+                    accent: '#F0B90B',
+                    bg: 'rgba(240,185,11,0.08)',
+                    border: 'rgba(240,185,11,0.3)',
+                  },
+                  {
+                    role: 'owner' as UserRole,
+                    icon: '👤',
+                    label: 'Property Owner',
+                    desc: 'Track your renovation',
+                    features: ['Live progress tracking', 'Document access', 'Payment schedule', 'Photo approvals'],
+                    accent: '#00C9A7',
+                    bg: 'rgba(0,201,167,0.08)',
+                    border: 'rgba(0,201,167,0.3)',
+                  },
+                  {
+                    role: 'worker' as UserRole,
+                    icon: '🔨',
+                    label: 'Contractor / Worker',
+                    desc: 'View tasks and updates',
+                    features: ['Daily task list', 'Check-in / check-out', 'Receipt uploads', 'Site photos'],
+                    accent: '#2E6BE6',
+                    bg: 'rgba(46,107,230,0.08)',
+                    border: 'rgba(46,107,230,0.3)',
+                  },
+                ].map(({ role: r, icon, label, desc, features, accent, bg, border }) => (
                   <button
                     key={r}
                     onClick={() => setRole(r)}
-                    className={`w-full text-left p-4 rounded-xl border transition-all ${
+                    style={role === r ? { background: bg, borderColor: accent } : {}}
+                    className={`w-full text-left p-4 rounded-2xl border transition-all ${
                       role === r
-                        ? 'border-[#F0B90B] bg-[#F0B90B]/10'
-                        : 'border-white/10 hover:border-white/30 hover:bg-white/5'
+                        ? 'shadow-lg scale-[1.01]'
+                        : 'border-white/10 hover:border-white/20 hover:bg-white/3'
                     }`}
                   >
-                    <div className="font-semibold text-white">{label}</div>
-                    <div className="text-sm text-white/50 mt-1">{desc}</div>
+                    <div className="flex items-start gap-3">
+                      <div
+                        className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
+                        style={{ background: `${accent}20` }}
+                      >
+                        {icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-base">{label}</span>
+                          {role === r && (
+                            <span
+                              className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                              style={{ background: accent, color: '#000' }}
+                            >
+                              Selected
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-white/50 text-sm mt-0.5">{desc}</div>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {features.map((f) => (
+                            <span
+                              key={f}
+                              className="text-xs px-2 py-0.5 rounded-full"
+                              style={{
+                                background: role === r ? `${accent}20` : 'rgba(255,255,255,0.06)',
+                                color: role === r ? accent : 'rgba(255,255,255,0.45)',
+                                border: `1px solid ${role === r ? border : 'rgba(255,255,255,0.08)'}`,
+                              }}
+                            >
+                              {f}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </button>
                 ))}
-                <Button onClick={() => setStep(4)} variant="gold" className="w-full" disabled={!role}>
+                <Button onClick={() => setStep(4)} variant="gold" className="w-full mt-2" disabled={!role}>
                   Continue
                 </Button>
               </CardContent>

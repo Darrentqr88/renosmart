@@ -8,17 +8,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Mail } from 'lucide-react';
+import { Loader2, Mail, Phone } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
+
+type LoginTab = 'email' | 'phone';
 
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const message = searchParams.get('message');
   const supabase = createClient();
+
+  const [activeTab, setActiveTab] = useState<LoginTab>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [phonePrefix, setPhonePrefix] = useState('+60');
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -39,6 +47,13 @@ function LoginPageContent() {
     }
   };
 
+  const redirectByRole = (role?: string) => {
+    if (role === 'owner') router.push('/owner');
+    else if (role === 'worker') router.push('/worker');
+    else router.push('/designer');
+    router.refresh();
+  };
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -46,15 +61,50 @@ function LoginPageContent() {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       await completePendingProfile();
-      // Redirect based on role
       const role = data.user?.user_metadata?.role;
-      if (role === 'owner') router.push('/owner');
-      else if (role === 'worker') router.push('/worker');
-      else router.push('/designer');
-      router.refresh();
+      redirectByRole(role);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Login failed';
       toast({ variant: 'destructive', title: 'Login failed', description: msg });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendOtp = async () => {
+    if (!phone) return;
+    setLoading(true);
+    try {
+      const fullPhone = `${phonePrefix}${phone}`;
+      const { error } = await supabase.auth.signInWithOtp({ phone: fullPhone });
+      if (error) throw error;
+      setOtpSent(true);
+      toast({ title: 'OTP sent', description: `Verification code sent to ${fullPhone}` });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to send OTP';
+      toast({ variant: 'destructive', title: 'Error', description: msg });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otp) return;
+    setLoading(true);
+    try {
+      const fullPhone = `${phonePrefix}${phone}`;
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: fullPhone,
+        token: otp,
+        type: 'sms',
+      });
+      if (error) throw error;
+      await completePendingProfile();
+      const role = data.user?.user_metadata?.role;
+      redirectByRole(role);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Invalid OTP';
+      toast({ variant: 'destructive', title: 'Verification failed', description: msg });
     } finally {
       setLoading(false);
     }
@@ -117,7 +167,7 @@ function LoginPageContent() {
         )}
 
         <Card className="bg-[#0F1923] border-white/10 text-white">
-          <CardHeader className="text-center">
+          <CardHeader className="text-center pb-4">
             <CardTitle className="text-white text-2xl">Welcome back</CardTitle>
             <CardDescription className="text-white/50">Sign in to your account</CardDescription>
           </CardHeader>
@@ -144,40 +194,142 @@ function LoginPageContent() {
                 <span className="w-full border-t border-white/10" />
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="bg-[#0F1923] px-2 text-white/40">or continue with email</span>
+                <span className="bg-[#0F1923] px-2 text-white/40">or continue with</span>
               </div>
             </div>
 
-            <form onSubmit={handleEmailLogin} className="space-y-4">
-              <div>
-                <Label htmlFor="email" className="text-white/70">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="bg-white/5 border-white/10 text-white placeholder:text-white/30 mt-1"
-                  required
-                />
+            {/* Login method tabs */}
+            <div className="auth-tab-row">
+              <button
+                className={`auth-tab${activeTab === 'email' ? ' active' : ''}`}
+                onClick={() => { setActiveTab('email'); setOtpSent(false); }}
+                type="button"
+              >
+                <Mail className="w-3.5 h-3.5 mr-1.5 inline" />
+                Email
+              </button>
+              <button
+                className={`auth-tab${activeTab === 'phone' ? ' active' : ''}`}
+                onClick={() => { setActiveTab('phone'); setOtpSent(false); }}
+                type="button"
+              >
+                <Phone className="w-3.5 h-3.5 mr-1.5 inline" />
+                Phone
+              </button>
+            </div>
+
+            {/* Email login form */}
+            {activeTab === 'email' && (
+              <form onSubmit={handleEmailLogin} className="space-y-4">
+                <div>
+                  <Label htmlFor="email" className="text-white/70">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="bg-white/5 border-white/10 text-white placeholder:text-white/30 mt-1"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="password" className="text-white/70">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="bg-white/5 border-white/10 text-white placeholder:text-white/30 mt-1"
+                    required
+                  />
+                </div>
+                <Button type="submit" variant="gold" className="w-full" disabled={loading}>
+                  {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                  Sign In
+                </Button>
+              </form>
+            )}
+
+            {/* Phone login form */}
+            {activeTab === 'phone' && (
+              <div className="space-y-4">
+                {!otpSent ? (
+                  <>
+                    <div>
+                      <Label className="text-white/70">Phone Number</Label>
+                      <div className="auth-phone-row mt-1">
+                        <select
+                          value={phonePrefix}
+                          onChange={(e) => setPhonePrefix(e.target.value)}
+                          className="auth-phone-prefix"
+                        >
+                          <option value="+60">🇲🇾 +60</option>
+                          <option value="+65">🇸🇬 +65</option>
+                        </select>
+                        <input
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                          placeholder="123456789"
+                          className="auth-phone-input"
+                        />
+                      </div>
+                      <p className="text-white/30 text-xs mt-1.5">We&apos;ll send a verification code via SMS</p>
+                    </div>
+                    <Button
+                      onClick={handleSendOtp}
+                      variant="gold"
+                      className="w-full"
+                      disabled={loading || phone.length < 8}
+                    >
+                      {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                      Send OTP
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div className="p-3 rounded-lg bg-[#F0B90B]/10 border border-[#F0B90B]/20 text-center">
+                      <p className="text-[#F0B90B] text-sm font-medium">Code sent to {phonePrefix}{phone}</p>
+                      <button
+                        onClick={() => setOtpSent(false)}
+                        className="text-white/40 text-xs mt-1 hover:text-white/70 transition-colors"
+                      >
+                        Change number
+                      </button>
+                    </div>
+                    <div>
+                      <Label className="text-white/70">Verification Code</Label>
+                      <Input
+                        type="text"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="6-digit code"
+                        className="bg-white/5 border-white/10 text-white placeholder:text-white/30 mt-1 text-center text-2xl tracking-widest"
+                        maxLength={6}
+                      />
+                    </div>
+                    <Button
+                      onClick={handleVerifyOtp}
+                      variant="gold"
+                      className="w-full"
+                      disabled={loading || otp.length < 6}
+                    >
+                      {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                      Verify & Sign In
+                    </Button>
+                    <button
+                      onClick={handleSendOtp}
+                      disabled={loading}
+                      className="w-full text-center text-sm text-white/40 hover:text-white/60 transition-colors"
+                    >
+                      Resend code
+                    </button>
+                  </>
+                )}
               </div>
-              <div>
-                <Label htmlFor="password" className="text-white/70">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="bg-white/5 border-white/10 text-white placeholder:text-white/30 mt-1"
-                  required
-                />
-              </div>
-              <Button type="submit" variant="gold" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                Sign In
-              </Button>
-            </form>
+            )}
 
             <p className="text-center text-sm text-white/40">
               Don&apos;t have an account?{' '}

@@ -34,52 +34,46 @@ export default function OwnerDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center">
-      {/* Mobile frame */}
-      <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden min-h-[780px] flex flex-col">
+    <div className="min-h-screen bg-[#E8ECF0] flex items-center justify-center p-4">
+      <div className="mobile-frame">
+        <div className="mobile-notch"><div className="mobile-notch-pill" /></div>
         {/* Header */}
-        <div className="bg-[#0F1923] text-white px-5 pt-12 pb-6">
+        <div className="mobile-header">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <p className="text-white/50 text-xs">Your Renovation</p>
-              <h1 className="font-bold text-lg">{(project?.name as string) || 'My Home'}</h1>
+              <div className="mobile-greeting">Your Renovation</div>
+              <div className="mobile-name">{(project?.name as string) || 'My Home'}</div>
             </div>
             <button onClick={handleSignOut} className="p-2 rounded-xl hover:bg-white/10">
               <LogOut className="w-4 h-4 text-white/50" />
             </button>
           </div>
 
-          {/* Progress circle */}
-          <div className="flex items-center justify-center py-4">
-            <div className="relative w-28 h-28">
-              <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" />
-                <circle
-                  cx="50" cy="50" r="42" fill="none"
-                  stroke="#F0B90B" strokeWidth="8"
-                  strokeDasharray={`${((project?.progress as number || 0) / 100) * 264} 264`}
-                  strokeLinecap="round"
-                />
+          <div className="mobile-project-card">
+            <div className="big-progress">
+              <svg width="110" height="110" style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx="55" cy="55" r="46" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" />
+                <circle cx="55" cy="55" r="46" fill="none" stroke="#F0B90B" strokeWidth="8"
+                  strokeDasharray={`${((project?.progress as number || 0) / 100) * 289} 289`}
+                  strokeLinecap="round" />
               </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold text-white">{project?.progress as number || 0}%</span>
-                <span className="text-xs text-white/50">Complete</span>
+              <div className="big-pct">
+                <span style={{ fontSize: 24, fontWeight: 800, color: '#fff' }}>{(project?.progress as number) || 0}%</span>
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>Complete</span>
               </div>
             </div>
-          </div>
-
-          {/* Stats row */}
-          <div className="grid grid-cols-3 gap-3 mt-2">
-            {[
-              { label: 'Start', value: project?.start_date ? formatDate(project.start_date as string) : 'TBD' },
-              { label: 'Status', value: (project?.status as string) === 'active' ? '在施工' : '待开工' },
-              { label: 'End', value: project?.end_date ? formatDate(project.end_date as string) : 'TBD' },
-            ].map(({ label, value }) => (
-              <div key={label} className="text-center">
-                <div className="text-xs text-white/40">{label}</div>
-                <div className="text-sm font-medium text-white mt-0.5">{value}</div>
-              </div>
-            ))}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 12 }}>
+              {[
+                { label: 'Start', value: project?.start_date ? formatDate(project.start_date as string) : 'TBD' },
+                { label: 'Status', value: project?.status === 'active' ? '在施工' : project?.status === 'completed' ? '已完工' : '待开工' },
+                { label: 'End', value: project?.end_date ? formatDate(project.end_date as string) : 'TBD' },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{label}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', marginTop: 2 }}>{value}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
