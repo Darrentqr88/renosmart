@@ -203,7 +203,29 @@ function LoginPageContent() {
             </div>
           )}
 
-          <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 6, color: '#F1F5F9' }}>Sign in</h1>
+          {/* Role hint banner */}
+          {roleHint && (
+            <div style={{
+              marginBottom: 20, padding: '12px 16px', borderRadius: 14,
+              background: roleHint === 'worker' ? 'rgba(99,102,241,0.08)' : roleHint === 'owner' ? 'rgba(20,184,166,0.08)' : 'rgba(232,163,23,0.08)',
+              border: `1px solid ${roleHint === 'worker' ? 'rgba(99,102,241,0.2)' : roleHint === 'owner' ? 'rgba(20,184,166,0.2)' : 'rgba(232,163,23,0.2)'}`,
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <span style={{ fontSize: 20 }}>{roleHint === 'worker' ? '🔧' : roleHint === 'owner' ? '🏠' : '🏗'}</span>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 600, color: roleHint === 'worker' ? '#A5B4FC' : roleHint === 'owner' ? '#5EEAD4' : '#FCD34D' }}>
+                  {roleHint === 'worker' ? 'Contractor Portal' : roleHint === 'owner' ? 'Homeowner Portal' : 'Designer Portal'}
+                </p>
+                <p style={{ fontSize: 11, color: '#64748B', marginTop: 1 }}>
+                  {roleHint === 'worker' ? 'Sign in to view your tasks and upload receipts' : roleHint === 'owner' ? 'Sign in to track your renovation progress' : 'Sign in to manage your projects'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 6, color: '#F1F5F9' }}>
+            {roleHint === 'worker' ? 'Welcome back, Contractor' : roleHint === 'owner' ? 'Welcome back, Homeowner' : 'Sign in'}
+          </h1>
           <p style={{ fontSize: 14, color: '#94A3B8', marginBottom: 28 }}>Welcome back to RenoSmart</p>
 
           {/* Google */}
