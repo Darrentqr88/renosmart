@@ -18,7 +18,12 @@
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(''''date-fns:'''', d.get\\(''''dependencies'''',{}\\).get\\(''''date-fns'''',''''not found''''\\)\\)\")",
       "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\User\\\\renosmart-app\\\\.next\" -ErrorAction SilentlyContinue)",
       "Bash(taskkill /F /IM node.exe)",
-      "Bash(Write-Host \"cleared\")"
+      "Bash(Write-Host \"cleared\")",
+      "Bash(git add:*)",
+      "Bash(wc -l \"C:\\\\Users\\\\User\\\\renosmart-app\\\\src\\\\app\\\\\\(landing\\)\\\\page.tsx\")",
+      "Bash(ls src/app/\\\\\\(auth\\\\\\)/)",
+      "Bash(python .agents/skills/ui-ux-pro-max/scripts/search.py \"construction renovation SaaS project management mobile worker dashboard\" --design-system -p \"RenoSmart\" -f markdown)",
+      "Bash(python .agents/skills/ui-ux-pro-max/scripts/search.py \"construction management SaaS B2B fintech mobile-first field worker\" --design-system -p \"RenoSmart\" -f markdown)"
     ]
   }
 }

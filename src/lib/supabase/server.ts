@@ -8,12 +8,17 @@ export const createClient = async () => {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name: string) => cookieStore.get(name)?.value,
-        set: (name: string, value: string, options: Parameters<typeof cookieStore.set>[2]) => {
-          try { cookieStore.set(name, value, options); } catch { /* Server Components can't set cookies */ }
+        getAll() {
+          return cookieStore.getAll();
         },
-        remove: (name: string, options: Parameters<typeof cookieStore.set>[2]) => {
-          try { cookieStore.set(name, '', { ...options, maxAge: 0 }); } catch { /* Server Components can't set cookies */ }
+        setAll(cookiesToSet: { name: string; value: string; options?: Parameters<typeof cookieStore.set>[2] }[]) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {
+            // Server Components can't set cookies — safe to ignore
+          }
         },
       },
     }
