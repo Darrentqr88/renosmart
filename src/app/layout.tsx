@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { DM_Sans, Cormorant_Garamond, DM_Mono } from 'next/font/google';
+import { DM_Sans, Cormorant_Garamond, DM_Mono, Playfair_Display } from 'next/font/google';
 import './globals.css';
 import { I18nProvider } from '@/lib/i18n/context';
 
@@ -24,6 +24,13 @@ const dmMono = DM_Mono({
   display: 'swap',
 });
 
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  variable: '--font-playfair',
+  weight: ['400', '600', '700', '800', '900'],
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: 'RenoSmart — AI Renovation Management',
   description: 'AI-powered renovation management for Malaysia and Singapore designers.',
@@ -37,7 +44,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${dmSans.variable} ${cormorant.variable} ${dmMono.variable} font-sans antialiased`}>
+      <body className={`${dmSans.variable} ${cormorant.variable} ${dmMono.variable} ${playfair.variable} font-sans antialiased`}>
         <I18nProvider>{children}</I18nProvider>
       </body>
     </html>
