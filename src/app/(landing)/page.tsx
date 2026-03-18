@@ -299,11 +299,9 @@ const PLAN_FEATURES = {
 export default function LandingPage() {
   const { lang, setLang, region, setRegion } = useI18n();
   const [navScrolled, setNavScrolled] = useState(false);
-  const [loginOpen, setLoginOpen] = useState(false);
   const [pricingPeriod, setPricingPeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set());
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
-  const loginRef = useRef<HTMLDivElement>(null);
 
   // scroll handler for navbar
   useEffect(() => {
@@ -329,13 +327,6 @@ export default function LandingPage() {
   }, []);
 
   // close login dropdown on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (loginRef.current && !loginRef.current.contains(e.target as Node)) setLoginOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   const prices = PRICING[region as keyof typeof PRICING] ?? PRICING.MY;
   const getPro = () => prices.pro[pricingPeriod];
@@ -463,48 +454,14 @@ export default function LandingPage() {
             ))}
           </div>
 
-          {/* Login dropdown */}
-          <div ref={loginRef} style={{ position: 'relative' }}>
-            <button className="ld-nav-login" onClick={() => setLoginOpen(!loginOpen)} style={{
-              padding: '8px 20px', fontSize: 14, fontWeight: 500, border: '1px solid rgba(255,255,255,0.15)',
-              borderRadius: 10, background: 'transparent', color: '#F1F5F9', cursor: 'pointer', transition: 'all 0.2s',
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}>
-              {T.login[lang]}
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ transform: loginOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>
-                <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-            {loginOpen && (
-              <div style={{
-                position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 220,
-                background: '#1A1F2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12,
-                padding: 8, animation: 'ldScaleIn 0.2s ease-out',
-                boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
-              }}>
-                {ROLES.map((role) => (
-                  <Link key={role.id} href={`/login?role=${role.id === 'contractor' ? 'worker' : role.id}`} onClick={() => setLoginOpen(false)} style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
-                    borderRadius: 8, textDecoration: 'none', color: '#F1F5F9',
-                    transition: 'background 0.15s',
-                  }} onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
-                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: `${role.color}15`, color: role.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        {role.id === 'designer' && <><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/></>}
-                        {role.id === 'owner' && <><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></>}
-                        {role.id === 'contractor' && <><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></>}
-                      </svg>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 600 }}>{role.title[lang]}</div>
-                      <div style={{ fontSize: 11, color: '#94A3B8' }}>{role.subtitle[lang]}</div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
+          {/* Login button */}
+          <Link href="/login" className="ld-nav-login" style={{
+            padding: '8px 20px', fontSize: 14, fontWeight: 500, border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: 10, background: 'transparent', color: '#F1F5F9', cursor: 'pointer', transition: 'all 0.2s',
+            display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+          }}>
+            {T.login[lang]}
+          </Link>
 
           {/* CTA */}
           <Link href="/register" className="ld-btn-primary ld-nav-hide-mobile" style={{ padding: '8px 20px', fontSize: 14 }}>
@@ -785,7 +742,7 @@ export default function LandingPage() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
-          {ROLES.map((role, i) => (
+          {ROLES.filter((role) => role.id === 'designer').map((role, i) => (
             <Link
               key={role.id}
               href={`/register?role=${role.id === 'contractor' ? 'worker' : role.id}`}
@@ -1090,8 +1047,6 @@ export default function LandingPage() {
             </div>
             {[
               { label: { EN: 'Designers', BM: 'Pereka', ZH: '设计师' }, href: '/register?role=designer' },
-              { label: { EN: 'Homeowners', BM: 'Pemilik Rumah', ZH: '业主' }, href: '/register?role=owner' },
-              { label: { EN: 'Contractors', BM: 'Kontraktor', ZH: '施工工人' }, href: '/register?role=worker' },
             ].map((link) => (
               <Link key={link.href} href={link.href} style={{ display: 'block', fontSize: 14, color: '#94A3B8', textDecoration: 'none', marginBottom: 10, transition: 'color 0.2s' }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = '#F1F5F9')}

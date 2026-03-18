@@ -5,27 +5,20 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Loader2, Mail, Phone } from 'lucide-react';
+import { Loader2, Mail } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
-
-type LoginTab = 'email' | 'phone';
 
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const message = searchParams.get('message');
   const errorMsg = searchParams.get('error');
-  const roleHint = searchParams.get('role'); // 'worker' | 'owner' | 'designer'
+  const roleHint = searchParams.get('role'); // 'designer' (owner/worker hidden)
   const supabase = createClient();
 
-  const [activeTab, setActiveTab] = useState<LoginTab>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('');
-  const [phonePrefix, setPhonePrefix] = useState('+60');
-  const [otp, setOtp] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -68,34 +61,6 @@ function LoginPageContent() {
     } finally { setLoading(false); }
   };
 
-  const handleSendOtp = async () => {
-    if (!phone) return;
-    setLoading(true);
-    try {
-      const fullPhone = `${phonePrefix}${phone}`;
-      const { error } = await supabase.auth.signInWithOtp({ phone: fullPhone });
-      if (error) throw error;
-      setOtpSent(true);
-      toast({ title: 'OTP sent', description: `Verification code sent to ${fullPhone}` });
-    } catch (error: unknown) {
-      toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'Failed to send OTP' });
-    } finally { setLoading(false); }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (!otp) return;
-    setLoading(true);
-    try {
-      const fullPhone = `${phonePrefix}${phone}`;
-      const { data, error } = await supabase.auth.verifyOtp({ phone: fullPhone, token: otp, type: 'sms' });
-      if (error) throw error;
-      await completePendingProfile();
-      if (data.user) await getRoleAndRedirect(data.user.id);
-    } catch (error: unknown) {
-      toast({ variant: 'destructive', title: 'Verification failed', description: error instanceof Error ? error.message : 'Invalid OTP' });
-    } finally { setLoading(false); }
-  };
-
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     try {
@@ -129,9 +94,6 @@ function LoginPageContent() {
         .login-input { width:100%; padding:10px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.04); color:#F1F5F9; font-size:14px; outline:none; transition:border-color 0.2s; }
         .login-input:focus { border-color:rgba(232,163,23,0.5); }
         .login-input::placeholder { color:rgba(255,255,255,0.25); }
-        .login-tab { flex:1; padding:10px; text-align:center; font-size:13px; font-weight:500; border-radius:10px; border:none; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:6px; }
-        .login-tab.active { background:rgba(232,163,23,0.12); color:#E8A317; }
-        .login-tab:not(.active) { background:transparent; color:#64748B; }
         @media (max-width:768px) { .login-left-panel { display:none !important; } }
       `}</style>
 
@@ -203,28 +165,8 @@ function LoginPageContent() {
             </div>
           )}
 
-          {/* Role hint banner */}
-          {roleHint && (
-            <div style={{
-              marginBottom: 20, padding: '12px 16px', borderRadius: 14,
-              background: roleHint === 'worker' ? 'rgba(99,102,241,0.08)' : roleHint === 'owner' ? 'rgba(20,184,166,0.08)' : 'rgba(232,163,23,0.08)',
-              border: `1px solid ${roleHint === 'worker' ? 'rgba(99,102,241,0.2)' : roleHint === 'owner' ? 'rgba(20,184,166,0.2)' : 'rgba(232,163,23,0.2)'}`,
-              display: 'flex', alignItems: 'center', gap: 10,
-            }}>
-              <span style={{ fontSize: 20 }}>{roleHint === 'worker' ? '🔧' : roleHint === 'owner' ? '🏠' : '🏗'}</span>
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 600, color: roleHint === 'worker' ? '#A5B4FC' : roleHint === 'owner' ? '#5EEAD4' : '#FCD34D' }}>
-                  {roleHint === 'worker' ? 'Contractor Portal' : roleHint === 'owner' ? 'Homeowner Portal' : 'Designer Portal'}
-                </p>
-                <p style={{ fontSize: 11, color: '#64748B', marginTop: 1 }}>
-                  {roleHint === 'worker' ? 'Sign in to view your tasks and upload receipts' : roleHint === 'owner' ? 'Sign in to track your renovation progress' : 'Sign in to manage your projects'}
-                </p>
-              </div>
-            </div>
-          )}
-
           <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 6, color: '#F1F5F9' }}>
-            {roleHint === 'worker' ? 'Welcome back, Contractor' : roleHint === 'owner' ? 'Welcome back, Homeowner' : 'Sign in'}
+            Sign in
           </h1>
           <p style={{ fontSize: 14, color: '#94A3B8', marginBottom: 28 }}>Welcome back to RenoSmart</p>
 
@@ -247,74 +189,21 @@ function LoginPageContent() {
             <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
           </div>
 
-          {/* Tab toggle */}
-          <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 12, background: 'rgba(255,255,255,0.04)', marginBottom: 20 }}>
-            <button className={`login-tab ${activeTab === 'email' ? 'active' : ''}`} onClick={() => { setActiveTab('email'); setOtpSent(false); }}>
-              <Mail size={14} /> Email
-            </button>
-            <button className={`login-tab ${activeTab === 'phone' ? 'active' : ''}`} onClick={() => { setActiveTab('phone'); setOtpSent(false); }}>
-              <Phone size={14} /> Phone
-            </button>
-          </div>
-
           {/* Email login */}
-          {activeTab === 'email' && (
-            <form onSubmit={handleEmailLogin}>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Email</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="login-input" required />
-              </div>
-              <div style={{ marginBottom: 24 }}>
-                <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Password</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="login-input" required />
-              </div>
-              <Button type="submit" variant="gold" className="w-full h-11 rounded-xl" disabled={loading}>
-                {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                Sign In
-              </Button>
-            </form>
-          )}
-
-          {/* Phone login */}
-          {activeTab === 'phone' && (
-            <div>
-              {!otpSent ? (
-                <>
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Phone Number</label>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <select value={phonePrefix} onChange={(e) => setPhonePrefix(e.target.value)}
-                        style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#F1F5F9', fontSize: 14 }}>
-                        <option value="+60">🇲🇾 +60</option>
-                        <option value="+65">🇸🇬 +65</option>
-                      </select>
-                      <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="123456789" className="login-input" style={{ flex: 1 }} />
-                    </div>
-                  </div>
-                  <Button onClick={handleSendOtp} variant="gold" className="w-full h-11 rounded-xl" disabled={loading || phone.length < 8}>
-                    {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                    Send OTP
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <div style={{ padding: 14, borderRadius: 12, background: 'rgba(232,163,23,0.08)', border: '1px solid rgba(232,163,23,0.15)', textAlign: 'center', marginBottom: 16 }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: '#E8A317' }}>Code sent to {phonePrefix}{phone}</p>
-                    <button onClick={() => setOtpSent(false)} style={{ fontSize: 12, color: '#64748B', background: 'none', border: 'none', cursor: 'pointer', marginTop: 4 }}>Change number</button>
-                  </div>
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Verification Code</label>
-                    <input type="text" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit code" className="login-input" style={{ textAlign: 'center', fontSize: 24, letterSpacing: '0.2em' }} maxLength={6} />
-                  </div>
-                  <Button onClick={handleVerifyOtp} variant="gold" className="w-full h-11 rounded-xl" disabled={loading || otp.length < 6}>
-                    {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                    Verify & Sign In
-                  </Button>
-                  <button onClick={handleSendOtp} disabled={loading} style={{ width: '100%', textAlign: 'center', marginTop: 12, fontSize: 13, color: '#64748B', background: 'none', border: 'none', cursor: 'pointer' }}>Resend code</button>
-                </>
-              )}
+          <form onSubmit={handleEmailLogin}>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Email</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="login-input" required />
             </div>
-          )}
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Password</label>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="login-input" required />
+            </div>
+            <Button type="submit" variant="gold" className="w-full h-11 rounded-xl" disabled={loading}>
+              {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              Sign In
+            </Button>
+          </form>
 
           <p style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: '#64748B' }}>
             Don&apos;t have an account? <Link href="/register" style={{ color: '#E8A317', textDecoration: 'none', fontWeight: 500 }}>Sign up free</Link>
