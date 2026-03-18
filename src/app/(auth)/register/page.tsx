@@ -10,9 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Check, ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
-import { UserRole, WORKER_TRADES } from '@/types';
+import { UserRole } from '@/types';
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 4;
 
 const ROLE_DATA = {
   designer: {
@@ -79,7 +79,7 @@ function RegisterPageContent() {
   const [signedUpUserId, setSignedUpUserId] = useState<string | null>(null);
   const [phone, setPhone] = useState('');
   const [phonePrefix, setPhonePrefix] = useState('+60');
-  const [role, setRole] = useState<UserRole | null>(preselectedRole && ['designer', 'owner', 'worker'].includes(preselectedRole) ? preselectedRole : null);
+  const [role, setRole] = useState<UserRole>('designer');
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [companyAddress, setCompanyAddress] = useState('');
@@ -174,9 +174,6 @@ function RegisterPageContent() {
     }
   };
 
-  const toggleTrade = (trade: string) => {
-    setTrades((prev) => prev.includes(trade) ? prev.filter((t) => t !== trade) : [...prev, trade]);
-  };
 
   // Determine which photo to show based on role selection
   const currentRole = role ? ROLE_DATA[role] : null;
@@ -278,10 +275,10 @@ function RegisterPageContent() {
             </Link>
           </div>
 
-          {/* Step indicator */}
+          {/* Step indicator — 3 visual steps mapped to actual steps 1, 2, 4 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 32 }}>
-            {[1, 2, 3, 4].map((s) => (
-              <div key={s} style={{ display: 'flex', alignItems: 'center', flex: s < 4 ? 1 : undefined }}>
+            {([1, 2, 4] as const).map((s, i, arr) => (
+              <div key={s} style={{ display: 'flex', alignItems: 'center', flex: i < arr.length - 1 ? 1 : undefined }}>
                 <div style={{
                   width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 13, fontWeight: 700, flexShrink: 0,
@@ -289,9 +286,9 @@ function RegisterPageContent() {
                   color: s < step ? '#0B0F1A' : s === step ? accentColor : 'rgba(255,255,255,0.3)',
                   border: s === step ? `1.5px solid ${accentColor}` : '1.5px solid transparent',
                 }}>
-                  {s < step ? <Check size={14} /> : s}
+                  {s < step ? <Check size={14} /> : i + 1}
                 </div>
-                {s < 4 && <div style={{ flex: 1, height: 2, margin: '0 6px', borderRadius: 1, background: s < step ? accentColor : 'rgba(255,255,255,0.06)' }} />}
+                {i < arr.length - 1 && <div style={{ flex: 1, height: 2, margin: '0 6px', borderRadius: 1, background: s < step ? accentColor : 'rgba(255,255,255,0.06)' }} />}
               </div>
             ))}
           </div>
@@ -361,88 +358,18 @@ function RegisterPageContent() {
                   <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="123456789" className="reg-input" style={{ flex: 1 }} />
                 </div>
               </div>
-              <Button onClick={() => setStep(3)} variant="gold" className="w-full h-11 rounded-xl" disabled={!phone}>Continue</Button>
+              <Button onClick={() => setStep(4)} variant="gold" className="w-full h-11 rounded-xl" disabled={!phone}>Continue</Button>
             </div>
           )}
 
-          {/* Step 3: Role selection */}
-          {step === 3 && (
-            <div className="reg-fade">
-              <button onClick={() => setStep(2)} style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94A3B8', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20 }}>
-                <ArrowLeft size={14} /> Back
-              </button>
-              <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6, color: '#F1F5F9' }}>How will you use RenoSmart?</h1>
-              <p style={{ fontSize: 14, color: '#94A3B8', marginBottom: 28 }}>Choose your role to personalize your experience</p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
-                {(['designer', 'owner', 'worker'] as UserRole[]).map((r) => {
-                  const rd = ROLE_DATA[r];
-                  const isActive = role === r;
-                  return (
-                    <button
-                      key={r}
-                      onClick={() => setRole(r)}
-                      className={`reg-role-btn ${isActive ? 'active' : ''}`}
-                      style={{ '--accent': rd.color } as React.CSSProperties}
-                    >
-                      {/* Photo thumbnail */}
-                      <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                        <div style={{
-                          width: 56, height: 56, borderRadius: 14, overflow: 'hidden', flexShrink: 0,
-                          border: isActive ? `2px solid ${rd.color}` : '2px solid rgba(255,255,255,0.06)',
-                          transition: 'border-color 0.2s',
-                        }}>
-                          <div style={{
-                            width: '100%', height: '100%',
-                            backgroundImage: `url("${rd.photo}")`,
-                            backgroundSize: 'cover', backgroundPosition: 'center',
-                            filter: isActive ? 'brightness(0.7)' : 'brightness(0.4) saturate(0.5)',
-                            transition: 'filter 0.3s',
-                          }} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontWeight: 700, fontSize: 15 }}>{rd.label}</span>
-                            {isActive && (
-                              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 100, background: rd.color, color: '#0B0F1A', fontWeight: 700 }}>
-                                Selected
-                              </span>
-                            )}
-                          </div>
-                          <p style={{ fontSize: 13, color: '#94A3B8', marginTop: 2 }}>{rd.desc}</p>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
-                            {rd.features.map((f) => (
-                              <span key={f} style={{
-                                fontSize: 11, padding: '3px 10px', borderRadius: 100,
-                                background: isActive ? `${rd.color}15` : 'rgba(255,255,255,0.04)',
-                                color: isActive ? rd.color : '#64748B',
-                                border: `1px solid ${isActive ? `${rd.color}30` : 'rgba(255,255,255,0.06)'}`,
-                                transition: 'all 0.2s',
-                              }}>
-                                {f}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <Button onClick={() => setStep(4)} variant="gold" className="w-full h-11 rounded-xl" disabled={!role}>Continue</Button>
-            </div>
-          )}
 
           {/* Step 4: Profile */}
           {step === 4 && (
             <div className="reg-fade">
-              <button onClick={() => setStep(3)} style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94A3B8', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20 }}>
+              <button onClick={() => setStep(2)} style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94A3B8', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20 }}>
                 <ArrowLeft size={14} /> Back
               </button>
-              <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6, color: '#F1F5F9' }}>
-                {role === 'designer' ? 'Your design firm' : role === 'worker' ? 'Your trade skills' : 'Almost done'}
-              </h1>
+              <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6, color: '#F1F5F9' }}>Your design firm</h1>
               <p style={{ fontSize: 14, color: '#94A3B8', marginBottom: 28 }}>One last step to complete your profile</p>
 
               <div style={{ marginBottom: 16 }}>
@@ -450,40 +377,14 @@ function RegisterPageContent() {
                 <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name" className="reg-input" required />
               </div>
 
-              {role === 'designer' && (
-                <>
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Company Name</label>
-                    <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Elegant Spaces Sdn Bhd" className="reg-input" />
-                  </div>
-                  <div style={{ marginBottom: 24 }}>
-                    <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Company Address</label>
-                    <input value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} placeholder="Business address" className="reg-input" />
-                  </div>
-                </>
-              )}
-
-              {role === 'worker' && (
-                <div style={{ marginBottom: 24 }}>
-                  <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 10 }}>Select your trades</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {WORKER_TRADES.map((trade) => (
-                      <button key={trade} type="button" onClick={() => toggleTrade(trade)} style={{
-                        padding: '6px 14px', borderRadius: 100, fontSize: 12, border: '1px solid',
-                        cursor: 'pointer', transition: 'all 0.2s',
-                        background: trades.includes(trade) ? '#E8A317' : 'transparent',
-                        color: trades.includes(trade) ? '#0B0F1A' : '#94A3B8',
-                        borderColor: trades.includes(trade) ? '#E8A317' : 'rgba(255,255,255,0.12)',
-                        fontWeight: trades.includes(trade) ? 600 : 400,
-                      }}>
-                        {trade}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {role === 'owner' && <div style={{ marginBottom: 24 }} />}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Company Name</label>
+                <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Elegant Spaces Sdn Bhd" className="reg-input" />
+              </div>
+              <div style={{ marginBottom: 24 }}>
+                <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Company Address</label>
+                <input value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} placeholder="Business address" className="reg-input" />
+              </div>
 
               <Button onClick={handleCompleteProfile} variant="gold" className="w-full h-11 rounded-xl" disabled={loading || !name}>
                 {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
