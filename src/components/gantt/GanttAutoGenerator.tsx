@@ -25,17 +25,25 @@ const SITE_TYPE_OPTIONS: { value: SiteType; label: string; label_zh: string }[] 
 
 function detectSiteType(analysis: QuotationAnalysis): SiteType {
   const pt = analysis.projectType?.toLowerCase() || analysis.ganttParams?.projectType || '';
+  // Exact match from AI (new specific types)
+  const EXACT: Record<string, SiteType> = {
+    condo: 'condo', apartment: 'apartment', landed_terrace: 'landed_terrace',
+    landed_semid: 'landed_semid', landed_bungalow: 'landed_bungalow',
+    shop_lot: 'shop_lot', commercial: 'commercial', mall: 'mall', factory: 'factory',
+  };
+  if (EXACT[pt]) return EXACT[pt];
+  // Fuzzy match fallback
   if (/condo|condominium/.test(pt)) return 'condo';
   if (/apartment/.test(pt)) return 'apartment';
-  if (/bungalow/.test(pt)) return 'landed_bungalow';
-  if (/semi.?d/.test(pt)) return 'landed_semid';
-  if (/terrace|link/.test(pt)) return 'landed_terrace';
-  if (/landed/.test(pt)) return 'landed_terrace';
+  if (/bungalow|banglo/.test(pt)) return 'landed_bungalow';
+  if (/semi.?d|semi.?detach/.test(pt)) return 'landed_semid';
+  if (/terrace|link|landed/.test(pt)) return 'landed_terrace';
   if (/shop/.test(pt)) return 'shop_lot';
-  if (/mall/.test(pt)) return 'mall';
-  if (/commercial|office|retail/.test(pt)) return 'commercial';
-  if (/factory|industrial/.test(pt)) return 'factory';
-  return 'condo'; // default
+  if (/mall|retail/.test(pt)) return 'mall';
+  if (/commercial|office/.test(pt)) return 'commercial';
+  if (/factory|industrial|warehouse/.test(pt)) return 'factory';
+  if (/residential/.test(pt)) return 'landed_terrace';
+  return 'landed_terrace'; // default — most common in MY/SG
 }
 
 interface GanttAutoGeneratorProps {
@@ -60,7 +68,7 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
   useEffect(() => {
     generateTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analysis]);
+  }, [analysis, siteType, startDate, workSat, workSun, customSiteType]);
 
   const generateTasks = useCallback(() => {
     setGenerating(true);
@@ -289,7 +297,6 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
               value={siteType}
               onChange={(e) => {
                 setSiteType(e.target.value as SiteType);
-                setTimeout(() => generateTasks(), 0);
               }}
               className="text-xs border border-rs-border rounded-lg px-2.5 py-1.5 text-rs-text bg-white focus:outline-none focus:border-[#4F8EF7] transition-colors font-sans"
             >

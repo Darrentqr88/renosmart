@@ -404,11 +404,12 @@ export function GanttChart({
 
             return groups.map((group) => (
               <div key={group.label}>
-                {/* Group header */}
-                <div style={{ display: 'flex', alignItems: 'center', marginLeft: LABEL_WIDTH, borderBottom: '1px solid rgba(79,142,247,0.12)' }}>
-                  <div style={{ width: LABEL_WIDTH, fontSize: 10, fontWeight: 700, color: '#4a5a6a', textTransform: 'uppercase', letterSpacing: 1.2, padding: '6px 0 6px 4px', flexShrink: 0, marginLeft: -LABEL_WIDTH }}>
+                {/* Group header — same flex layout as task rows to maintain alignment */}
+                <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid rgba(79,142,247,0.12)' }}>
+                  <div style={{ width: LABEL_WIDTH, fontSize: 10, fontWeight: 700, color: '#4a5a6a', textTransform: 'uppercase', letterSpacing: 1.2, padding: '6px 0 6px 4px', flexShrink: 0 }}>
                     {lang === 'ZH' ? group.labelZh : group.label}
                   </div>
+                  <div style={{ flex: 1 }} />
                 </div>
                 {group.items.map((task, taskIdx) => {
             const tColor   = resolveTaskColor(task, taskIdx);

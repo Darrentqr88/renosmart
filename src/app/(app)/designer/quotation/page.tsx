@@ -1140,9 +1140,16 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
           <div className="flex-1" />
           <button
             onClick={() => { clearAllState(); }}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#2E6BE6] text-white rounded-lg text-[13px] font-medium hover:bg-[#2559CC] transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-500 rounded-lg text-[13px] font-medium hover:border-gray-400 hover:text-gray-700 transition-colors"
           >
-            <RefreshCw className="w-4 h-4" /> Re-upload Quotation
+            <RefreshCw className="w-4 h-4" /> {lang === 'ZH' ? '重新上传' : lang === 'BM' ? 'Muat naik semula' : 'Re-upload'}
+          </button>
+          <button
+            onClick={() => setShowSaveDialog(true)}
+            className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[13px] font-bold transition-all text-white shadow-md hover:shadow-lg"
+            style={{ background: 'linear-gradient(135deg, #4F8EF7, #8B5CF6)' }}
+          >
+            <Save className="w-4 h-4" /> {lang === 'ZH' ? '保存并继续' : lang === 'BM' ? 'Simpan & Teruskan' : 'Save & Continue'}
           </button>
         </div>
       )}
