@@ -75,8 +75,8 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     ],
   },
   {
-    id: 'masonry', name: 'Construction & Plastering', name_zh: '水泥建筑工程',
-    trade: 'Construction', baseDays: 5, deps: ['demolition'], phaseGroup: 'preparation',
+    id: 'masonry', name: 'Construction Works', name_zh: '建筑工程',
+    trade: 'Construction', baseDays: 5, deps: ['demolition'], phaseGroup: 'construction',
     scaleBy: 'sqft', scaleFactor: 1 / 100,
     hint_MY: 'Masonry is typically the critical path. Skim coat needs 2 coats with 2–3 day drying between each coat. New brickwork needs 14 days curing before skim.',
     hint_SG: 'Use approved cement mixes per BCA spec. Skim coat must cure min 72 hrs before painting. Condo: confirm with MCST on working hours (Mon–Sat 9am–5pm).',
@@ -254,8 +254,8 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     ],
   },
   {
-    id: 'door_window', name: 'Door & Window Installation', name_zh: '门框/窗框安装',
-    trade: 'Carpentry', baseDays: 3, deps: ['electrical2'],
+    id: 'door_window', name: 'Doors & Windows Installation', name_zh: '门窗安装',
+    trade: 'Doors & Windows', baseDays: 3, deps: ['electrical2'],
     prepChecklist: [
       { icon: '🚪', text: 'Doors & windows delivered', text_zh: '门窗已到货', type: 'order' },
       { icon: '📐', text: 'Openings checked & level', text_zh: '开口尺寸及水平确认', type: 'check' },
@@ -281,7 +281,7 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     ],
   },
   {
-    id: 'electrical3', name: 'Lighting & Fixture Installation', name_zh: '灯具 & 洁具安装',
+    id: 'electrical3', name: 'Lighting & Accessories', name_zh: '灯具配件安装',
     trade: 'Electrical', baseDays: 3, deps: ['carpentry_install'],
     scaleBy: 'points', scaleFactor: 1 / 8,
     prepChecklist: [
@@ -296,7 +296,7 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     ],
   },
   {
-    id: 'plumbing2', name: 'Plumbing Fixtures', name_zh: '卫浴洁具安装',
+    id: 'plumbing2', name: 'Sanitary Ware Installation', name_zh: '洁具安装',
     trade: 'Plumbing', baseDays: 3, deps: ['carpentry_install'],
     parallel: ['electrical3'],
     prepChecklist: [
@@ -461,7 +461,7 @@ const TRADE_COLORS: Record<string, string> = {
   'False Ceiling':   '#22C55E',
   Painting:          '#8B5CF6',
   Carpentry:         '#4F8EF7',
-  'Doors & Windows': '#EC4899',
+  'Doors & Windows': '#F472B6',
   Fixtures:          '#A855F7',
   Glass:             '#06B6D4',
   'Glass Work':      '#06B6D4',
@@ -1036,11 +1036,8 @@ export function generateGanttFromAIParams(
     .filter(p => includedIds.has(p.id))
     .map(p => {
       const remappedDeps = [...new Set(p.deps.flatMap(d => resolveDepChain(d)))];
-      // Apply quotation-specific task name from AI tradeScope
       const tradeKey = PHASE_PRIMARY_TRADE[p.id];
       const tradeData = tradeKey ? ts[tradeKey] : undefined;
-      const customName = tradeData?.taskName;
-      const customNameZh = tradeData?.taskName_zh;
       const allTradeItems = tradeData?.itemNames || [];
 
       // Filter items to phase-specific subset (e.g. electrical1 only gets wiring items)
@@ -1048,24 +1045,18 @@ export function generateGanttFromAIParams(
       let sourceItems = allTradeItems;
       if (phaseFilter && allTradeItems.length > 0) {
         const filtered = allTradeItems.filter(name => phaseFilter.test(name));
-        // Fall back to all trade items if filter yields nothing
         sourceItems = filtered.length > 0 ? filtered : allTradeItems;
       }
 
+      // Keep default category label names (e.g. "Demolition", "Electrical Conduit & Wiring")
+      // Do NOT override with AI-specific names — those are too detailed for Gantt labels
       if (overrides[p.id] !== undefined) {
         return {
           ...p, deps: remappedDeps, baseDays: overrides[p.id], scaleBy: undefined, scaleFactor: undefined,
-          name: customName || p.name,
-          name_zh: customNameZh || p.name_zh,
           sourceItems,
         };
       }
-      return {
-        ...p, deps: remappedDeps,
-        name: customName || p.name,
-        name_zh: customNameZh || p.name_zh,
-        sourceItems,
-      };
+      return { ...p, deps: remappedDeps, sourceItems };
     });
 
   // ── Append customPhases from AI (non-standard trades: CCTV, smart home, etc.) ──
@@ -1293,14 +1284,12 @@ export function generateGanttFromQuotation(
     if (!tradeItemNames[key].includes(item.name)) tradeItemNames[key].push(item.name);
   };
 
-  // Helper: join up to 3 sections into readable name
+  // Helper: returns generic trade label + collected item names
+  // Labels are generic category names (e.g. "Demolition & Hacking"), NOT quotation-specific
   const makeName = (key: string, suffix: string, suffixZh: string): { taskName: string; taskName_zh: string; itemNames: string[] } => {
-    const secs = tradeSections[key] || [];
-    const label = secs.length > 0 ? secs.slice(0, 3).join(' & ') + ' ' : '';
-    const label_zh = secs.length > 0 ? secs.slice(0, 3).join(' / ') + ' ' : '';
     return {
-      taskName: label + suffix + (secs.length > 3 ? ' etc.' : ''),
-      taskName_zh: label_zh + suffixZh + (secs.length > 3 ? '等' : ''),
+      taskName: suffix,
+      taskName_zh: suffixZh,
       itemNames: tradeItemNames[key] || [],
     };
   };
@@ -1320,7 +1309,7 @@ export function generateGanttFromQuotation(
   // matching both electrical AND demolition).
   const TRADE_CLASSIFY_PATTERNS: Record<string, RegExp[]> = {
     demolition:     [/\bdemol/, /\bhack(?:ing)?\b/, /\bbreak/, /strip.?out/, /chipping/, /\bremov(?:e|al)\b/],
-    masonry:        [/\bbrick/, /\bplaster(?!.*ceil)/, /\bscreed/, /\brender/, /\bnew\s*wall/, /\bbrickwork/, /\brc\s/, /reinforc/],
+    masonry:        [/\bbrick/, /\bplaster(?!.*ceil)/, /\bscreed/, /\brender/, /\bnew\s*wall/, /\bbrickwork/, /\brc\s/, /reinforc/, /\bconstruct/, /\bextension/, /\braise\s*floor/, /\bmasonry/],
     waterproofing:  [/water.?proof/, /\bmembrane/, /\bponding/],
     aircon:         [/air.?con/, /\baircon/, /\bdaikin/, /\bmidea/, /split\s*unit/, /\bac\s/],
     falseCeiling:   [/false\s*ceil/, /\bgypsum/, /\bpartition/, /plaster\s*ceil/, /cove\s*light/, /\bcornice/],
@@ -1371,7 +1360,7 @@ export function generateGanttFromQuotation(
   const sc = (days: number) => Math.round(days * amtScale);
 
   if (tradeSections.demolition)    tradeScope.demolition    = { estimatedDays: sc(5), ...makeName('demolition', 'Demolition & Hacking', '拆除工程') };
-  if (tradeSections.masonry)       tradeScope.masonry       = { estimatedDays: sc(5), ...makeName('masonry', 'Masonry & Plastering', '水泥建筑工程') };
+  if (tradeSections.masonry)       tradeScope.masonry       = { estimatedDays: sc(5), ...makeName('masonry', 'Construction Works', '建筑工程') };
   if (tradeSections.electrical)    tradeScope.electrical    = { estimatedDays: sc(8), ...makeName('electrical', 'Electrical Works', '电气工程') };
   if (tradeSections.plumbing)      tradeScope.plumbing      = { estimatedDays: sc(5), ...makeName('plumbing', 'Plumbing Works', '水管工程') };
   if (tradeSections.waterproofing) tradeScope.waterproofing = { estimatedDays: sc(3), ...makeName('waterproofing', 'Waterproofing', '防水工程') };
@@ -1380,7 +1369,7 @@ export function generateGanttFromQuotation(
   if (tradeSections.falseCeiling)  tradeScope.falseCeiling  = { estimatedDays: sc(5), ...makeName('falseCeiling', 'False Ceiling', '吊顶工程') };
   if (tradeSections.painting)      tradeScope.painting      = { estimatedDays: Math.max(4, sc(Math.ceil((sqft * 2) / 150))), ...makeName('painting', 'Painting Works', '油漆工程') };
   if (tradeSections.carpentry)     tradeScope.carpentry     = { estimatedDays: sc(28), ...makeName('carpentry', 'Carpentry Works', '木工柜体工程') };
-  if (tradeSections.aluminium)     tradeScope.aluminium     = { estimatedDays: sc(3), ...makeName('aluminium', 'Aluminium & Windows', '铝窗工程') };
+  if (tradeSections.aluminium)     tradeScope.aluminium     = { estimatedDays: sc(3), ...makeName('aluminium', 'Doors & Windows Installation', '门窗安装') };
   if (tradeSections.aircon)        tradeScope.aircon        = { estimatedDays: sc(2), ...makeName('aircon', 'Aircon Installation', '空调安装') };
   // Standard trades
   if (tradeSections.glass)         tradeScope.glass         = { estimatedDays: sc(5), ...makeName('glass', 'Glass Work', '玻璃工程') };
@@ -1395,59 +1384,13 @@ export function generateGanttFromQuotation(
     return generateGanttTasks(projectId, startDate, sqft, false, projectType, region, workOnSaturday, workOnSunday, siteType);
   }
 
-  // ── 5. Floor-aware trade consolidation ─────────────────────────────────────
-  // For trades spanning multiple floors, split into per-floor custom phases
+  // ── 5. No floor-splitting — consolidate all floors into single trade task ──
+  // The HTML demo uses one task per trade category, not per-floor splits.
   const customPhases: GanttParams['customPhases'] = [];
-  const TRADE_INSERT_AFTER: Record<string, string> = {
-    tiling: 'waterproofing', electrical: 'masonry', plumbing: 'masonry',
-    painting: 'ceiling', carpentry: 'painting1', falseCeiling: 'tiling',
-    glass: 'tiling', landscape: 'painting2', metalwork: 'masonry', stonework: 'tiling',
-  };
 
-  for (const [tradeKey, floorMap] of Object.entries(tradeFloorItems)) {
-    const floors = Object.keys(floorMap).filter(f => f !== 'ALL');
-    // Only split if there are 2+ distinct floors (not counting 'ALL')
-    if (floors.length < 2) continue;
-
-    // Remove the merged tradeScope entry — we'll replace with per-floor custom phases
-    delete tradeScope[tradeKey as keyof typeof tradeScope];
-
-    const insertAfter = TRADE_INSERT_AFTER[tradeKey] || 'masonry';
-    const TRADE_LABELS: Record<string, { en: string; zh: string }> = {
-      tiling: { en: 'Tiling', zh: '铺砖' }, electrical: { en: 'Electrical', zh: '电气' },
-      plumbing: { en: 'Plumbing', zh: '水管' }, painting: { en: 'Painting', zh: '油漆' },
-      carpentry: { en: 'Carpentry', zh: '木工' }, falseCeiling: { en: 'False Ceiling', zh: '吊顶' },
-      waterproofing: { en: 'Waterproofing', zh: '防水' }, flooring: { en: 'Flooring', zh: '地板' },
-      glass: { en: 'Glass Work', zh: '玻璃' }, landscape: { en: 'Landscape', zh: '景观' },
-      metalwork: { en: 'Metal Work', zh: '金属' }, stonework: { en: 'Stone Work', zh: '石材' },
-    };
-    const label = TRADE_LABELS[tradeKey] || { en: tradeKey, zh: tradeKey };
-
-    // Also include ALL-floor items in every floor phase
-    const allFloorItems = floorMap['ALL'] || [];
-
-    // Chain floor phases: each floor depends on previous floor (Fix 4)
-    let lastFloorPhaseName: string | null = null;
-    for (const floor of floors) {
-      const floorItems = [...floorMap[floor], ...allFloorItems];
-      const totalQty = floorItems.reduce((s, i) => s + (i.qty || 0), 0);
-      const secs = [...new Set(floorItems.map(i =>
-        (i.section || '').replace(/^(GF|FF|1F|2F|3F|BF|RF|G|F)-?/i, '').trim()
-      ).filter(Boolean))];
-      const secLabel = secs.slice(0, 3).join(' & ');
-      const estDays = Math.max(2, Math.ceil(totalQty / 80));
-      const phaseName = `${floor} ${secLabel ? secLabel + ' ' : ''}${label.en} (${totalQty}${floorItems[0]?.unit || 'sqft'})`;
-
-      customPhases!.push({
-        name: phaseName,
-        name_zh: `${floor} ${secLabel ? secLabel + ' ' : ''}${label.zh} (${totalQty}${floorItems[0]?.unit || 'sqft'})`,
-        trade: label.en,
-        estimatedDays: estDays,
-        insertAfter: lastFloorPhaseName ? `custom_${lastFloorPhaseName.replace(/\s+/g, '_').toLowerCase()}` : insertAfter,
-      });
-      lastFloorPhaseName = phaseName;
-    }
-  }
+  // No floor-split logic needed — each trade already has one consolidated entry
+  // in tradeScope with all items aggregated. This prevents duplicate tasks like
+  // "Carpentry" appearing 3x for GF/FF/2F.
 
   const derivedParams: GanttParams = {
     sqft,
