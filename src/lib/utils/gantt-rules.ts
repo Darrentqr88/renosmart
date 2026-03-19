@@ -54,8 +54,8 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     ],
   },
   {
-    id: 'demolition', name: 'Demolition', name_zh: '拆除工程',
-    trade: 'Demolition', baseDays: 5, deps: ['design_conf'], phaseGroup: 'preparation',
+    id: 'demolition', name: 'Demolition Works', name_zh: '拆除工程',
+    trade: 'Demolition', baseDays: 5, deps: ['design_conf'], phaseGroup: 'construction',
     scaleBy: 'sqft', scaleFactor: 1 / 150,
     hint_MY: 'Debris disposal in MY: coordinate with DBKL/MBPP for lorry booking. Avoid hacking load-bearing walls without S.E. approval.',
     hint_SG: 'Singapore: BCA permit required for structural hacking. Engage Licensed Builder for approved works. Notify MCST if condo.',
@@ -1359,7 +1359,7 @@ export function generateGanttFromQuotation(
   else if (totalAmt > 20000)  amtScale = 1.1;
   const sc = (days: number) => Math.round(days * amtScale);
 
-  if (tradeSections.demolition)    tradeScope.demolition    = { estimatedDays: sc(5), ...makeName('demolition', 'Demolition & Hacking', '拆除工程') };
+  if (tradeSections.demolition)    tradeScope.demolition    = { estimatedDays: sc(5), ...makeName('demolition', 'Demolition Works', '拆除工程') };
   if (tradeSections.masonry)       tradeScope.masonry       = { estimatedDays: sc(5), ...makeName('masonry', 'Construction Works', '建筑工程') };
   if (tradeSections.electrical)    tradeScope.electrical    = { estimatedDays: sc(8), ...makeName('electrical', 'Electrical Works', '电气工程') };
   if (tradeSections.plumbing)      tradeScope.plumbing      = { estimatedDays: sc(5), ...makeName('plumbing', 'Plumbing Works', '水管工程') };
