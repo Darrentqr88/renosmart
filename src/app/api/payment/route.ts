@@ -3,16 +3,28 @@ import Stripe from 'stripe';
 import { createClient } from '@/lib/supabase/server';
 
 const PRICE_IDS: Record<string, string | undefined> = {
-  pro_MY: process.env.STRIPE_PRICE_PRO_MY,
-  pro_SG: process.env.STRIPE_PRICE_PRO_SG,
-  elite_MY: process.env.STRIPE_PRICE_ELITE_MY,
-  elite_SG: process.env.STRIPE_PRICE_ELITE_SG,
+  pro_MY_monthly:     process.env.STRIPE_PRICE_PRO_MY_MONTHLY,
+  pro_MY_quarterly:   process.env.STRIPE_PRICE_PRO_MY_QUARTERLY,
+  pro_MY_yearly:      process.env.STRIPE_PRICE_PRO_MY_YEARLY,
+  elite_MY_monthly:   process.env.STRIPE_PRICE_ELITE_MY_MONTHLY,
+  elite_MY_quarterly: process.env.STRIPE_PRICE_ELITE_MY_QUARTERLY,
+  elite_MY_yearly:    process.env.STRIPE_PRICE_ELITE_MY_YEARLY,
+  pro_SG_monthly:     process.env.STRIPE_PRICE_PRO_SG_MONTHLY,
+  pro_SG_quarterly:   process.env.STRIPE_PRICE_PRO_SG_QUARTERLY,
+  pro_SG_yearly:      process.env.STRIPE_PRICE_PRO_SG_YEARLY,
+  elite_SG_monthly:   process.env.STRIPE_PRICE_ELITE_SG_MONTHLY,
+  elite_SG_quarterly: process.env.STRIPE_PRICE_ELITE_SG_QUARTERLY,
+  elite_SG_yearly:    process.env.STRIPE_PRICE_ELITE_SG_YEARLY,
 };
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { plan, region } = body as { plan: string; region: string };
+    const { plan, region, interval = 'monthly' } = body as {
+      plan: string;
+      region: string;
+      interval?: string;
+    };
 
     const stripeKey = process.env.STRIPE_SECRET_KEY;
 
@@ -36,8 +48,8 @@ export async function POST(req: NextRequest) {
     const userId = session.user.id;
     const userEmail = session.user.email;
 
-    // Get price ID
-    const priceKey = `${plan}_${region || 'MY'}`;
+    // Get price ID: e.g. "pro_MY_monthly"
+    const priceKey = `${plan}_${region || 'MY'}_${interval}`;
     const priceId = PRICE_IDS[priceKey];
     if (!priceId) {
       return NextResponse.json({ error: `Price not configured for ${priceKey}` }, { status: 400 });
