@@ -629,56 +629,60 @@ export default function DesignerDashboard() {
               <p className="text-sm text-gray-400">加载项目...</p>
             </div>
           </div>
-        ) : projects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-8">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#4F8EF7] via-[#8B5CF6] to-[#EC4899] flex items-center justify-center mb-6 animate-pulse">
-              <Hammer className="w-10 h-10 text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-[#1A1A2E] mb-2">开始你的第一个装修项目</h3>
-            <p className="text-sm text-[#8B8BA8] mb-8 text-center max-w-md">上传报价单，AI 将自动分析并生成甘特图</p>
-            <div className="flex items-center gap-4 mb-8">
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-12 h-12 rounded-xl bg-[#4F8EF7]/10 flex items-center justify-center"><FileUp className="w-6 h-6 text-[#4F8EF7]" /></div>
-                <span className="text-xs text-[#4A4A6A] font-medium">上传报价单</span>
-              </div>
-              <ChevronRight className="w-4 h-4 text-[#E2E4EE]" />
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-12 h-12 rounded-xl bg-[#8B5CF6]/10 flex items-center justify-center"><Sparkles className="w-6 h-6 text-[#8B5CF6]" /></div>
-                <span className="text-xs text-[#4A4A6A] font-medium">AI 智能分析</span>
-              </div>
-              <ChevronRight className="w-4 h-4 text-[#E2E4EE]" />
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-12 h-12 rounded-xl bg-[#EC4899]/10 flex items-center justify-center"><BarChart2 className="w-6 h-6 text-[#EC4899]" /></div>
-                <span className="text-xs text-[#4A4A6A] font-medium">生成甘特图</span>
-              </div>
-            </div>
-            <button onClick={() => router.push('/designer/quotation')}
-              className="px-6 py-2.5 rounded-xl text-white font-semibold text-sm transition-all hover:shadow-lg"
-              style={{ background: 'linear-gradient(135deg, #4F8EF7, #8B5CF6, #EC4899)' }}>
-              上传报价单开始
-            </button>
-          </div>
         ) : (
-          /* Kanban columns + Calendar in one row */
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 280px', gap: 16, alignItems: 'start', minHeight: 0 }}>
-            {COLUMNS.map(col => (
-              <KanbanColumn key={col.key}
-                colKey={col.key}
-                label={col.label}
-                sublabel={col.sublabel}
-                dot={col.dot}
-                count={col.projects.length}
-                projects={col.projects}
-                isDragOver={dragOverCol === col.key && draggingId !== null}
-                onDragOver={() => setDragOverCol(col.key)}
-                onDrop={() => handleDrop(col.key)}
-                onDragLeave={() => setDragOverCol(null)}
-                onCardClick={id => !draggingId && router.push(`/designer/projects/${id}`)}
-                onCardDragStart={setDraggingId}
-                onAddProject={col.key !== 'completed' ? () => setShowNewProject(true) : undefined}
-              />
-            ))}
-            {/* Calendar as 4th column */}
+          /* Kanban columns + Calendar — always show calendar */
+          <div style={{ display: 'grid', gridTemplateColumns: projects.length === 0 ? '1fr 280px' : '1fr 1fr 1fr 280px', gap: 16, alignItems: 'start', minHeight: 0 }}>
+            {projects.length === 0 ? (
+              /* Empty state in the main area */
+              <div className="flex flex-col items-center justify-center py-16 px-8">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#4F8EF7] via-[#8B5CF6] to-[#EC4899] flex items-center justify-center mb-6 animate-pulse">
+                  <Hammer className="w-10 h-10 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-[#1A1A2E] mb-2">{t.dash.emptyTitle || '开始你的第一个装修项目'}</h3>
+                <p className="text-sm text-[#8B8BA8] mb-8 text-center max-w-md">{t.dash.emptyDesc || '上传报价单，AI 将自动分析并生成甘特图'}</p>
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-12 h-12 rounded-xl bg-[#4F8EF7]/10 flex items-center justify-center"><FileUp className="w-6 h-6 text-[#4F8EF7]" /></div>
+                    <span className="text-xs text-[#4A4A6A] font-medium">{t.dash.stepUpload || '上传报价单'}</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[#E2E4EE]" />
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-12 h-12 rounded-xl bg-[#8B5CF6]/10 flex items-center justify-center"><Sparkles className="w-6 h-6 text-[#8B5CF6]" /></div>
+                    <span className="text-xs text-[#4A4A6A] font-medium">{t.dash.stepAnalysis || 'AI 智能分析'}</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[#E2E4EE]" />
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-12 h-12 rounded-xl bg-[#EC4899]/10 flex items-center justify-center"><BarChart2 className="w-6 h-6 text-[#EC4899]" /></div>
+                    <span className="text-xs text-[#4A4A6A] font-medium">{t.dash.stepGantt || '生成甘特图'}</span>
+                  </div>
+                </div>
+                <button onClick={() => router.push('/designer/quotation')}
+                  className="px-6 py-2.5 rounded-xl text-white font-semibold text-sm transition-all hover:shadow-lg"
+                  style={{ background: 'linear-gradient(135deg, #4F8EF7, #8B5CF6, #EC4899)' }}>
+                  {t.dash.startUpload || '上传报价单开始'}
+                </button>
+              </div>
+            ) : (
+              /* Kanban columns */
+              COLUMNS.map(col => (
+                <KanbanColumn key={col.key}
+                  colKey={col.key}
+                  label={col.label}
+                  sublabel={col.sublabel}
+                  dot={col.dot}
+                  count={col.projects.length}
+                  projects={col.projects}
+                  isDragOver={dragOverCol === col.key && draggingId !== null}
+                  onDragOver={() => setDragOverCol(col.key)}
+                  onDrop={() => handleDrop(col.key)}
+                  onDragLeave={() => setDragOverCol(null)}
+                  onCardClick={id => !draggingId && router.push(`/designer/projects/${id}`)}
+                  onCardDragStart={setDraggingId}
+                  onAddProject={col.key !== 'completed' ? () => setShowNewProject(true) : undefined}
+                />
+              ))
+            )}
+            {/* Calendar — always visible as last column */}
             <div className="space-y-0">
               <MiniCalendar
                 events={calendarEvents}

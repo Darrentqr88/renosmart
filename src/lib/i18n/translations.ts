@@ -37,6 +37,7 @@ export interface Trans {
     manualEvent: string; milestone: string; task: string; payment: string;
     upcoming: string; noUpcoming: string;
     noEvents: string; addEvent: string;
+    emptyTitle: string; emptyDesc: string; stepUpload: string; stepAnalysis: string; stepGantt: string; startUpload: string;
   };
   proj: {
     contractTotal: string; recordedCost: string; grossProfit: string; profitMargin: string;
@@ -97,6 +98,7 @@ const EN: Trans = {
     manualEvent: 'Manual', milestone: 'Milestone', task: 'Task', payment: 'Payment',
     upcoming: 'Upcoming', noUpcoming: 'No upcoming events',
     noEvents: 'No events', addEvent: 'Add Event',
+    emptyTitle: 'Start Your First Renovation Project', emptyDesc: 'Upload a quotation and AI will analyze it and generate a Gantt chart', stepUpload: 'Upload Quotation', stepAnalysis: 'AI Analysis', stepGantt: 'Generate Gantt', startUpload: 'Upload Quotation to Start',
   },
   proj: {
     contractTotal: 'Contract Total', recordedCost: 'Recorded Cost', grossProfit: 'Gross Profit', profitMargin: 'Profit Margin',
@@ -157,6 +159,7 @@ const BM: Trans = {
     manualEvent: 'Manual', milestone: 'Pencapaian', task: 'Tugas', payment: 'Bayaran',
     upcoming: 'Akan datang', noUpcoming: 'Tiada acara akan datang',
     noEvents: 'Tiada acara', addEvent: 'Tambah Acara',
+    emptyTitle: 'Mulakan Projek Pengubahsuaian Pertama Anda', emptyDesc: 'Muat naik sebut harga, AI akan menganalisis dan menjana carta Gantt', stepUpload: 'Muat Naik Sebut Harga', stepAnalysis: 'Analisis AI', stepGantt: 'Jana Gantt', startUpload: 'Muat Naik untuk Mula',
   },
   proj: {
     contractTotal: 'Jumlah Kontrak', recordedCost: 'Kos Direkod', grossProfit: 'Untung Kasar', profitMargin: 'Margin Untung',
@@ -217,6 +220,7 @@ const ZH: Trans = {
     manualEvent: '手动事项', milestone: '里程碑', task: '工程任务', payment: '收款提醒',
     upcoming: '即将事项', noUpcoming: '暂无即将到来的事项',
     noEvents: '当天无事项', addEvent: '添加事项',
+    emptyTitle: '开始你的第一个装修项目', emptyDesc: '上传报价单，AI 将自动分析并生成甘特图', stepUpload: '上传报价单', stepAnalysis: 'AI 智能分析', stepGantt: '生成甘特图', startUpload: '上传报价单开始',
   },
   proj: {
     contractTotal: '合同总额', recordedCost: '已录成本', grossProfit: '毛利', profitMargin: '利润率',
