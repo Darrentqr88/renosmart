@@ -360,6 +360,7 @@ async function recalculatePriceDB(
 ) {
   const db = getRawDb();
 
+  // Fetch all data points for this combination
   const { data } = await db
     .from('price_data_points')
     .select('unit_price')
@@ -372,15 +373,59 @@ async function recalculatePriceDB(
 
   if (!data || data.length < 10) return;
 
-  const prices = (data as { unit_price: number }[]).map(d => d.unit_price).sort((a, b) => a - b);
-  const trimStart = Math.floor(prices.length * 0.1);
-  const trimEnd = Math.ceil(prices.length * 0.9);
-  const trimmed = prices.slice(trimStart, trimEnd);
+  const allPrices = (data as { unit_price: number }[]).map(d => d.unit_price).sort((a, b) => a - b);
+
+  // Remove top/bottom 10% outliers for avg calculation
+  const trimStart = Math.floor(allPrices.length * 0.1);
+  const trimEnd = Math.ceil(allPrices.length * 0.9);
+  const trimmed = allPrices.slice(trimStart, trimEnd);
 
   if (trimmed.length === 0) return;
 
   const avg = trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
   const confidence = data.length >= 50 ? 'high' : data.length >= 20 ? 'mid' : 'low';
+
+  // Get current min/max from price_database (if exists)
+  const { data: existing } = await db
+    .from('price_database')
+    .select('min_price, max_price')
+    .eq('category', category)
+    .eq('subcategory', subcategory)
+    .eq('material_method', materialMethod)
+    .eq('unit', unit)
+    .eq('supply_type', supplyType)
+    .eq('region', region)
+    .single();
+
+  let newMin = Math.min(...trimmed);
+  let newMax = Math.max(...trimmed);
+
+  // RULE: When new prices exceed current min/max, only update if ≥10 samples
+  // exceed the boundary. This prevents a few outlier quotations from skewing the range.
+  if (existing) {
+    const currentMin = existing.min_price as number;
+    const currentMax = existing.max_price as number;
+
+    // Count prices BELOW current min
+    const belowMin = allPrices.filter(p => p < currentMin);
+    if (belowMin.length >= 10) {
+      // ≥10 samples below current min → update min to avg of those samples
+      newMin = belowMin.reduce((a, b) => a + b, 0) / belowMin.length;
+    } else {
+      // Not enough samples below → keep current min (don't lower it)
+      newMin = Math.min(currentMin, Math.min(...trimmed));
+    }
+
+    // Count prices ABOVE current max
+    const aboveMax = allPrices.filter(p => p > currentMax);
+    if (aboveMax.length >= 10) {
+      // ≥10 samples above current max → update max to avg of those samples
+      newMax = aboveMax.reduce((a, b) => a + b, 0) / aboveMax.length;
+    } else {
+      // Not enough samples above → keep current max (don't raise it)
+      newMax = Math.max(currentMax, Math.max(...trimmed));
+    }
+  }
 
   await db.from('price_database').upsert({
     category,
@@ -389,8 +434,8 @@ async function recalculatePriceDB(
     unit,
     supply_type: supplyType,
     region,
-    min_price: Math.min(...trimmed),
-    max_price: Math.max(...trimmed),
+    min_price: Math.round(newMin * 100) / 100,
+    max_price: Math.round(newMax * 100) / 100,
     avg_price: Math.round(avg * 100) / 100,
     sample_count: data.length,
     confidence,
