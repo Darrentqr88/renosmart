@@ -72,6 +72,7 @@ export interface QuotationItem {
   materialMethod?: string;    // e.g., "Laminated", "600x600"
   estMinPrice?: number;       // AI-estimated market min price for this item
   estMaxPrice?: number;       // AI-estimated market max price for this item
+  page?: number;              // Source page number from original PDF (1-based)
 }
 
 export interface QuotationSubtotal {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useI18n } from '@/lib/i18n/context';
@@ -328,11 +328,29 @@ export default function QuotationPage() {
     return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
   }, [analysis]);
 
+  // Page-based grouping
+  const pages = useMemo(() => {
+    if (!analysis) return [];
+    const map = new Map<number, number>();
+    for (const item of analysis.items) {
+      const pg = item.page || 1;
+      map.set(pg, (map.get(pg) || 0) + 1);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[0] - b[0]).map(([page, count]) => ({ page, count }));
+  }, [analysis]);
+
+  const [filterMode, setFilterMode] = useState<'section' | 'page'>('section');
+  const [activePage, setActivePage] = useState<number | 'all'>('all');
+
   const filteredItems: QuotationItem[] = useMemo(() => {
     if (!analysis) return [];
+    if (filterMode === 'page') {
+      if (activePage === 'all') return analysis.items;
+      return analysis.items.filter(i => (i.page || 1) === activePage);
+    }
     if (activeSection === 'all') return analysis.items;
     return analysis.items.filter(i => (i.section || '综合') === activeSection);
-  }, [analysis, activeSection]);
+  }, [analysis, activeSection, filterMode, activePage]);
 
   const displayedItems = filteredItems;
 
@@ -886,23 +904,54 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                 <span className="text-[12px] text-rs-text3">共 {analysis.items.length} 项</span>
               </div>
 
-              {/* Section tabs */}
-              {sections.length > 1 && (
-                <div className="px-5 py-2.5 border-b border-[#F0F2F7] flex gap-1.5 flex-wrap">
-                  <button
-                    onClick={() => setActiveSection('all')}
-                    className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors ${activeSection === 'all' ? 'bg-[#4F8EF7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                  >
-                    全部 {analysis.items.length}
-                  </button>
-                  {sections.map(({ name, count }) => (
-                    <button key={name}
-                      onClick={() => setActiveSection(name)}
-                      className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors whitespace-nowrap ${activeSection === name ? 'bg-[#4F8EF7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                    >
-                      {name} {count}
-                    </button>
-                  ))}
+              {/* Filter tabs: Section / Page toggle + pills */}
+              {(sections.length > 1 || pages.length > 1) && (
+                <div className="px-5 py-2.5 border-b border-[#F0F2F7]">
+                  {/* Mode toggle */}
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="flex bg-gray-100 rounded-lg p-0.5">
+                      <button onClick={() => { setFilterMode('section'); setActivePage('all'); }}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${filterMode === 'section' ? 'bg-white text-[#4F8EF7] shadow-sm' : 'text-gray-500'}`}>
+                        {lang === 'ZH' ? '按分类' : lang === 'BM' ? 'Kategori' : 'By Section'}
+                      </button>
+                      {pages.length > 1 && (
+                        <button onClick={() => { setFilterMode('page'); setActiveSection('all'); }}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${filterMode === 'page' ? 'bg-white text-[#4F8EF7] shadow-sm' : 'text-gray-500'}`}>
+                          {lang === 'ZH' ? '按页码' : lang === 'BM' ? 'Halaman' : 'By Page'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {/* Section pills */}
+                  {filterMode === 'section' && (
+                    <div className="flex gap-1.5 flex-wrap">
+                      <button onClick={() => setActiveSection('all')}
+                        className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors ${activeSection === 'all' ? 'bg-[#4F8EF7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                        {lang === 'ZH' ? '全部' : 'All'} {analysis.items.length}
+                      </button>
+                      {sections.map(({ name, count }) => (
+                        <button key={name} onClick={() => setActiveSection(name)}
+                          className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors whitespace-nowrap ${activeSection === name ? 'bg-[#4F8EF7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                          {name} {count}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {/* Page pills */}
+                  {filterMode === 'page' && (
+                    <div className="flex gap-1.5 flex-wrap">
+                      <button onClick={() => setActivePage('all')}
+                        className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors ${activePage === 'all' ? 'bg-[#4F8EF7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                        {lang === 'ZH' ? '全部' : 'All'} {analysis.items.length}
+                      </button>
+                      {pages.map(({ page, count }) => (
+                        <button key={page} onClick={() => setActivePage(page)}
+                          className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors ${activePage === page ? 'bg-[#4F8EF7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                          Pg {page} <span className="text-[10px] opacity-70">({count})</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -924,8 +973,19 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                   <tbody>
                     {displayedItems.map((item, i) => {
                       const cfg = STATUS_CONFIG[item.status];
+                      const prevPage = i > 0 ? (displayedItems[i - 1].page || 1) : 0;
+                      const curPage = item.page || 1;
+                      const showPageHeader = pages.length > 1 && curPage !== prevPage;
                       return (
-                        <tr key={i} className={`border-b border-[#F0F2F7] hover:bg-[#FAFBFC] transition-colors ${item.status === 'flag' ? 'bg-[rgba(229,57,53,0.02)]' : ''}`}>
+                        <React.Fragment key={i}>
+                          {showPageHeader && (
+                            <tr>
+                              <td colSpan={8} className="px-4 py-2 bg-gradient-to-r from-[rgba(79,142,247,0.06)] to-transparent">
+                                <span className="text-[11px] font-bold text-[#4F8EF7] tracking-wide">📄 Pg {curPage}</span>
+                              </td>
+                            </tr>
+                          )}
+                        <tr className={`border-b border-[#F0F2F7] hover:bg-[#FAFBFC] transition-colors ${item.status === 'flag' ? 'bg-[rgba(229,57,53,0.02)]' : ''}`}>
                           <td className="px-4 py-3 text-[#9CA3AF] font-mono text-[11px]">{item.no}</td>
                           <td className="px-4 py-3">
                             {item.section && <div className="text-[10px] text-[#9CA3AF] mb-0.5">{item.section}</div>}
@@ -963,6 +1023,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                             </div>
                           </td>
                         </tr>
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
