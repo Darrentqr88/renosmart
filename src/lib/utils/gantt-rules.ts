@@ -1,4 +1,4 @@
-import { GanttTask, GanttSubtask, GanttParams } from '@/types';
+import { GanttTask, GanttSubtask, GanttParams, PhaseGroup, SiteType } from '@/types';
 import { addDays, format } from 'date-fns';
 import { isWorkday } from './dates';
 
@@ -12,6 +12,7 @@ export interface ConstructionPhase {
   scaleFactor?: number; // e.g. 1/100 for sqft
   parallel?: string[];  // runs parallel with these phase IDs
   deps: string[];       // depends on these phase IDs
+  phaseGroup?: PhaseGroup; // 'design' | 'preparation' | 'construction'
   prepChecklist: { icon: string; text: string; text_zh: string; type: 'warn' | 'order' | 'check' | 'info' }[];
   subItems: { name: string; name_zh: string }[];
   // AI contextual hint per region
@@ -23,7 +24,7 @@ export interface ConstructionPhase {
 export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
   {
     id: 'measurement', name: 'Site Survey & Preparation', name_zh: '现场勘查 & 备料',
-    trade: 'Measurement', baseDays: 1, deps: [],
+    trade: 'Measurement', baseDays: 1, deps: [], phaseGroup: 'design',
     prepChecklist: [
       { icon: '📐', text: 'Prepare measuring tools (laser/tape)', text_zh: '准备测量工具(激光/卷尺)', type: 'check' },
       { icon: '📋', text: 'Bring floor plan drawings', text_zh: '携带平面图', type: 'info' },
@@ -36,7 +37,7 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
   },
   {
     id: 'design_conf', name: 'Design Confirmation', name_zh: '设计确认',
-    trade: 'Measurement', baseDays: 3, deps: ['measurement'],
+    trade: 'Measurement', baseDays: 3, deps: ['measurement'], phaseGroup: 'design',
     prepChecklist: [
       { icon: '🎨', text: 'Finalize material selections', text_zh: '确定材料选择', type: 'order' },
       { icon: '📐', text: 'Complete 3D rendering', text_zh: '完成3D效果图', type: 'check' },
@@ -49,7 +50,7 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
   },
   {
     id: 'demolition', name: 'Demolition', name_zh: '拆除工程',
-    trade: 'Demolition', baseDays: 5, deps: ['design_conf'],
+    trade: 'Demolition', baseDays: 5, deps: ['design_conf'], phaseGroup: 'preparation',
     scaleBy: 'sqft', scaleFactor: 1 / 150,
     hint_MY: 'Debris disposal in MY: coordinate with DBKL/MBPP for lorry booking. Avoid hacking load-bearing walls without S.E. approval.',
     hint_SG: 'Singapore: BCA permit required for structural hacking. Engage Licensed Builder for approved works. Notify MCST if condo.',
@@ -69,7 +70,7 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
   },
   {
     id: 'masonry', name: 'Construction & Plastering', name_zh: '水泥建筑工程',
-    trade: 'Construction', baseDays: 5, deps: ['demolition'],
+    trade: 'Construction', baseDays: 5, deps: ['demolition'], phaseGroup: 'preparation',
     scaleBy: 'sqft', scaleFactor: 1 / 100,
     hint_MY: 'Masonry is typically the critical path. Skim coat needs 2 coats with 2–3 day drying between each coat. New brickwork needs 14 days curing before skim.',
     hint_SG: 'Use approved cement mixes per BCA spec. Skim coat must cure min 72 hrs before painting. Condo: confirm with MCST on working hours (Mon–Sat 9am–5pm).',
@@ -153,8 +154,24 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     ],
   },
   {
+    id: 'ac_piping', name: 'AC Piping & Drainage', name_zh: '空调铜管预埋',
+    trade: 'Air Conditioning', baseDays: 2, deps: ['tiling'],
+    hint_MY: 'AC copper piping and condensate drainage must be installed BEFORE false ceiling. Coordinate with ceiling contractor for access points.',
+    hint_zh: '空调铜管和冷凝排水管必须在吊顶之前安装。与吊顶师傅协调预留检修口。',
+    prepChecklist: [
+      { icon: '❄️', text: 'AC brand/model confirmed', text_zh: '空调品牌型号确认', type: 'check' },
+      { icon: '📐', text: 'Indoor unit positions marked', text_zh: '内机位置已标记', type: 'check' },
+      { icon: '📦', text: 'Copper pipes & fittings ready', text_zh: '铜管及配件已准备', type: 'order' },
+    ],
+    subItems: [
+      { name: 'Copper pipe routing', name_zh: '铜管走管' },
+      { name: 'Condensate drain piping', name_zh: '冷凝排水管' },
+      { name: 'Insulation wrapping', name_zh: '保温包扎' },
+    ],
+  },
+  {
     id: 'ceiling', name: 'False Ceiling & Partition', name_zh: '石膏板吊顶',
-    trade: 'False Ceiling', baseDays: 7, deps: ['tiling'],
+    trade: 'False Ceiling', baseDays: 7, deps: ['tiling', 'ac_piping'],
     scaleBy: 'sqft', scaleFactor: 1 / 120,
     prepChecklist: [
       { icon: '📏', text: 'Ceiling height & design confirmed', text_zh: '吊顶高度及造型确认', type: 'check' },
@@ -288,8 +305,24 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     ],
   },
   {
+    id: 'ac_install', name: 'AC Indoor/Outdoor Unit Installation', name_zh: '空调内外机安装',
+    trade: 'Air Conditioning', baseDays: 2, deps: ['carpentry_install'],
+    parallel: ['electrical3', 'plumbing2'],
+    hint_MY: 'Outdoor unit must have proper ventilation clearance (min 300mm). Check condenser bracket load capacity for wall-mount units.',
+    hint_zh: '室外机需保证通风间距（至少300mm）。壁挂式需检查支架承重。安装后测试制冷效果及排水。',
+    prepChecklist: [
+      { icon: '❄️', text: 'Indoor & outdoor units delivered', text_zh: '内外机已到货', type: 'order' },
+      { icon: '🔧', text: 'Mounting brackets installed', text_zh: '安装支架已固定', type: 'check' },
+    ],
+    subItems: [
+      { name: 'Indoor unit mounting', name_zh: '内机安装' },
+      { name: 'Outdoor unit mounting', name_zh: '外机安装' },
+      { name: 'Refrigerant charging & testing', name_zh: '充注冷媒及测试' },
+    ],
+  },
+  {
     id: 'painting2', name: 'Painting Phase 2 — Topcoat', name_zh: '面漆工程',
-    trade: 'Painting', baseDays: 4, deps: ['electrical3', 'plumbing2'],
+    trade: 'Painting', baseDays: 4, deps: ['electrical3', 'plumbing2', 'ac_install'],
     scaleBy: 'sqft', scaleFactor: 1 / 250,
     prepChecklist: [
       { icon: '🎨', text: 'Final touch-up color code ready', text_zh: '补漆色号准备', type: 'check' },
@@ -394,6 +427,7 @@ const TRADE_COLORS: Record<string, string> = {
   Curtain:           '#F472B6',
   Cleaning:          '#8B8BA8',
   Handover:          '#22C55E',
+  Preliminaries:     '#94A3B8',
 };
 
 function nextWorkday(
@@ -455,6 +489,137 @@ function calculateDuration(phase: ConstructionPhase, sqft: number, typeMultiplie
   return days;
 }
 
+// ─── Site type multipliers ──────────────────────────────────────────────────
+const SITE_TYPE_MULTIPLIERS: Record<string, number> = {
+  residential: 1.0,
+  condo: 0.85,
+  apartment: 0.85,
+  landed_terrace: 1.1,
+  landed_semid: 1.2,
+  landed_bungalow: 1.4,
+  landed: 1.2,
+  shop_lot: 1.1,
+  commercial: 1.5,
+  mall: 2.0,
+  factory: 1.8,
+  other: 1.0,
+};
+
+export function getSiteTypeMultiplier(siteType?: string): number {
+  return SITE_TYPE_MULTIPLIERS[siteType || 'residential'] || 1.0;
+}
+
+// ─── Project type compliance reminders ──────────────────────────────────────
+const SITE_TYPE_PERMITS: Record<string, { name: string; name_zh: string; items: { name: string; name_zh: string }[] }> = {
+  condo: {
+    name: 'Condo Permits & Compliance',
+    name_zh: '公寓施工许可及合规',
+    items: [
+      { name: 'Apply renovation permit from Management/MCST', name_zh: '向物业管理申请装修许可' },
+      { name: 'Book service lift for material delivery', name_zh: '预约货梯搬运材料' },
+      { name: 'Confirm working hours restriction (Mon-Sat 9am-5pm)', name_zh: '确认施工时间限制' },
+      { name: 'Submit contractor & worker details to Management', name_zh: '提交承包商及工人资料' },
+      { name: 'Arrange deposit with Management', name_zh: '缴纳装修保证金' },
+    ],
+  },
+  apartment: {
+    name: 'Apartment Permits & Compliance',
+    name_zh: '公寓施工许可及合规',
+    items: [
+      { name: 'Apply renovation permit from Management/MCST', name_zh: '向物业管理申请装修许可' },
+      { name: 'Book service lift for material delivery', name_zh: '预约货梯搬运材料' },
+      { name: 'Confirm working hours restriction', name_zh: '确认施工时间限制' },
+    ],
+  },
+  landed_terrace: {
+    name: 'Landed Property Permits',
+    name_zh: '有地房产施工许可',
+    items: [
+      { name: 'Check PBT/council building permit requirement', name_zh: '确认地方政府建筑许可' },
+      { name: 'Notify neighbours of renovation works', name_zh: '通知邻居施工计划' },
+      { name: 'Arrange temporary hoarding/fencing', name_zh: '安排临时围挡' },
+    ],
+  },
+  landed_semid: {
+    name: 'Landed Property Permits',
+    name_zh: '有地房产施工许可',
+    items: [
+      { name: 'Check PBT/council building permit requirement', name_zh: '确认地方政府建筑许可' },
+      { name: 'Notify neighbours of renovation works', name_zh: '通知邻居施工计划' },
+      { name: 'Arrange temporary hoarding/fencing', name_zh: '安排临时围挡' },
+    ],
+  },
+  landed_bungalow: {
+    name: 'Landed Property Permits',
+    name_zh: '有地房产施工许可',
+    items: [
+      { name: 'Check PBT/council building permit for structural works', name_zh: '确认结构工程许可' },
+      { name: 'Engage structural engineer if needed', name_zh: '如需聘请结构工程师' },
+      { name: 'Notify neighbours & arrange hoarding', name_zh: '通知邻居及安排围挡' },
+    ],
+  },
+  landed: {
+    name: 'Landed Property Permits',
+    name_zh: '有地房产施工许可',
+    items: [
+      { name: 'Check PBT/council building permit requirement', name_zh: '确认地方政府建筑许可' },
+      { name: 'Notify neighbours of renovation works', name_zh: '通知邻居施工计划' },
+    ],
+  },
+  commercial: {
+    name: 'Commercial Permits & Compliance',
+    name_zh: '商业空间施工许可',
+    items: [
+      { name: 'Fire safety permit (BOMBA)', name_zh: '消防安全许可' },
+      { name: 'Coordinate after-hours work schedule', name_zh: '协调营业时间外施工' },
+      { name: 'Install temporary partition & dust barrier', name_zh: '安装临时隔板防尘措施' },
+    ],
+  },
+  mall: {
+    name: 'Mall/Retail Permits & Compliance',
+    name_zh: '商场施工许可',
+    items: [
+      { name: 'Mall management renovation permit', name_zh: '商场管理处施工许可' },
+      { name: 'Fire safety clearance (BOMBA)', name_zh: '消防安全批文' },
+      { name: 'Coordinate night works / off-peak delivery', name_zh: '协调夜间施工/非高峰送货' },
+      { name: 'Temporary hoarding to approved mall spec', name_zh: '按商场规格安装临时围挡' },
+    ],
+  },
+  factory: {
+    name: 'Factory/Industrial Permits',
+    name_zh: '工厂施工许可',
+    items: [
+      { name: 'Factory license / DOSH compliance', name_zh: '工厂许可证/DOSH合规' },
+      { name: 'Structural engineer approval for structural changes', name_zh: '结构变更需工程师审批' },
+      { name: 'Coordinate with ongoing factory operations', name_zh: '与工厂运营协调施工' },
+    ],
+  },
+  shop_lot: {
+    name: 'Shop Lot Permits',
+    name_zh: '店铺施工许可',
+    items: [
+      { name: 'Check local council renovation permit', name_zh: '确认地方政府装修许可' },
+      { name: 'Fire safety compliance check', name_zh: '消防合规检查' },
+    ],
+  },
+};
+
+function buildPermitsPhase(siteType: string): ConstructionPhase | null {
+  const permits = SITE_TYPE_PERMITS[siteType];
+  if (!permits) return null;
+  return {
+    id: 'permits_compliance',
+    name: permits.name,
+    name_zh: permits.name_zh,
+    trade: 'Preliminaries',
+    baseDays: 3,
+    deps: ['design_conf'],
+    phaseGroup: 'preparation',
+    prepChecklist: [],
+    subItems: permits.items,
+  };
+}
+
 // ─── Core scheduling engine (shared by all generators) ───────────────────────
 function _schedulePhases(
   projectId: string,
@@ -465,70 +630,168 @@ function _schedulePhases(
   region: 'MY' | 'SG',
   workOnSaturday: boolean,
   workOnSunday: boolean,
+  siteType?: string,
 ): GanttTask[] {
+  // Inject permits phase if siteType known and not already present
+  if (siteType && !phases.some(p => p.id === 'permits_compliance')) {
+    const permitsPhase = buildPermitsPhase(siteType);
+    if (permitsPhase) {
+      // Insert after design_conf
+      const dcIdx = phases.findIndex(p => p.id === 'design_conf');
+      if (dcIdx >= 0) {
+        phases = [...phases];
+        phases.splice(dcIdx + 1, 0, permitsPhase);
+      }
+    }
+  }
+
+  // Separate phases by group
+  const designPhases = phases.filter(p => p.phaseGroup === 'design');
+  const prepPhases = phases.filter(p => p.phaseGroup === 'preparation');
+  const constructionPhases = phases.filter(p => !p.phaseGroup || p.phaseGroup === 'construction');
+
   const tasks: GanttTask[] = [];
   const taskEndDates: Record<string, Date> = {};
+  const taskStartDates: Record<string, Date> = {};
 
-  let initialDate = new Date(startDate);
-  while (!isWorkday(initialDate, region, workOnSaturday, workOnSunday)) {
-    initialDate = addDays(initialDate, 1);
+  // Use siteType multiplier if available, otherwise use provided typeMultiplier
+  const effectiveMultiplier = siteType ? getSiteTypeMultiplier(siteType) : typeMultiplier;
+
+  // Ensure startDate is a workday
+  let constructionStart = new Date(startDate);
+  while (!isWorkday(constructionStart, region, workOnSaturday, workOnSunday)) {
+    constructionStart = addDays(constructionStart, 1);
   }
 
-  for (const phase of phases) {
-    const duration = calculateDuration(phase, sqft, typeMultiplier);
-
-    let taskStart: Date;
-    if (phase.deps.length === 0) {
-      taskStart = new Date(initialDate);
-    } else {
-      const depEnds = phase.deps
-        .map(depId => taskEndDates[depId])
-        .filter(Boolean);
-      if (depEnds.length > 0) {
-        const latestDepEnd = new Date(Math.max(...depEnds.map(d => d.getTime())));
-        taskStart = nextWorkday(latestDepEnd, region, workOnSaturday, workOnSunday);
-      } else {
-        taskStart = new Date(initialDate);
-      }
+  // ── Stage 1: Design phases — schedule BACKWARD from constructionStart ──────
+  if (designPhases.length > 0) {
+    // Reverse order: schedule from last to first, going backward
+    const reversed = [...designPhases].reverse();
+    let cursor = new Date(constructionStart);
+    // Go back one workday from constructionStart
+    cursor = addDays(cursor, -1);
+    while (!isWorkday(cursor, region, workOnSaturday, workOnSunday)) {
+      cursor = addDays(cursor, -1);
     }
 
-    if (phase.parallel && phase.parallel.length > 0) {
-      for (const parallelId of phase.parallel) {
-        const parallelTask = tasks.find(t => t.id === `${projectId}-${parallelId}`);
-        if (parallelTask) {
-          const parallelStart = new Date(parallelTask.start_date);
-          if (parallelStart < taskStart) taskStart = parallelStart;
+    for (const phase of reversed) {
+      const duration = calculateDuration(phase, sqft, effectiveMultiplier);
+      const taskEnd = new Date(cursor);
+
+      // Go back (duration - 1) workdays for start
+      let taskStart = new Date(cursor);
+      let count = 0;
+      while (count < duration - 1) {
+        taskStart = addDays(taskStart, -1);
+        if (isWorkday(taskStart, region, workOnSaturday, workOnSunday)) count++;
+      }
+
+      taskEndDates[phase.id] = taskEnd;
+      taskStartDates[phase.id] = taskStart;
+
+      // Move cursor to day before taskStart
+      cursor = addDays(taskStart, -1);
+      while (!isWorkday(cursor, region, workOnSaturday, workOnSunday)) {
+        cursor = addDays(cursor, -1);
+      }
+
+      const subtasks: GanttSubtask[] = phase.subItems.map((sub, idx) => ({
+        id: `${phase.id}-sub-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
+      }));
+
+      // Prepend (will reverse later)
+      tasks.unshift({
+        id: `${projectId}-${phase.id}`,
+        project_id: projectId,
+        name: phase.name,
+        name_zh: phase.name_zh,
+        trade: phase.trade,
+        start_date: format(taskStart, 'yyyy-MM-dd'),
+        end_date: format(taskEnd, 'yyyy-MM-dd'),
+        duration,
+        progress: 0,
+        dependencies: phase.deps.map(d => `${projectId}-${d}`),
+        color: TRADE_COLORS[phase.trade] || '#94A3B8',
+        is_critical: false,
+        subtasks,
+        assigned_workers: [],
+        sort_order: 0, // will reindex later
+        phase_group: 'design',
+      });
+    }
+  }
+
+  // ── Stage 2: Preparation phases — forward from constructionStart ────────────
+  const scheduleForward = (phasesToSchedule: ConstructionPhase[], group: PhaseGroup, startFrom: Date) => {
+    for (const phase of phasesToSchedule) {
+      const duration = calculateDuration(phase, sqft, effectiveMultiplier);
+
+      let taskStart: Date;
+      if (phase.deps.length === 0) {
+        taskStart = new Date(startFrom);
+      } else {
+        const depEnds = phase.deps.map(depId => taskEndDates[depId]).filter(Boolean);
+        if (depEnds.length > 0) {
+          const latestDepEnd = new Date(Math.max(...depEnds.map(d => d.getTime())));
+          taskStart = nextWorkday(latestDepEnd, region, workOnSaturday, workOnSunday);
+        } else {
+          taskStart = new Date(startFrom);
         }
       }
+
+      if (phase.parallel && phase.parallel.length > 0) {
+        for (const parallelId of phase.parallel) {
+          const parallelTask = tasks.find(t => t.id === `${projectId}-${parallelId}`);
+          if (parallelTask) {
+            const parallelStart = new Date(parallelTask.start_date);
+            if (parallelStart < taskStart) taskStart = parallelStart;
+          }
+        }
+      }
+
+      const taskEnd = addWorkdays(taskStart, duration - 1, region, workOnSaturday, workOnSunday);
+      taskEndDates[phase.id] = taskEnd;
+      taskStartDates[phase.id] = taskStart;
+
+      const subtasks: GanttSubtask[] = phase.subItems.map((sub, idx) => ({
+        id: `${phase.id}-sub-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
+      }));
+
+      tasks.push({
+        id: `${projectId}-${phase.id}`,
+        project_id: projectId,
+        name: phase.name,
+        name_zh: phase.name_zh,
+        trade: phase.trade,
+        start_date: format(taskStart, 'yyyy-MM-dd'),
+        end_date: format(taskEnd, 'yyyy-MM-dd'),
+        duration,
+        progress: 0,
+        dependencies: phase.deps.map(d => `${projectId}-${d}`),
+        color: TRADE_COLORS[phase.trade] || '#94A3B8',
+        is_critical: ['demolition', 'tiling', 'carpentry_mfg', 'carpentry_install', 'handover'].includes(phase.id),
+        subtasks,
+        assigned_workers: [],
+        sort_order: tasks.length,
+        phase_group: group,
+      });
     }
+  };
 
-    const taskEnd = addWorkdays(taskStart, duration - 1, region, workOnSaturday, workOnSunday);
-    taskEndDates[phase.id] = taskEnd;
+  scheduleForward(prepPhases, 'preparation', constructionStart);
 
-    const subtasks: GanttSubtask[] = phase.subItems.map((sub, idx) => ({
-      id: `${phase.id}-sub-${idx}`,
-      name: sub.name,
-      name_zh: sub.name_zh,
-      completed: false,
-    }));
-
-    tasks.push({
-      id: `${projectId}-${phase.id}`,
-      project_id: projectId,
-      name: phase.name,
-      name_zh: phase.name_zh,
-      trade: phase.trade,
-      start_date: format(taskStart, 'yyyy-MM-dd'),
-      end_date: format(taskEnd, 'yyyy-MM-dd'),
-      duration,
-      progress: 0,
-      dependencies: phase.deps.map(d => `${projectId}-${d}`),
-      color: TRADE_COLORS[phase.trade] || '#94A3B8',
-      is_critical: ['demolition', 'tiling', 'carpentry_mfg', 'carpentry_install', 'handover'].includes(phase.id),
-      subtasks,
-      assigned_workers: [],
-    });
+  // ── Stage 3: Construction phases — after preparation ends ──────────────────
+  const prepEndDates = prepPhases.map(p => taskEndDates[p.id]).filter(Boolean);
+  let constructionAfterPrep = constructionStart;
+  if (prepEndDates.length > 0) {
+    const latestPrep = new Date(Math.max(...prepEndDates.map(d => d.getTime())));
+    constructionAfterPrep = nextWorkday(latestPrep, region, workOnSaturday, workOnSunday);
   }
+
+  scheduleForward(constructionPhases, 'construction', constructionAfterPrep);
+
+  // Reindex sort_order
+  tasks.forEach((t, i) => { t.sort_order = i; });
 
   return tasks;
 }
@@ -542,6 +805,7 @@ export function generateGanttTasks(
   region: 'MY' | 'SG' = 'MY',
   workOnSaturday = false,
   workOnSunday = false,
+  siteType?: string,
 ): GanttTask[] {
   const typeMultiplier = PROJECT_TYPE_MULTIPLIERS[projectType] || 1.0;
   const phases = CONSTRUCTION_PHASES.filter(p => {
@@ -549,7 +813,7 @@ export function generateGanttTasks(
     if (!hasDemolition && p.id === 'masonry') return false;
     return true;
   });
-  return _schedulePhases(projectId, phases, startDate, sqft, typeMultiplier, region, workOnSaturday, workOnSunday);
+  return _schedulePhases(projectId, phases, startDate, sqft, typeMultiplier, region, workOnSaturday, workOnSunday, siteType);
 }
 
 // ─── Phase → required tradeScope keys (empty = always include) ───────────────
@@ -557,11 +821,12 @@ const PHASE_TRADE_REQUIRED: Record<string, string[]> = {
   measurement:       [],
   design_conf:       [],
   demolition:        ['demolition'],
-  masonry:           ['demolition', 'masonry'],
+  masonry:           ['demolition', 'masonry', 'construction'],
   electrical1:       ['electrical'],
   plumbing1:         ['plumbing'],
   waterproofing:     ['waterproofing', 'tiling'],
   tiling:            ['tiling', 'flooring'],
+  ac_piping:         ['aircon'],
   ceiling:           ['falseCeiling'],
   painting1:         ['painting'],
   carpentry_measure: ['carpentry'],
@@ -571,6 +836,7 @@ const PHASE_TRADE_REQUIRED: Record<string, string[]> = {
   carpentry_install: ['carpentry'],
   electrical3:       ['electrical'],
   plumbing2:         ['plumbing'],
+  ac_install:        ['aircon'],
   painting2:         ['painting'],
   cleaning:          [],
   curtains:          [],
@@ -586,6 +852,7 @@ export function generateGanttFromAIParams(
   region: 'MY' | 'SG' = 'MY',
   workOnSaturday = false,
   workOnSunday = false,
+  siteType?: string,
 ): GanttTask[] {
   const ts = params.tradeScope || {};
 
@@ -624,6 +891,11 @@ export function generateGanttFromAIParams(
   if (ts.aluminium?.estimatedDays) {
     overrides['door_window'] = ts.aluminium.estimatedDays;
   }
+  if (ts.aircon?.estimatedDays) {
+    const a = ts.aircon.estimatedDays;
+    overrides['ac_piping'] = Math.max(1, Math.ceil(a * 0.4));
+    overrides['ac_install'] = Math.max(1, Math.ceil(a * 0.6));
+  }
 
   // ── Filter phases: only include those whose trade exists in tradeScope ───────
   const hasTradeKey = (required: string[]) =>
@@ -659,6 +931,7 @@ export function generateGanttFromAIParams(
     plumbing2:         'plumbing',
     waterproofing:     'waterproofing',
     tiling:            'tiling',
+    ac_piping:         'aircon',
     ceiling:           'falseCeiling',
     painting1:         'painting',
     painting2:         'painting',
@@ -666,6 +939,7 @@ export function generateGanttFromAIParams(
     carpentry_mfg:     'carpentry',
     carpentry_install: 'carpentry',
     door_window:       'aluminium',
+    ac_install:        'aircon',
   };
 
   const phases: ConstructionPhase[] = CONSTRUCTION_PHASES
@@ -760,7 +1034,7 @@ export function generateGanttFromAIParams(
     }
   }
 
-  return _schedulePhases(projectId, phases, startDate, params.sqft || 1000, 1.0, region, workOnSaturday, workOnSunday);
+  return _schedulePhases(projectId, phases, startDate, params.sqft || 1000, 1.0, region, workOnSaturday, workOnSunday, siteType || params.siteType);
 }
 
 // Export prep checklists for use in task detail panel
@@ -773,6 +1047,27 @@ export function getPhaseById(phaseId: string) {
   return CONSTRUCTION_PHASES.find(p => p.id === phaseId);
 }
 
+// ─── Item deduplication & floor-aware grouping ─────────────────────────────────
+
+function extractFloor(section: string): string {
+  const s = (section || '').toUpperCase().trim();
+  if (/^GF\b|^GROUND/i.test(s)) return 'GF';
+  if (/^FF\b|^FIRST|^1F\b/i.test(s)) return '1F';
+  if (/^2F\b|^SECOND/i.test(s)) return '2F';
+  if (/^3F\b|^THIRD/i.test(s)) return '3F';
+  if (/^BF\b|^BASEMENT/i.test(s)) return 'BF';
+  if (/^RF\b|^ROOF/i.test(s)) return 'RF';
+  return 'ALL';
+}
+
+function normalizeItemName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/^(gf|ff|1f|2f|3f|bf|rf|g|f)[- ]*/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // ─── Smart Gantt generation from parsed quotation items ───────────────────────
 export interface QuotationItemForGantt {
   name: string;
@@ -781,6 +1076,29 @@ export interface QuotationItemForGantt {
   unitPrice?: number;
   total?: number;
   unit?: string;
+}
+
+/**
+ * Deduplicate quotation items: merge items with same normalized name + same trade.
+ * Items in different sections but with identical names get merged (qty/total summed).
+ */
+function deduplicateItems(items: QuotationItemForGantt[]): QuotationItemForGantt[] {
+  const seen = new Map<string, QuotationItemForGantt>();
+  for (const item of items) {
+    const normName = normalizeItemName(item.name);
+    const floor = extractFloor(item.section || '');
+    // Key: normalized name + floor (keep different floors separate)
+    const key = `${normName}|${floor}`;
+    if (seen.has(key)) {
+      const existing = seen.get(key)!;
+      existing.qty = (existing.qty || 0) + (item.qty || 0);
+      existing.total = (existing.total || 0) + (item.total || 0);
+      if (!existing.section && item.section) existing.section = item.section;
+    } else {
+      seen.set(key, { ...item });
+    }
+  }
+  return Array.from(seen.values());
 }
 
 /**
@@ -797,19 +1115,23 @@ export function generateGanttFromQuotation(
   region: 'MY' | 'SG' = 'MY',
   workOnSaturday = false,
   workOnSunday = false,
+  siteType?: string,
 ): GanttTask[] {
-  const txt = parsedItems.map(i => ((i.section || '') + ' ' + i.name).toLowerCase()).join(' ');
+  // ── 0. Deduplicate items ─────────────────────────────────────────────────
+  const dedupedItems = deduplicateItems(parsedItems);
+
+  const txt = dedupedItems.map(i => ((i.section || '') + ' ' + i.name).toLowerCase()).join(' ');
 
   // ── 1. Estimate project area (sqft) ──────────────────────────────────────
   let sqft = 0;
-  for (const item of parsedItems) {
+  for (const item of dedupedItems) {
     const unit = (item.unit || '').toLowerCase().replace(/\s+/g, '');
     const isArea = unit.includes('sqft') || unit === 'sf' || unit === 'sft'
                 || unit === 'sqm' || unit === 'm2' || unit === 'ft2';
     if (isArea && (item.qty || 0) > sqft) sqft = item.qty || 0;
   }
   if (sqft < 50) {
-    const tilingQty = parsedItems
+    const tilingQty = dedupedItems
       .filter(i => /til|ceram|homogeneous|floor|vinyl|timber|spc|parquet/.test(
         ((i.section || '') + ' ' + i.name).toLowerCase()))
       .reduce((s, i) => s + (i.qty || 0), 0);
@@ -845,20 +1167,29 @@ export function generateGanttFromQuotation(
     };
   };
 
-  for (const item of parsedItems) {
+  // Also track items per trade per floor for smart consolidation
+  const tradeFloorItems: Record<string, Record<string, QuotationItemForGantt[]>> = {};
+  const addFloorItem = (key: string, item: QuotationItemForGantt) => {
+    const floor = extractFloor(item.section || '');
+    if (!tradeFloorItems[key]) tradeFloorItems[key] = {};
+    if (!tradeFloorItems[key][floor]) tradeFloorItems[key][floor] = [];
+    tradeFloorItems[key][floor].push(item);
+  };
+
+  for (const item of dedupedItems) {
     const text = ((item.section || '') + ' ' + item.name).toLowerCase();
-    if (/demol|hack|break|remov|strip.?out|chipping/.test(text)) addSection('demolition', item);
-    if (/brick|plaster|screed|skim|render|new wall|brickwork/.test(text)) addSection('masonry', item);
-    if (/electr|wir|switch|socket|db|mcb|light|pendant|downlight|fan/.test(text)) addSection('electrical', item);
-    if (/plumb|pipe|basin|wc|toilet|tap|drain|shower|sanit/.test(text)) addSection('plumbing', item);
-    if (/water.?proof|membrane|ponding/.test(text)) addSection('waterproofing', item);
-    if (/til|ceram|porcel|mosaic|floor tile|wall tile/.test(text)) addSection('tiling', item);
-    if (/vinyl|timber floor|parquet|laminate|spc|lvt/.test(text)) addSection('flooring', item);
-    if (/ceil|gypsum|partition|false|plaster ceil/.test(text)) addSection('falseCeiling', item);
-    if (/paint|coat|primer|putty/.test(text)) addSection('painting', item);
-    if (/carp|cabinet|wardrobe|kitchen cab|joiner|shelf/.test(text)) addSection('carpentry', item);
-    if (/alumin|window|sliding door|door frame|grille/.test(text)) addSection('aluminium', item);
-    if (/air.?con|aircon|daikin|midea|split unit/.test(text)) addSection('aircon', item);
+    if (/demol|hack|break|remov|strip.?out|chipping/.test(text)) { addSection('demolition', item); addFloorItem('demolition', item); }
+    if (/brick|plaster|screed|skim|render|new wall|brickwork/.test(text)) { addSection('masonry', item); addFloorItem('masonry', item); }
+    if (/electr|wir|switch|socket|db|mcb|light|pendant|downlight|fan/.test(text)) { addSection('electrical', item); addFloorItem('electrical', item); }
+    if (/plumb|pipe|basin|wc|toilet|tap|drain|shower|sanit/.test(text)) { addSection('plumbing', item); addFloorItem('plumbing', item); }
+    if (/water.?proof|membrane|ponding/.test(text)) { addSection('waterproofing', item); addFloorItem('waterproofing', item); }
+    if (/til|ceram|porcel|mosaic|floor tile|wall tile/.test(text)) { addSection('tiling', item); addFloorItem('tiling', item); }
+    if (/vinyl|timber floor|parquet|laminate|spc|lvt/.test(text)) { addSection('flooring', item); addFloorItem('flooring', item); }
+    if (/ceil|gypsum|partition|false|plaster ceil/.test(text)) { addSection('falseCeiling', item); addFloorItem('falseCeiling', item); }
+    if (/paint|coat|primer|putty/.test(text)) { addSection('painting', item); addFloorItem('painting', item); }
+    if (/carp|cabinet|wardrobe|kitchen cab|joiner|shelf/.test(text)) { addSection('carpentry', item); addFloorItem('carpentry', item); }
+    if (/alumin|window|sliding door|door frame|grille/.test(text)) { addSection('aluminium', item); addFloorItem('aluminium', item); }
+    if (/air.?con|aircon|daikin|midea|split unit/.test(text)) { addSection('aircon', item); addFloorItem('aircon', item); }
   }
 
   if (tradeSections.demolition)   tradeScope.demolition   = { estimatedDays: 5, ...makeName('demolition', 'Demolition & Hacking', '拆除工程') };
@@ -876,7 +1207,54 @@ export function generateGanttFromQuotation(
 
   // If no specific trades detected, fall back to full default schedule
   if (Object.keys(tradeScope).length === 0) {
-    return generateGanttTasks(projectId, startDate, sqft, false, projectType, region, workOnSaturday, workOnSunday);
+    return generateGanttTasks(projectId, startDate, sqft, false, projectType, region, workOnSaturday, workOnSunday, siteType);
+  }
+
+  // ── 5. Floor-aware trade consolidation ─────────────────────────────────────
+  // For trades spanning multiple floors, split into per-floor custom phases
+  const customPhases: GanttParams['customPhases'] = [];
+  const TRADE_INSERT_AFTER: Record<string, string> = {
+    tiling: 'waterproofing', electrical: 'masonry', plumbing: 'masonry',
+    painting: 'ceiling', carpentry: 'painting1', falseCeiling: 'tiling',
+  };
+
+  for (const [tradeKey, floorMap] of Object.entries(tradeFloorItems)) {
+    const floors = Object.keys(floorMap).filter(f => f !== 'ALL');
+    // Only split if there are 2+ distinct floors (not counting 'ALL')
+    if (floors.length < 2) continue;
+
+    // Remove the merged tradeScope entry — we'll replace with per-floor custom phases
+    delete tradeScope[tradeKey as keyof typeof tradeScope];
+
+    const insertAfter = TRADE_INSERT_AFTER[tradeKey] || 'masonry';
+    const TRADE_LABELS: Record<string, { en: string; zh: string }> = {
+      tiling: { en: 'Tiling', zh: '铺砖' }, electrical: { en: 'Electrical', zh: '电气' },
+      plumbing: { en: 'Plumbing', zh: '水管' }, painting: { en: 'Painting', zh: '油漆' },
+      carpentry: { en: 'Carpentry', zh: '木工' }, falseCeiling: { en: 'False Ceiling', zh: '吊顶' },
+      waterproofing: { en: 'Waterproofing', zh: '防水' }, flooring: { en: 'Flooring', zh: '地板' },
+    };
+    const label = TRADE_LABELS[tradeKey] || { en: tradeKey, zh: tradeKey };
+
+    // Also include ALL-floor items in every floor phase
+    const allFloorItems = floorMap['ALL'] || [];
+
+    for (const floor of floors) {
+      const floorItems = [...floorMap[floor], ...allFloorItems];
+      const totalQty = floorItems.reduce((s, i) => s + (i.qty || 0), 0);
+      const secs = [...new Set(floorItems.map(i =>
+        (i.section || '').replace(/^(GF|FF|1F|2F|3F|BF|RF|G|F)-?/i, '').trim()
+      ).filter(Boolean))];
+      const secLabel = secs.slice(0, 3).join(' & ');
+      const estDays = Math.max(2, Math.ceil(totalQty / 80));
+
+      customPhases!.push({
+        name: `${floor} ${secLabel ? secLabel + ' ' : ''}${label.en} (${totalQty}${floorItems[0]?.unit || 'sqft'})`,
+        name_zh: `${floor} ${secLabel ? secLabel + ' ' : ''}${label.zh} (${totalQty}${floorItems[0]?.unit || 'sqft'})`,
+        trade: label.en,
+        estimatedDays: estDays,
+        insertAfter,
+      });
+    }
   }
 
   const derivedParams: GanttParams = {
@@ -884,10 +1262,10 @@ export function generateGanttFromQuotation(
     projectType,
     hasDemolition: !!tradeScope.demolition,
     tradeScope,
-    customPhases: [],
+    customPhases,
   };
 
-  return generateGanttFromAIParams(projectId, derivedParams, startDate, region, workOnSaturday, workOnSunday);
+  return generateGanttFromAIParams(projectId, derivedParams, startDate, region, workOnSaturday, workOnSunday, siteType);
 }
 
 // ─── Detect construction trade from free text ──────────────────────────────

@@ -134,15 +134,27 @@ export interface TradeHint {
   quotationNotes?: string;   // summary of related quotation items
 }
 
+export type SiteType = 'residential' | 'condo' | 'apartment' | 'landed_terrace' | 'landed_semid' | 'landed_bungalow' | 'shop_lot' | 'commercial' | 'mall' | 'factory' | 'other';
+
+export interface GanttPhaseOrderEntry {
+  id: string;
+  deps: string[];
+  phaseGroup: 'design' | 'preparation' | 'construction';
+  parallel?: string[];
+  note?: string;
+}
+
 export interface GanttParams {
   sqft: number;
   projectType: 'residential' | 'condo' | 'landed' | 'commercial' | 'mall';
+  siteType?: SiteType;
   hasDemolition: boolean;
   /** All trade/work categories found in this quotation (used to filter Gantt phases) */
   detectedCategories?: string[];
   tradeScope: {
     demolition?:    GanttTradeData;
     masonry?:       GanttTradeData;
+    construction?:  GanttTradeData;
     tiling?:        GanttTradeData;
     electrical?:    GanttTradeData;
     plumbing?:      GanttTradeData;
@@ -155,6 +167,7 @@ export interface GanttParams {
     aircon?:        GanttTradeData;
   };
   customPhases?: GanttCustomPhase[];
+  phaseOrder?: GanttPhaseOrderEntry[];
   riskNotes?: Record<string, string>;
   tradeHints?: Record<string, TradeHint>;
 }
@@ -176,6 +189,8 @@ export interface QuotationAnalysis {
 
 export type GanttTaskStatus = 'pending' | 'confirmed' | 'completed';
 
+export type PhaseGroup = 'design' | 'preparation' | 'construction';
+
 export interface GanttTask {
   id: string;
   project_id: string;
@@ -192,6 +207,9 @@ export interface GanttTask {
   taskStatus?: GanttTaskStatus;
   subtasks: GanttSubtask[];
   assigned_workers: string[];
+  sort_order?: number;
+  phase_group?: PhaseGroup;
+  source_items?: string[];  // quotation item names linked to this task
 }
 
 export interface GanttSubtask {

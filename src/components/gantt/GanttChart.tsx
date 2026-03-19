@@ -24,6 +24,9 @@ interface GanttChartProps {
   onStatusToggle?: (taskId: string) => void;
   onAssignWorker?: (taskId: string) => void;
   onRemoveWorker?: (taskId: string, workerId: string) => void;
+  onTaskDelete?: (taskId: string) => void;
+  onTaskReorder?: (taskId: string, newIndex: number, recalcDates: boolean) => void;
+  onTaskAdd?: () => void;
   workers?: GanttWorkerInfo[];     // all designer workers (for avatar lookup)
   deadline?: string;
   projectId?: string;
@@ -85,9 +88,9 @@ function autoTaskColor(name: string, index: number): string {
   for (let i = 0; i < name.length; i++) h = (h * 37 + name.charCodeAt(i)) & 0xffffffff;
   return TASK_PALETTE[(Math.abs(h) + index) % TASK_PALETTE.length];
 }
-/* Always auto-generate vibrant color from task name for visual variety */
+/* Use trade color from task.color (TRADE_COLORS), fallback to auto-generated */
 function resolveTaskColor(task: GanttTask, index: number): string {
-  return autoTaskColor(task.name, index);
+  return task.color || autoTaskColor(task.name, index);
 }
 
 export function GanttChart({
@@ -97,6 +100,9 @@ export function GanttChart({
   onStatusToggle,
   onAssignWorker,
   onRemoveWorker,
+  onTaskDelete,
+  onTaskReorder,
+  onTaskAdd,
   workers = [],
   deadline,
   projectId = 'temp',
@@ -119,6 +125,9 @@ export function GanttChart({
 
   const [hoveredTask, setHoveredTask] = useState<string | null>(null);
   const [hoveredWeek, setHoveredWeek] = useState<number | null>(null);
+  const [reorderDragId, setReorderDragId] = useState<string | null>(null);
+  const [reorderOverIdx, setReorderOverIdx] = useState<number | null>(null);
+  const [pendingReorder, setPendingReorder] = useState<{ taskId: string; newIndex: number } | null>(null);
   const outerRef = useRef<HTMLDivElement>(null);
 
   // ─── date range ────────────────────────────────────────────────
@@ -375,12 +384,23 @@ export function GanttChart({
         {/* ── Gantt rows ── */}
         <div>
           {(() => {
-            // Group tasks: upcoming (待开工) vs started/past (已开工)
-            const upcomingTasks = tasks.filter(t => isUpcoming(t));
-            const startedTasks  = tasks.filter(t => !isUpcoming(t));
-            const groups: { label: string; labelZh: string; items: GanttTask[] }[] = [];
-            if (startedTasks.length > 0)  groups.push({ label: 'In Progress / Completed', labelZh: '已开工', items: startedTasks });
-            if (upcomingTasks.length > 0) groups.push({ label: 'Upcoming', labelZh: '待开工', items: upcomingTasks });
+            // Group tasks by phase_group (design > preparation > construction), fallback to old grouping
+            const hasPhaseGroups = tasks.some(t => t.phase_group);
+            let groups: { label: string; labelZh: string; icon: string; bg: string; items: GanttTask[] }[] = [];
+
+            if (hasPhaseGroups) {
+              const designTasks = tasks.filter(t => t.phase_group === 'design');
+              const prepTasks = tasks.filter(t => t.phase_group === 'preparation');
+              const constructionTasks = tasks.filter(t => !t.phase_group || t.phase_group === 'construction');
+              if (designTasks.length > 0)       groups.push({ label: 'Design', labelZh: '🎨 设计确认', icon: '🎨', bg: '#f8f9fa', items: designTasks });
+              if (prepTasks.length > 0)          groups.push({ label: 'Preparation', labelZh: '🔧 前期准备', icon: '🔧', bg: '#f0f7ff', items: prepTasks });
+              if (constructionTasks.length > 0)  groups.push({ label: 'Construction', labelZh: '🏗️ 施工阶段', icon: '🏗️', bg: '#ffffff', items: constructionTasks });
+            } else {
+              const upcomingTasks = tasks.filter(t => isUpcoming(t));
+              const startedTasks  = tasks.filter(t => !isUpcoming(t));
+              if (startedTasks.length > 0)  groups.push({ label: 'In Progress / Completed', labelZh: '已开工', icon: '▶', bg: '#fff', items: startedTasks });
+              if (upcomingTasks.length > 0) groups.push({ label: 'Upcoming', labelZh: '待开工', icon: '⏳', bg: '#fff', items: upcomingTasks });
+            }
 
             return groups.map((group) => (
               <div key={group.label}>
@@ -400,7 +420,7 @@ export function GanttChart({
             const isHov    = hoveredTask === task.id;
             const ts       = task.taskStatus;
 
-            const labelColor = ts === 'completed' ? 'var(--rs-green, #16a34a)' : ts === 'confirmed' ? 'var(--accent)' : active ? 'var(--accent)' : 'var(--rs-text3)';
+            const labelColor = ts === 'completed' ? 'var(--rs-green, #16a34a)' : tColor;
             const prefix     = ts === 'completed' ? '✓ ' : active ? '▶ ' : '';
 
             const assignedWorkerIds = task.assigned_workers || [];
@@ -409,15 +429,58 @@ export function GanttChart({
             );
 
             return (
-              <div key={task.id} className="rs-gantt-row" style={{ display: 'flex', alignItems: 'stretch' }}>
+              <div
+                key={task.id}
+                className={`rs-gantt-row${reorderDragId === task.id ? ' reorder-dragging' : ''}${reorderOverIdx === taskIdx ? ' reorder-over' : ''}`}
+                style={{ display: 'flex', alignItems: 'stretch', opacity: reorderDragId === task.id ? 0.4 : 1 }}
+                draggable={!!onTaskReorder}
+                onDragStart={(e) => {
+                  setReorderDragId(task.id);
+                  e.dataTransfer.effectAllowed = 'move';
+                  e.dataTransfer.setData('text/plain', task.id);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (reorderDragId && reorderDragId !== task.id) {
+                    setReorderOverIdx(taskIdx);
+                  }
+                }}
+                onDragLeave={() => setReorderOverIdx(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (reorderDragId && reorderDragId !== task.id && onTaskReorder) {
+                    setPendingReorder({ taskId: reorderDragId, newIndex: taskIdx });
+                  }
+                  setReorderDragId(null);
+                  setReorderOverIdx(null);
+                }}
+                onDragEnd={() => { setReorderDragId(null); setReorderOverIdx(null); }}
+              >
 
                 {/* Label */}
                 <div
                   className="rs-gantt-label"
-                  style={{ width: LABEL_WIDTH, color: labelColor, flexShrink: 0 }}
+                  style={{ width: LABEL_WIDTH, color: labelColor, flexShrink: 0, position: 'relative' }}
                   onClick={() => onTaskClick?.(task.id)}
                   title={lang === 'ZH' ? '点击查看细分内容和备料清单' : 'Click for details & prep checklist'}
                 >
+                  {/* Delete button — hover only */}
+                  {onTaskDelete && (
+                    <button
+                      className="rs-gantt-delete-btn"
+                      onClick={(e) => { e.stopPropagation(); onTaskDelete(task.id); }}
+                      title={lang === 'ZH' ? '删除工序' : 'Delete task'}
+                      style={{
+                        position: 'absolute', top: 2, right: 2,
+                        width: 16, height: 16, borderRadius: '50%',
+                        background: '#EF4444', color: '#fff', border: 'none',
+                        fontSize: 9, cursor: 'pointer', display: 'none',
+                        alignItems: 'center', justifyContent: 'center', lineHeight: 1, zIndex: 5,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, lineHeight: 1.3 }}>
                     {/* Status cycle button */}
                     {onStatusToggle && (
@@ -615,6 +678,23 @@ export function GanttChart({
           })()}
         </div>
 
+        {/* ── Add task button ── */}
+        {onTaskAdd && (
+          <div
+            onClick={onTaskAdd}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '8px 12px', borderTop: '1px dashed #e5e7eb',
+              cursor: 'pointer', transition: 'all 0.15s',
+              color: '#9CA3AF', fontSize: 12, fontWeight: 500,
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.color = '#4F8EF7'; (e.currentTarget as HTMLDivElement).style.background = '#f0f7ff'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.color = '#9CA3AF'; (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+          >
+            + {lang === 'ZH' ? '添加工序' : 'Add Task'}
+          </div>
+        )}
+
         {/* ── Bottom status bar ── */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 12,
@@ -635,8 +715,51 @@ export function GanttChart({
         </div>
       </div>
 
+      {/* ── Reorder confirmation dialog ── */}
+      {pendingReorder && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setPendingReorder(null)}>
+          <div style={{
+            background: '#fff', borderRadius: 12, padding: '20px 24px', maxWidth: 400,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#1B2336', marginBottom: 8 }}>
+              {lang === 'ZH' ? '调整工序顺序' : 'Reorder Tasks'}
+            </div>
+            <p style={{ fontSize: 13, color: '#6B7A94', marginBottom: 16 }}>
+              {lang === 'ZH' ? '是否根据新顺序重新计算日期和依赖关系？' : 'Recalculate dates and dependencies based on new order?'}
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => {
+                  onTaskReorder?.(pendingReorder.taskId, pendingReorder.newIndex, true);
+                  setPendingReorder(null);
+                }}
+                style={{ flex: 1, padding: '8px 16px', borderRadius: 8, background: '#4F8EF7', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+              >
+                {lang === 'ZH' ? '是，重新计算' : 'Yes, Recalculate'}
+              </button>
+              <button
+                onClick={() => {
+                  onTaskReorder?.(pendingReorder.taskId, pendingReorder.newIndex, false);
+                  setPendingReorder(null);
+                }}
+                style={{ flex: 1, padding: '8px 16px', borderRadius: 8, background: '#f5f5f5', color: '#374151', border: '1px solid #e5e7eb', fontWeight: 500, fontSize: 13, cursor: 'pointer' }}
+              >
+                {lang === 'ZH' ? '仅调整顺序' : 'Order Only'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         .rs-gantt-row:hover .remove-worker-btn { display: flex !important; }
+        .rs-gantt-row:hover .rs-gantt-delete-btn { display: flex !important; }
+        .rs-gantt-row.reorder-over { border-top: 2px solid #4F8EF7 !important; }
+        .rs-gantt-row { cursor: ${onTaskReorder ? 'grab' : 'default'}; }
       `}</style>
     </div>
   );

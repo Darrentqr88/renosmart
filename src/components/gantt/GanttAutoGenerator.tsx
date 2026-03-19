@@ -1,14 +1,42 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { QuotationAnalysis, GanttTask, GanttParams } from '@/types';
+import { QuotationAnalysis, GanttTask, GanttParams, SiteType } from '@/types';
 import { generateGanttTasks, generateGanttFromAIParams, getPhaseChecklist, getPhaseById, CONSTRUCTION_PHASES } from '@/lib/utils/gantt-rules';
 import { GanttChart } from './GanttChart';
 import { TaskDetailPanel } from './TaskDetailPanel';
-import { Sparkles, Pencil } from 'lucide-react';
+import { Sparkles, Pencil, Building2 } from 'lucide-react';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { MY_HOLIDAYS, SG_HOLIDAYS } from '@/lib/utils/dates';
 import { useI18n } from '@/lib/i18n/context';
+
+const SITE_TYPE_OPTIONS: { value: SiteType; label: string; label_zh: string }[] = [
+  { value: 'condo', label: 'Condo', label_zh: '公寓 Condo' },
+  { value: 'apartment', label: 'Apartment', label_zh: '公寓 Apartment' },
+  { value: 'landed_terrace', label: 'Landed (Terrace)', label_zh: '排屋 Terrace' },
+  { value: 'landed_semid', label: 'Landed (Semi-D)', label_zh: '半独立 Semi-D' },
+  { value: 'landed_bungalow', label: 'Landed (Bungalow)', label_zh: '独栋 Bungalow' },
+  { value: 'shop_lot', label: 'Shop Lot', label_zh: '店铺 Shop Lot' },
+  { value: 'commercial', label: 'Commercial', label_zh: '商业空间' },
+  { value: 'mall', label: 'Mall', label_zh: '商场' },
+  { value: 'factory', label: 'Factory', label_zh: '工厂' },
+  { value: 'other', label: 'Other', label_zh: '其他' },
+];
+
+function detectSiteType(analysis: QuotationAnalysis): SiteType {
+  const pt = analysis.projectType?.toLowerCase() || analysis.ganttParams?.projectType || '';
+  if (/condo|condominium/.test(pt)) return 'condo';
+  if (/apartment/.test(pt)) return 'apartment';
+  if (/bungalow/.test(pt)) return 'landed_bungalow';
+  if (/semi.?d/.test(pt)) return 'landed_semid';
+  if (/terrace|link/.test(pt)) return 'landed_terrace';
+  if (/landed/.test(pt)) return 'landed_terrace';
+  if (/shop/.test(pt)) return 'shop_lot';
+  if (/mall/.test(pt)) return 'mall';
+  if (/commercial|office|retail/.test(pt)) return 'commercial';
+  if (/factory|industrial/.test(pt)) return 'factory';
+  return 'condo'; // default
+}
 
 interface GanttAutoGeneratorProps {
   analysis: QuotationAnalysis;
@@ -26,6 +54,8 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
   const [showOverrideModal, setShowOverrideModal] = useState(false);
   const [workSat, setWorkSat] = useState(false);
   const [workSun, setWorkSun] = useState(false);
+  const [siteType, setSiteType] = useState<SiteType>(() => detectSiteType(analysis));
+  const [customSiteType, setCustomSiteType] = useState('');
 
   useEffect(() => {
     generateTasks();
@@ -34,11 +64,12 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
 
   const generateTasks = useCallback(() => {
     setGenerating(true);
+    const effectiveSiteType = siteType === 'other' && customSiteType ? customSiteType : siteType;
 
     // Use AI-extracted ganttParams when available (phase filtering by tradeScope)
     const ganttParams = (analysis as QuotationAnalysis & { ganttParams?: GanttParams }).ganttParams;
     if (ganttParams) {
-      const generatedTasks = generateGanttFromAIParams(projectId, ganttParams, new Date(startDate), 'MY', workSat, workSun);
+      const generatedTasks = generateGanttFromAIParams(projectId, ganttParams, new Date(startDate), 'MY', workSat, workSun, effectiveSiteType);
       setTasks(generatedTasks);
       setGenerating(false);
       return;
@@ -59,10 +90,10 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
       i.section?.toLowerCase().includes('demolition')
     );
 
-    const generatedTasks = generateGanttTasks(projectId, new Date(startDate), sqft, hasDemolition);
+    const generatedTasks = generateGanttTasks(projectId, new Date(startDate), sqft, hasDemolition, 'residential', 'MY', workSat, workSun, effectiveSiteType);
     setTasks(generatedTasks);
     setGenerating(false);
-  }, [analysis, projectId, startDate, workSat, workSun]);
+  }, [analysis, projectId, startDate, workSat, workSun, siteType, customSiteType]);
 
   const handleTaskUpdate = (taskId: string, updates: Partial<GanttTask>) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
@@ -82,6 +113,53 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
         ),
       };
     }));
+  };
+
+  const handleTaskDelete = (taskId: string) => {
+    setTasks(prev => {
+      const filtered = prev.filter(t => t.id !== taskId);
+      return filtered.map((t, i) => ({ ...t, sort_order: i }));
+    });
+  };
+
+  const handleTaskReorder = (taskId: string, newIndex: number, recalcDates: boolean) => {
+    setTasks(prev => {
+      const idx = prev.findIndex(t => t.id === taskId);
+      if (idx < 0) return prev;
+      const updated = [...prev];
+      const [moved] = updated.splice(idx, 1);
+      updated.splice(newIndex, 0, moved);
+      return updated.map((t, i) => ({ ...t, sort_order: i }));
+    });
+    // TODO: if recalcDates, rebuild schedule from new order
+  };
+
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  const handleAddTask = (newTask: { name: string; trade: string; duration: number; phaseGroup: string }) => {
+    const id = `${projectId}-custom_${Date.now()}`;
+    const lastTask = tasks[tasks.length - 1];
+    const startD = lastTask ? lastTask.end_date : startDate;
+
+    setTasks(prev => [...prev, {
+      id,
+      project_id: projectId,
+      name: newTask.name,
+      name_zh: newTask.name,
+      trade: newTask.trade,
+      start_date: startD,
+      end_date: startD, // simplified
+      duration: newTask.duration,
+      progress: 0,
+      dependencies: [],
+      color: '#94A3B8',
+      is_critical: false,
+      subtasks: [],
+      assigned_workers: [],
+      sort_order: prev.length,
+      phase_group: newTask.phaseGroup as 'design' | 'preparation' | 'construction',
+    }]);
+    setShowAddModal(false);
   };
 
   const handleDurationChange = (taskId: string, newDuration: number) => {
@@ -202,6 +280,36 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
             <div className="text-[10px] text-rs-text3 mt-0.5">Weekends excluded by default</div>
           </div>
 
+          {/* Site Type */}
+          <div>
+            <div className="text-xs text-rs-text3 font-semibold tracking-wide mb-1 flex items-center gap-1">
+              <Building2 className="w-3 h-3" /> {lang === 'ZH' ? '工地类型' : 'Site Type'}
+            </div>
+            <select
+              value={siteType}
+              onChange={(e) => {
+                setSiteType(e.target.value as SiteType);
+                setTimeout(() => generateTasks(), 0);
+              }}
+              className="text-xs border border-rs-border rounded-lg px-2.5 py-1.5 text-rs-text bg-white focus:outline-none focus:border-[#4F8EF7] transition-colors font-sans"
+            >
+              {SITE_TYPE_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>
+                  {lang === 'ZH' ? opt.label_zh : opt.label}
+                </option>
+              ))}
+            </select>
+            {siteType === 'other' && (
+              <input
+                type="text"
+                placeholder={lang === 'ZH' ? '输入工地类型...' : 'Enter site type...'}
+                value={customSiteType}
+                onChange={(e) => setCustomSiteType(e.target.value)}
+                className="text-xs border border-rs-border rounded-lg px-2.5 py-1.5 mt-1 w-full text-rs-text bg-white focus:outline-none focus:border-[#4F8EF7]"
+              />
+            )}
+          </div>
+
           {/* Divider */}
           <div className="w-px h-10 bg-rs-border" />
 
@@ -264,6 +372,9 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
             tasks={tasks}
             onTaskUpdate={handleTaskUpdate}
             onTaskClick={handleTaskClick}
+            onTaskDelete={handleTaskDelete}
+            onTaskReorder={handleTaskReorder}
+            onTaskAdd={() => setShowAddModal(true)}
             deadline={deadline}
             projectId={projectId}
           />
@@ -314,6 +425,14 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
         />
       )}
 
+      {/* Add Task Modal */}
+      {showAddModal && (
+        <AddTaskModal
+          onClose={() => setShowAddModal(false)}
+          onAdd={handleAddTask}
+        />
+      )}
+
       {/* Override Modal */}
       {showOverrideModal && (
         <OverrideModal
@@ -324,6 +443,80 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
         />
       )}
     </>
+  );
+}
+
+// Add Task Modal
+const TRADE_OPTIONS = [
+  'Measurement', 'Demolition', 'Construction', 'Electrical', 'Plumbing',
+  'Waterproofing', 'Tiling', 'False Ceiling', 'Painting', 'Carpentry',
+  'Air Conditioning', 'Aluminium', 'Glass', 'Metal Work', 'Landscape',
+  'Cleaning', 'Preliminaries', 'Other',
+];
+
+function AddTaskModal({ onClose, onAdd }: {
+  onClose: () => void;
+  onAdd: (task: { name: string; trade: string; duration: number; phaseGroup: string }) => void;
+}) {
+  const [name, setName] = useState('');
+  const [trade, setTrade] = useState('Construction');
+  const [duration, setDuration] = useState(3);
+  const [phaseGroup, setPhaseGroup] = useState('construction');
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-2xl border border-rs-border w-full max-w-[420px] p-5 shadow-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-[15px] font-bold text-rs-text">添加工序</div>
+          <button onClick={onClose} className="w-7 h-7 rounded-full bg-rs-surface2 flex items-center justify-center text-rs-text3 hover:bg-rs-border transition-colors text-sm">✕</button>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-rs-text3 mb-1 block">工序名称 *</label>
+            <input
+              type="text" value={name} onChange={e => setName(e.target.value)}
+              placeholder="例如: 玻璃淋浴房安装"
+              className="w-full text-sm border border-rs-border rounded-lg px-3 py-2 text-rs-text focus:outline-none focus:border-[#4F8EF7]"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-rs-text3 mb-1 block">工种</label>
+              <select value={trade} onChange={e => setTrade(e.target.value)}
+                className="w-full text-sm border border-rs-border rounded-lg px-3 py-2 text-rs-text focus:outline-none focus:border-[#4F8EF7]">
+                {TRADE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-rs-text3 mb-1 block">工期（天）</label>
+              <input type="number" value={duration} onChange={e => setDuration(Number(e.target.value))} min={1} max={90}
+                className="w-full text-sm border border-rs-border rounded-lg px-3 py-2 text-rs-text focus:outline-none focus:border-[#4F8EF7]" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-rs-text3 mb-1 block">分组</label>
+            <select value={phaseGroup} onChange={e => setPhaseGroup(e.target.value)}
+              className="w-full text-sm border border-rs-border rounded-lg px-3 py-2 text-rs-text focus:outline-none focus:border-[#4F8EF7]">
+              <option value="design">🎨 设计确认 (Design)</option>
+              <option value="preparation">🔧 前期准备 (Preparation)</option>
+              <option value="construction">🏗️ 施工阶段 (Construction)</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex gap-2 mt-4">
+          <button
+            onClick={() => name.trim() && onAdd({ name: name.trim(), trade, duration, phaseGroup })}
+            disabled={!name.trim()}
+            className="flex-1 px-4 py-2 text-xs font-semibold bg-[#4F8EF7] text-white rounded-lg hover:bg-[#3B7BE8] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            添加
+          </button>
+          <button onClick={onClose} className="px-4 py-2 text-xs font-semibold text-rs-text3 border border-rs-border rounded-lg bg-white hover:bg-rs-surface2 transition-all">
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

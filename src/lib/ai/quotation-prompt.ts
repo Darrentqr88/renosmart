@@ -123,8 +123,25 @@ ${PRICE_REFERENCE}
       - carpentry: "Kitchen Cabinet 12ft + Master Wardrobe 10ft" NOT "Carpentry Works"
       - glass (custom): "Tempered Glass Partition + Shower Screen (3 panels)" NOT "Glass Work"
       - landscape (custom): "Garden Paving + Planting (front & rear yard)" NOT "Landscape"
+      FLOOR-AWARE: If items span multiple floors (GF, FF, 2F etc), include floor prefix:
+        - Multi-floor: "GF Kitchen Tiling (400sqft)" and "FF Bathroom Tiling (200sqft)" as SEPARATE entries
+        - Single floor: "Kitchen & Bathroom Tiling (600sqft)" (no prefix needed)
     taskName_zh: Chinese equivalent of taskName.
     riskNotes: brief scheduling risk per trade (max 50 chars).
+
+    IMPORTANT AC SCHEDULING:
+    - If aircon items exist, include in tradeScope with combined estimatedDays
+    - System will auto-split into ac_piping (before ceiling) + ac_install (after carpentry)
+
+    CONSTRUCTION ORDER RULES (respect these):
+    - Construction/masonry AFTER demolition
+    - Electrical & plumbing rough-in PARALLEL, AFTER construction
+    - Waterproofing AFTER plumbing rough-in, BEFORE tiling
+    - AC piping AFTER tiling, BEFORE ceiling
+    - Landscape/external AFTER most indoor work
+    - CCTV/alarm AFTER electrical phase 2
+    - Furniture delivery AFTER painting phase 2
+    - Cleaning BEFORE handover
 
     detectedCategories: FULL LIST of all trade/work categories found in this quotation (English names).
       Example: ["Demolition","Tiling","Electrical","Plumbing","Painting","Carpentry","Glass Work","Landscape"]
