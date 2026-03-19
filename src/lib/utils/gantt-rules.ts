@@ -29,6 +29,10 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     prepChecklist: [
       { icon: '📐', text: 'Prepare measuring tools (laser/tape)', text_zh: '准备测量工具(激光/卷尺)', type: 'check' },
       { icon: '📋', text: 'Bring floor plan drawings', text_zh: '携带平面图', type: 'info' },
+      { icon: '🛒', text: 'Order tiles/stone (4-8 week lead time)', text_zh: '下单：地砖/石材（交货期4-8周）', type: 'order' },
+      { icon: '🛒', text: 'Order custom cabinetry (4-6 weeks production)', text_zh: '下单：定制柜体（生产约4-6周）', type: 'order' },
+      { icon: '🛒', text: 'Order timber flooring (2-4 weeks)', text_zh: '下单：木地板（交货期2-4周）', type: 'order' },
+      { icon: '⚠️', text: 'Submit renovation permit to building management', text_zh: '提交装修申请表给物业管理处', type: 'warn' },
     ],
     subItems: [
       { name: 'Full site measurement', name_zh: '全屋测量' },
@@ -57,9 +61,10 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     hint_SG: 'Singapore: BCA permit required for structural hacking. Engage Licensed Builder for approved works. Notify MCST if condo.',
     hint_zh: '拆除前务必确认哪些是承重墙，并保护好非施工区域地板和家具。垃圾需提前预约车辆清运。',
     prepChecklist: [
+      { icon: '⚠️', text: 'Photograph ALL existing conditions before demolition', text_zh: '拆除前全程拍摄现场存档', type: 'warn' },
+      { icon: '⚠️', text: 'Close water main, electrical DB, gas valve', text_zh: '关闭水表、电表、燃气总阀', type: 'warn' },
       { icon: '⚠️', text: 'Protect non-demolition areas', text_zh: '保护非拆除区域', type: 'warn' },
       { icon: '🚚', text: 'Arrange debris disposal truck', text_zh: '安排垃圾清运车', type: 'order' },
-      { icon: '🔌', text: 'Disconnect existing utilities', text_zh: '断开现有水电', type: 'warn' },
       { icon: '📝', text: 'Confirm scope with client', text_zh: '与客户确认拆除范围', type: 'check' },
     ],
     subItems: [
@@ -1354,23 +1359,34 @@ export function generateGanttFromQuotation(
     }
   }
 
-  if (tradeSections.demolition)    tradeScope.demolition    = { estimatedDays: 5, ...makeName('demolition', 'Demolition & Hacking', '拆除工程') };
-  if (tradeSections.masonry)       tradeScope.masonry       = { estimatedDays: 5, ...makeName('masonry', 'Masonry & Plastering', '水泥建筑工程') };
-  if (tradeSections.electrical)    tradeScope.electrical    = { estimatedDays: 8, ...makeName('electrical', 'Electrical Works', '电气工程') };
-  if (tradeSections.plumbing)      tradeScope.plumbing      = { estimatedDays: 5, ...makeName('plumbing', 'Plumbing Works', '水管工程') };
-  if (tradeSections.waterproofing) tradeScope.waterproofing = { estimatedDays: 3, ...makeName('waterproofing', 'Waterproofing', '防水工程') };
-  if (tradeSections.tiling)        tradeScope.tiling        = { sqft, estimatedDays: Math.max(5, Math.ceil(sqft / 80)), ...makeName('tiling', 'Tiling Works', '铺砖工程') };
-  if (tradeSections.flooring)      tradeScope.flooring      = { estimatedDays: Math.max(3, Math.ceil(sqft / 70)), ...makeName('flooring', 'Flooring Works', '地板工程') };
-  if (tradeSections.falseCeiling)  tradeScope.falseCeiling  = { estimatedDays: 5, ...makeName('falseCeiling', 'False Ceiling', '吊顶工程') };
-  if (tradeSections.painting)      tradeScope.painting      = { estimatedDays: Math.max(4, Math.ceil((sqft * 2) / 150)), ...makeName('painting', 'Painting Works', '油漆工程') };
-  if (tradeSections.carpentry)     tradeScope.carpentry     = { estimatedDays: 28, ...makeName('carpentry', 'Carpentry Works', '木工柜体工程') };
-  if (tradeSections.aluminium)     tradeScope.aluminium     = { estimatedDays: 3, ...makeName('aluminium', 'Aluminium & Windows', '铝窗工程') };
-  if (tradeSections.aircon)        tradeScope.aircon        = { estimatedDays: 2, ...makeName('aircon', 'Aircon Installation', '空调安装') };
-  // New standard trades
-  if (tradeSections.glass)         tradeScope.glass         = { estimatedDays: 5, ...makeName('glass', 'Glass Work', '玻璃工程') };
-  if (tradeSections.landscape)     tradeScope.landscape     = { estimatedDays: 10, ...makeName('landscape', 'Landscape Works', '景观工程') };
-  if (tradeSections.metalwork)     tradeScope.metalwork     = { estimatedDays: 7, ...makeName('metalwork', 'Metal Work', '金属工程') };
-  if (tradeSections.stonework)     tradeScope.stonework     = { estimatedDays: 5, ...makeName('stonework', 'Stone & Marble Work', '石材工程') };
+  // ── 4. Contract amount scale factor ─────────────────────────────────────
+  // Larger projects take proportionally longer. Scale base durations by contract value.
+  const totalAmt = dedupedItems.reduce((s, i) => s + (i.total || 0), 0);
+  let amtScale = 1.0;
+  if      (totalAmt > 300000) amtScale = 2.5;
+  else if (totalAmt > 150000) amtScale = 1.8;
+  else if (totalAmt > 80000)  amtScale = 1.4;
+  else if (totalAmt > 40000)  amtScale = 1.2;
+  else if (totalAmt > 20000)  amtScale = 1.1;
+  const sc = (days: number) => Math.round(days * amtScale);
+
+  if (tradeSections.demolition)    tradeScope.demolition    = { estimatedDays: sc(5), ...makeName('demolition', 'Demolition & Hacking', '拆除工程') };
+  if (tradeSections.masonry)       tradeScope.masonry       = { estimatedDays: sc(5), ...makeName('masonry', 'Masonry & Plastering', '水泥建筑工程') };
+  if (tradeSections.electrical)    tradeScope.electrical    = { estimatedDays: sc(8), ...makeName('electrical', 'Electrical Works', '电气工程') };
+  if (tradeSections.plumbing)      tradeScope.plumbing      = { estimatedDays: sc(5), ...makeName('plumbing', 'Plumbing Works', '水管工程') };
+  if (tradeSections.waterproofing) tradeScope.waterproofing = { estimatedDays: sc(3), ...makeName('waterproofing', 'Waterproofing', '防水工程') };
+  if (tradeSections.tiling)        tradeScope.tiling        = { sqft, estimatedDays: Math.max(5, sc(Math.ceil(sqft / 80))), ...makeName('tiling', 'Tiling Works', '铺砖工程') };
+  if (tradeSections.flooring)      tradeScope.flooring      = { estimatedDays: Math.max(3, sc(Math.ceil(sqft / 70))), ...makeName('flooring', 'Flooring Works', '地板工程') };
+  if (tradeSections.falseCeiling)  tradeScope.falseCeiling  = { estimatedDays: sc(5), ...makeName('falseCeiling', 'False Ceiling', '吊顶工程') };
+  if (tradeSections.painting)      tradeScope.painting      = { estimatedDays: Math.max(4, sc(Math.ceil((sqft * 2) / 150))), ...makeName('painting', 'Painting Works', '油漆工程') };
+  if (tradeSections.carpentry)     tradeScope.carpentry     = { estimatedDays: sc(28), ...makeName('carpentry', 'Carpentry Works', '木工柜体工程') };
+  if (tradeSections.aluminium)     tradeScope.aluminium     = { estimatedDays: sc(3), ...makeName('aluminium', 'Aluminium & Windows', '铝窗工程') };
+  if (tradeSections.aircon)        tradeScope.aircon        = { estimatedDays: sc(2), ...makeName('aircon', 'Aircon Installation', '空调安装') };
+  // Standard trades
+  if (tradeSections.glass)         tradeScope.glass         = { estimatedDays: sc(5), ...makeName('glass', 'Glass Work', '玻璃工程') };
+  if (tradeSections.landscape)     tradeScope.landscape     = { estimatedDays: sc(10), ...makeName('landscape', 'Landscape Works', '景观工程') };
+  if (tradeSections.metalwork)     tradeScope.metalwork     = { estimatedDays: sc(7), ...makeName('metalwork', 'Metal Work', '金属工程') };
+  if (tradeSections.stonework)     tradeScope.stonework     = { estimatedDays: sc(5), ...makeName('stonework', 'Stone & Marble Work', '石材工程') };
   if (tradeSections.curtain)       tradeScope.curtain       = { estimatedDays: 1, ...makeName('curtain', 'Curtain & Blinds', '窗帘安装') };
   if (tradeSections.delivery)      tradeScope.delivery      = { estimatedDays: 2, ...makeName('delivery', 'Appliance & Furniture Delivery', '电器家具交付') };
 
