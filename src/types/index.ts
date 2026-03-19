@@ -118,6 +118,7 @@ export interface GanttTradeData {
   estimatedDays: number;
   taskName?: string;       // quotation-specific task name, e.g. "Kitchen & Bathroom Tiling"
   taskName_zh?: string;    // Chinese task name
+  itemNames?: string[];    // quotation item names linked to this trade
 }
 
 export interface GanttCustomPhase {
@@ -165,6 +166,12 @@ export interface GanttParams {
     flooring?:      GanttTradeData;
     aluminium?:     GanttTradeData;
     aircon?:        GanttTradeData;
+    glass?:         GanttTradeData;
+    landscape?:     GanttTradeData;
+    curtain?:       GanttTradeData;
+    delivery?:      GanttTradeData;
+    metalwork?:     GanttTradeData;
+    stonework?:     GanttTradeData;
   };
   customPhases?: GanttCustomPhase[];
   phaseOrder?: GanttPhaseOrderEntry[];

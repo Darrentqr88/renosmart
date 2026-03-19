@@ -36,24 +36,32 @@ export function TaskDetailPanel({
   const phase = getPhaseById(phaseId);
   const staticChecklist = getPhaseChecklist(phaseId);
 
-  // Find related quotation items via keyword match
-  const relatedItems = quotationItems.filter(item => {
-    const name = item.name.toLowerCase();
-    const trade = task.trade.toLowerCase();
-    if (trade === 'tiling') return /tile|tiling|ceramic|porcelain|mosaic/.test(name);
-    if (trade === 'electrical') return /elect|wir|db|socket|light|switch|fan|conduit/.test(name);
-    if (trade === 'plumbing') return /plumb|pipe|basin|wc|toilet|shower|sanit|tap|floor trap/.test(name);
-    if (trade === 'painting') return /paint|primer|coat|emulsion/.test(name);
-    if (trade === 'carpentry') return /cabinet|carpent|wardrobe|joiner|wood|laminate/.test(name);
-    if (trade === 'demolition') return /demol|hack|break|remov/.test(name);
-    if (trade === 'waterproofing') return /waterproof/.test(name);
-    if (trade === 'false ceiling') return /ceil|partition|gypsum|cornice/.test(name);
-    if (trade === 'cleaning') return /clean/.test(name);
-    if (trade === 'flooring') return /vinyl|timber|laminate floor/.test(name);
-    if (trade === 'aluminium') return /alumin|window|sliding/.test(name);
-    if (trade === 'air conditioning' || trade === 'aircon') return /air.?con|ac unit|daikin|mitsubishi/.test(name);
-    return false;
-  });
+  // Find related quotation items — prefer source_items (exact match), fallback to regex
+  const relatedItems = task.source_items?.length
+    ? quotationItems.filter(item => task.source_items!.includes(item.name))
+    : quotationItems.filter(item => {
+        // Fallback regex for legacy tasks without source_items
+        const name = item.name.toLowerCase();
+        const trade = task.trade.toLowerCase();
+        if (trade === 'tiling') return /til(?:e|ing)|ceramic|porcelain|mosaic|homogeneous/.test(name);
+        if (trade === 'electrical') return /electr|wir(?:ing|e)|switch|socket|\bdb\b|\bmcb\b|light\s*point|downlight|pendant|power\s*point/.test(name);
+        if (trade === 'plumbing') return /plumb|pipe|basin|\bwc\b|toilet|shower|sanit|tap|floor\s*trap/.test(name);
+        if (trade === 'painting') return /paint|primer|skim.?coat|putty|emulsion|sealer/.test(name);
+        if (trade === 'carpentry') return /cabinet|carpent|wardrobe|joiner|shelf|vanity/.test(name);
+        if (trade === 'demolition') return /demol|hack|break|strip.?out|chipping/.test(name);
+        if (trade === 'waterproofing') return /waterproof|membrane/.test(name);
+        if (trade === 'false ceiling') return /false\s*ceil|gypsum|partition|plaster\s*ceil|cove\s*light|cornice/.test(name);
+        if (trade === 'cleaning') return /clean/.test(name);
+        if (trade === 'flooring') return /vinyl|timber\s*floor|parquet|laminate\s*floor|spc|lvt/.test(name);
+        if (trade === 'aluminium') return /alumin|window|sliding/.test(name);
+        if (trade === 'air conditioning' || trade === 'aircon') return /air.?con|daikin|midea|split\s*unit/.test(name);
+        if (trade === 'glass' || trade === 'glass work') return /glass|shower\s*screen|mirror|tempered/.test(name);
+        if (trade === 'landscape' || trade === 'landscaping') return /landscape|garden|turf|planting|paving|fence|fencing|gate/.test(name);
+        if (trade === 'metal work' || trade === 'metalwork') return /metal|iron|wrought|stainless\s*steel/.test(name);
+        if (trade === 'stonework' || trade === 'stone') return /marble|granite|quartz|stone|countertop|table\s*top/.test(name);
+        if (trade === 'curtain') return /curtain|blind|drape/.test(name);
+        return false;
+      });
 
   // Generate AI hints on mount when quotation items are available
   useEffect(() => {

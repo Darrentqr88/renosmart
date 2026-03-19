@@ -15,6 +15,7 @@ export interface ConstructionPhase {
   phaseGroup?: PhaseGroup; // 'design' | 'preparation' | 'construction'
   prepChecklist: { icon: string; text: string; text_zh: string; type: 'warn' | 'order' | 'check' | 'info' }[];
   subItems: { name: string; name_zh: string }[];
+  sourceItems?: string[];  // quotation item names linked to this phase
   // AI contextual hint per region
   hint_MY?: string;     // Malaysia-specific hint
   hint_SG?: string;     // Singapore-specific hint
@@ -335,6 +336,60 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     ],
   },
   {
+    id: 'glass_work', name: 'Glass Work', name_zh: '玻璃工程',
+    trade: 'Glass', baseDays: 5, deps: ['tiling'],
+    prepChecklist: [
+      { icon: '🪟', text: 'Confirm glass dimensions & type', text_zh: '确认玻璃尺寸及类型', type: 'check' },
+      { icon: '📦', text: 'Glass panels delivered & inspected', text_zh: '玻璃面板到货并检查', type: 'order' },
+      { icon: '⚠️', text: 'Protect flooring during installation', text_zh: '安装时保护地面', type: 'warn' },
+    ],
+    subItems: [
+      { name: 'Shower screen installation', name_zh: '淋浴房玻璃安装' },
+      { name: 'Glass partition', name_zh: '玻璃隔断' },
+      { name: 'Mirror installation', name_zh: '镜面安装' },
+    ],
+  },
+  {
+    id: 'metalwork', name: 'Metal Work', name_zh: '金属工程',
+    trade: 'Metal Work', baseDays: 7, deps: ['masonry'],
+    prepChecklist: [
+      { icon: '🔧', text: 'Confirm metal fabrication specs', text_zh: '确认金属加工规格', type: 'check' },
+      { icon: '📐', text: 'Site measurement for metal work', text_zh: '金属工程现场测量', type: 'check' },
+    ],
+    subItems: [
+      { name: 'Metal gate & railing fabrication', name_zh: '金属门及栏杆制作' },
+      { name: 'Stainless steel installation', name_zh: '不锈钢安装' },
+      { name: 'Metal structure work', name_zh: '金属结构工程' },
+    ],
+  },
+  {
+    id: 'stonework', name: 'Stone & Marble Work', name_zh: '石材工程',
+    trade: 'Stonework', baseDays: 5, deps: ['tiling'],
+    prepChecklist: [
+      { icon: '🪨', text: 'Stone slabs selected & ordered', text_zh: '石材选定并下单', type: 'order' },
+      { icon: '📐', text: 'Template measurement completed', text_zh: '模板测量完成', type: 'check' },
+    ],
+    subItems: [
+      { name: 'Countertop installation', name_zh: '台面安装' },
+      { name: 'Marble/granite flooring', name_zh: '大理石/花岗岩地面' },
+      { name: 'Stone wall cladding', name_zh: '石材墙面' },
+    ],
+  },
+  {
+    id: 'landscape', name: 'Landscape Works', name_zh: '景观工程',
+    trade: 'Landscape', baseDays: 10, deps: ['painting2'],
+    prepChecklist: [
+      { icon: '🌱', text: 'Landscape design approved', text_zh: '景观设计已批准', type: 'check' },
+      { icon: '📦', text: 'Plants & materials ordered', text_zh: '植物及材料已订购', type: 'order' },
+      { icon: '💧', text: 'Irrigation system planned', text_zh: '灌溉系统规划', type: 'info' },
+    ],
+    subItems: [
+      { name: 'Garden paving & hardscape', name_zh: '花园铺设及硬景观' },
+      { name: 'Planting & turfing', name_zh: '种植及草坪' },
+      { name: 'Fence & gate installation', name_zh: '围栏及门安装' },
+    ],
+  },
+  {
     id: 'cleaning', name: 'Final Cleaning', name_zh: '清洁收尾',
     trade: 'Cleaning', baseDays: 2, deps: ['painting2'],
     prepChecklist: [
@@ -348,7 +403,7 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
   },
   {
     id: 'curtains', name: 'Curtain & Blinds', name_zh: '窗帘安装',
-    trade: 'Cleaning', baseDays: 1, deps: ['cleaning'],
+    trade: 'Curtain', baseDays: 1, deps: ['cleaning'],
     parallel: ['delivery'],
     prepChecklist: [
       { icon: '🪟', text: 'Curtains delivered & inspected', text_zh: '窗帘已到货并检查', type: 'check' },
@@ -360,7 +415,7 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
   },
   {
     id: 'delivery', name: 'Appliance & Furniture Delivery', name_zh: '电器家具交付',
-    trade: 'Measurement', baseDays: 2, deps: ['cleaning'],
+    trade: 'Delivery', baseDays: 2, deps: ['cleaning'],
     parallel: ['curtains'],
     prepChecklist: [
       { icon: '📦', text: 'Coordinate delivery time slots', text_zh: '协调送货时段', type: 'order' },
@@ -428,6 +483,8 @@ const TRADE_COLORS: Record<string, string> = {
   Cleaning:          '#8B8BA8',
   Handover:          '#22C55E',
   Preliminaries:     '#94A3B8',
+  Delivery:          '#A78BFA',
+  Stonework:         '#A8896C',
 };
 
 function nextWorkday(
@@ -717,6 +774,7 @@ function _schedulePhases(
         assigned_workers: [],
         sort_order: 0, // will reindex later
         phase_group: 'design',
+        source_items: phase.sourceItems || [],
       });
     }
   }
@@ -774,6 +832,7 @@ function _schedulePhases(
         assigned_workers: [],
         sort_order: tasks.length,
         phase_group: group,
+        source_items: phase.sourceItems || [],
       });
     }
   };
@@ -838,9 +897,13 @@ const PHASE_TRADE_REQUIRED: Record<string, string[]> = {
   plumbing2:         ['plumbing'],
   ac_install:        ['aircon'],
   painting2:         ['painting'],
+  glass_work:        ['glass'],
+  metalwork:         ['metalwork'],
+  stonework:         ['stonework'],
+  landscape:         ['landscape'],
   cleaning:          [],
-  curtains:          [],
-  delivery:          [],
+  curtains:          ['curtain'],
+  delivery:          ['delivery'],
   handover:          [],
 };
 
@@ -896,6 +959,12 @@ export function generateGanttFromAIParams(
     overrides['ac_piping'] = Math.max(1, Math.ceil(a * 0.4));
     overrides['ac_install'] = Math.max(1, Math.ceil(a * 0.6));
   }
+  if (ts.glass?.estimatedDays)     overrides['glass_work'] = ts.glass.estimatedDays;
+  if (ts.landscape?.estimatedDays) overrides['landscape']  = ts.landscape.estimatedDays;
+  if (ts.metalwork?.estimatedDays) overrides['metalwork']  = ts.metalwork.estimatedDays;
+  if (ts.stonework?.estimatedDays) overrides['stonework']  = ts.stonework.estimatedDays;
+  if (ts.curtain?.estimatedDays)   overrides['curtains']   = ts.curtain.estimatedDays;
+  if (ts.delivery?.estimatedDays)  overrides['delivery']   = ts.delivery.estimatedDays;
 
   // ── Filter phases: only include those whose trade exists in tradeScope ───────
   const hasTradeKey = (required: string[]) =>
@@ -940,6 +1009,10 @@ export function generateGanttFromAIParams(
     carpentry_install: 'carpentry',
     door_window:       'aluminium',
     ac_install:        'aircon',
+    glass_work:        'glass',
+    metalwork:         'metalwork',
+    stonework:         'stonework',
+    landscape:         'landscape',
   };
 
   const phases: ConstructionPhase[] = CONSTRUCTION_PHASES
@@ -951,34 +1024,62 @@ export function generateGanttFromAIParams(
       const tradeData = tradeKey ? ts[tradeKey] : undefined;
       const customName = tradeData?.taskName;
       const customNameZh = tradeData?.taskName_zh;
+      const sourceItems = tradeData?.itemNames || [];
       if (overrides[p.id] !== undefined) {
         return {
           ...p, deps: remappedDeps, baseDays: overrides[p.id], scaleBy: undefined, scaleFactor: undefined,
           name: customName || p.name,
           name_zh: customNameZh || p.name_zh,
+          sourceItems,
         };
       }
       return {
         ...p, deps: remappedDeps,
         name: customName || p.name,
         name_zh: customNameZh || p.name_zh,
+        sourceItems,
       };
     });
 
-  // ── Append customPhases from AI (non-standard trades: glass, landscape, CCTV, etc.) ──
+  // ── Append customPhases from AI (non-standard trades: CCTV, smart home, etc.) ──
+  // NOTE: glass, landscape, metalwork, stonework are now standard phases — skip them here
+  const STANDARD_CUSTOM_TRADES = new Set(['glass', 'glass work', 'landscape', 'landscaping', 'metal work', 'metalwork', 'ironwork', 'stone', 'stonework', 'marble', 'stone work']);
   const customPhaseTradesSeen = new Set<string>();
   if (params.customPhases?.length) {
     for (const cp of params.customPhases) {
       if (!cp.name) continue;
-      customPhaseTradesSeen.add((cp.trade || '').toLowerCase());
-      const insertIdx = phases.findIndex(p => p.id === cp.insertAfter);
+      const tradeLower = (cp.trade || '').toLowerCase();
+      // Skip trades now handled by standard CONSTRUCTION_PHASES
+      if (STANDARD_CUSTOM_TRADES.has(tradeLower)) continue;
+      customPhaseTradesSeen.add(tradeLower);
+
+      // Resolve insertAfter: if target not in included phases, walk dep chain
+      let resolvedDeps: string[] = [];
+      if (cp.insertAfter) {
+        if (includedIds.has(cp.insertAfter)) {
+          resolvedDeps = [cp.insertAfter];
+        } else {
+          resolvedDeps = resolveDepChain(cp.insertAfter);
+        }
+      }
+      // Fallback: if still no deps, attach after painting2 or last included phase
+      if (resolvedDeps.length === 0) {
+        const fallbacks = ['painting2', 'carpentry_install', 'tiling', 'masonry'];
+        for (const fb of fallbacks) {
+          if (includedIds.has(fb)) { resolvedDeps = [fb]; break; }
+        }
+      }
+
+      const insertIdx = resolvedDeps.length > 0
+        ? phases.findIndex(p => p.id === resolvedDeps[0])
+        : -1;
       const newPhase: ConstructionPhase = {
         id: `custom_${cp.name.replace(/\s+/g, '_').toLowerCase()}`,
         name: cp.name,
         name_zh: cp.name_zh || cp.name,
         trade: cp.trade,
         baseDays: cp.estimatedDays || 3,
-        deps: cp.insertAfter && includedIds.has(cp.insertAfter) ? [cp.insertAfter] : [],
+        deps: resolvedDeps,
         prepChecklist: [],
         subItems: [],
       };
@@ -1003,6 +1104,12 @@ export function generateGanttFromAIParams(
     'carpentry','cabinet','wardrobe','joinery',
     'aluminium','window','sliding door','grille',
     'air conditioning','aircon','hvac','daikin','midea',
+    'glass','shower screen','mirror','tempered',
+    'landscape','landscaping','garden','turf','planting','fence','fencing',
+    'metal work','metalwork','ironwork','stainless steel','wrought iron',
+    'stone','marble','granite','quartz','countertop',
+    'curtain','blind','drape',
+    'delivery','appliance','furniture delivery',
   ]);
   const isStandardCategory = (cat: string) => {
     const lower = cat.toLowerCase();
@@ -1148,22 +1255,26 @@ export function generateGanttFromQuotation(
   // ── 3. Detect which trades are present → build minimal GanttParams ────────
   const tradeScope: GanttParams['tradeScope'] = {};
 
-  // Collect sections per detected trade for specific task names
+  // Collect sections and item names per detected trade
   const tradeSections: Record<string, string[]> = {};
+  const tradeItemNames: Record<string, string[]> = {};
   const addSection = (key: string, item: QuotationItemForGantt) => {
     if (!tradeSections[key]) tradeSections[key] = [];
+    if (!tradeItemNames[key]) tradeItemNames[key] = [];
     const sec = item.section?.replace(/^(GF|FF|G|F|1F|2F|3F)-?/i, '').trim() || '';
     if (sec && !tradeSections[key].includes(sec)) tradeSections[key].push(sec);
+    if (!tradeItemNames[key].includes(item.name)) tradeItemNames[key].push(item.name);
   };
 
   // Helper: join up to 3 sections into readable name
-  const makeName = (key: string, suffix: string, suffixZh: string): { taskName: string; taskName_zh: string } => {
+  const makeName = (key: string, suffix: string, suffixZh: string): { taskName: string; taskName_zh: string; itemNames: string[] } => {
     const secs = tradeSections[key] || [];
     const label = secs.length > 0 ? secs.slice(0, 3).join(' & ') + ' ' : '';
     const label_zh = secs.length > 0 ? secs.slice(0, 3).join(' / ') + ' ' : '';
     return {
       taskName: label + suffix + (secs.length > 3 ? ' etc.' : ''),
       taskName_zh: label_zh + suffixZh + (secs.length > 3 ? '等' : ''),
+      itemNames: tradeItemNames[key] || [],
     };
   };
 
@@ -1176,34 +1287,55 @@ export function generateGanttFromQuotation(
     tradeFloorItems[key][floor].push(item);
   };
 
+  // ── Tightened trade detection regex (Fix 5: reduce false matches) ──
   for (const item of dedupedItems) {
     const text = ((item.section || '') + ' ' + item.name).toLowerCase();
-    if (/demol|hack|break|remov|strip.?out|chipping/.test(text)) { addSection('demolition', item); addFloorItem('demolition', item); }
-    if (/brick|plaster|screed|skim|render|new wall|brickwork/.test(text)) { addSection('masonry', item); addFloorItem('masonry', item); }
-    if (/electr|wir|switch|socket|db|mcb|light|pendant|downlight|fan/.test(text)) { addSection('electrical', item); addFloorItem('electrical', item); }
-    if (/plumb|pipe|basin|wc|toilet|tap|drain|shower|sanit/.test(text)) { addSection('plumbing', item); addFloorItem('plumbing', item); }
-    if (/water.?proof|membrane|ponding/.test(text)) { addSection('waterproofing', item); addFloorItem('waterproofing', item); }
-    if (/til|ceram|porcel|mosaic|floor tile|wall tile/.test(text)) { addSection('tiling', item); addFloorItem('tiling', item); }
-    if (/vinyl|timber floor|parquet|laminate|spc|lvt/.test(text)) { addSection('flooring', item); addFloorItem('flooring', item); }
-    if (/ceil|gypsum|partition|false|plaster ceil/.test(text)) { addSection('falseCeiling', item); addFloorItem('falseCeiling', item); }
-    if (/paint|coat|primer|putty/.test(text)) { addSection('painting', item); addFloorItem('painting', item); }
-    if (/carp|cabinet|wardrobe|kitchen cab|joiner|shelf/.test(text)) { addSection('carpentry', item); addFloorItem('carpentry', item); }
-    if (/alumin|window|sliding door|door frame|grille/.test(text)) { addSection('aluminium', item); addFloorItem('aluminium', item); }
-    if (/air.?con|aircon|daikin|midea|split unit/.test(text)) { addSection('aircon', item); addFloorItem('aircon', item); }
+    let matched = false;
+    // Order matters: more specific patterns first to avoid false matches
+    if (/demol|hack|break|strip.?out|chipping/.test(text)) { addSection('demolition', item); addFloorItem('demolition', item); matched = true; }
+    if (/brick|plaster|screed|skim.?coat|render|new wall|brickwork/.test(text)) { addSection('masonry', item); addFloorItem('masonry', item); matched = true; }
+    // Electrical: removed generic "light" and "fan" — use specific patterns
+    if (/electr|wir(?:ing|e)|switch|socket|\bdb\b|\bmcb\b|light\s*point|downlight|pendant|power\s*point|circuit/.test(text)) { addSection('electrical', item); addFloorItem('electrical', item); matched = true; }
+    if (/plumb|pipe|basin|\bwc\b|toilet|tap|drain|shower|sanit|floor\s*trap/.test(text)) { addSection('plumbing', item); addFloorItem('plumbing', item); matched = true; }
+    if (/water.?proof|membrane|ponding/.test(text)) { addSection('waterproofing', item); addFloorItem('waterproofing', item); matched = true; }
+    if (/til(?:e|ing)|ceram|porcel|mosaic|homogeneous/.test(text)) { addSection('tiling', item); addFloorItem('tiling', item); matched = true; }
+    if (/vinyl|timber\s*floor|parquet|laminate\s*floor|spc|lvt/.test(text)) { addSection('flooring', item); addFloorItem('flooring', item); matched = true; }
+    // False ceiling: added "cove light" here (was wrongly caught by electrical)
+    if (/false\s*ceil|gypsum|partition|plaster\s*ceil|cove\s*light|cornice/.test(text)) { addSection('falseCeiling', item); addFloorItem('falseCeiling', item); matched = true; }
+    // Painting: removed generic "coat", use specific patterns
+    if (/paint|primer|skim.?coat|putty|emulsion|sealer/.test(text)) { addSection('painting', item); addFloorItem('painting', item); matched = true; }
+    // Carpentry: removed "laminate" (conflicts with flooring)
+    if (/cabinet|carpent|wardrobe|kitchen\s*cab|joiner|shelf|vanity/.test(text)) { addSection('carpentry', item); addFloorItem('carpentry', item); matched = true; }
+    if (/alumin|window|sliding\s*door|door\s*frame|grille/.test(text)) { addSection('aluminium', item); addFloorItem('aluminium', item); matched = true; }
+    if (/air.?con|aircon|daikin|midea|split\s*unit/.test(text)) { addSection('aircon', item); addFloorItem('aircon', item); matched = true; }
+    // New standard trades
+    if (/glass|shower\s*screen|mirror|tempered/.test(text)) { addSection('glass', item); addFloorItem('glass', item); matched = true; }
+    if (/landscape|garden|turf|planting|paving|fence|fencing|gate/.test(text)) { addSection('landscape', item); addFloorItem('landscape', item); matched = true; }
+    if (/metal\s*work|iron\s*work|wrought|stainless\s*steel|steel\s*(gate|fence|railing|stair)|metal\s*(gate|fence|railing)/.test(text)) { addSection('metalwork', item); addFloorItem('metalwork', item); matched = true; }
+    if (/marble|granite|quartz|stone|countertop|table\s*top/.test(text)) { addSection('stonework', item); addFloorItem('stonework', item); matched = true; }
+    if (/curtain|blind|roller\s*blind|sheer|drape/.test(text)) { addSection('curtain', item); addFloorItem('curtain', item); matched = true; }
+    if (/appliance|furniture\s*deliver|loose\s*furniture/.test(text)) { addSection('delivery', item); addFloorItem('delivery', item); matched = true; }
   }
 
-  if (tradeSections.demolition)   tradeScope.demolition   = { estimatedDays: 5, ...makeName('demolition', 'Demolition & Hacking', '拆除工程') };
-  if (tradeSections.masonry)      tradeScope.masonry      = { estimatedDays: 5, ...makeName('masonry', 'Masonry & Plastering', '水泥建筑工程') };
-  if (tradeSections.electrical)   tradeScope.electrical   = { estimatedDays: 8, ...makeName('electrical', 'Electrical Works', '电气工程') };
-  if (tradeSections.plumbing)     tradeScope.plumbing     = { estimatedDays: 5, ...makeName('plumbing', 'Plumbing Works', '水管工程') };
+  if (tradeSections.demolition)    tradeScope.demolition    = { estimatedDays: 5, ...makeName('demolition', 'Demolition & Hacking', '拆除工程') };
+  if (tradeSections.masonry)       tradeScope.masonry       = { estimatedDays: 5, ...makeName('masonry', 'Masonry & Plastering', '水泥建筑工程') };
+  if (tradeSections.electrical)    tradeScope.electrical    = { estimatedDays: 8, ...makeName('electrical', 'Electrical Works', '电气工程') };
+  if (tradeSections.plumbing)      tradeScope.plumbing      = { estimatedDays: 5, ...makeName('plumbing', 'Plumbing Works', '水管工程') };
   if (tradeSections.waterproofing) tradeScope.waterproofing = { estimatedDays: 3, ...makeName('waterproofing', 'Waterproofing', '防水工程') };
-  if (tradeSections.tiling)       tradeScope.tiling       = { sqft, estimatedDays: Math.max(5, Math.ceil(sqft / 80)), ...makeName('tiling', 'Tiling Works', '铺砖工程') };
-  if (tradeSections.flooring)     tradeScope.flooring     = { estimatedDays: Math.max(3, Math.ceil(sqft / 70)), ...makeName('flooring', 'Flooring Works', '地板工程') };
-  if (tradeSections.falseCeiling) tradeScope.falseCeiling = { estimatedDays: 5, ...makeName('falseCeiling', 'False Ceiling', '吊顶工程') };
-  if (tradeSections.painting)     tradeScope.painting     = { estimatedDays: Math.max(4, Math.ceil((sqft * 2) / 150)), ...makeName('painting', 'Painting Works', '油漆工程') };
-  if (tradeSections.carpentry)    tradeScope.carpentry    = { estimatedDays: 28, ...makeName('carpentry', 'Carpentry Works', '木工柜体工程') };
-  if (tradeSections.aluminium)    tradeScope.aluminium    = { estimatedDays: 3, ...makeName('aluminium', 'Aluminium & Windows', '铝窗工程') };
-  if (tradeSections.aircon)       tradeScope.aircon       = { estimatedDays: 2, ...makeName('aircon', 'Aircon Installation', '空调安装') };
+  if (tradeSections.tiling)        tradeScope.tiling        = { sqft, estimatedDays: Math.max(5, Math.ceil(sqft / 80)), ...makeName('tiling', 'Tiling Works', '铺砖工程') };
+  if (tradeSections.flooring)      tradeScope.flooring      = { estimatedDays: Math.max(3, Math.ceil(sqft / 70)), ...makeName('flooring', 'Flooring Works', '地板工程') };
+  if (tradeSections.falseCeiling)  tradeScope.falseCeiling  = { estimatedDays: 5, ...makeName('falseCeiling', 'False Ceiling', '吊顶工程') };
+  if (tradeSections.painting)      tradeScope.painting      = { estimatedDays: Math.max(4, Math.ceil((sqft * 2) / 150)), ...makeName('painting', 'Painting Works', '油漆工程') };
+  if (tradeSections.carpentry)     tradeScope.carpentry     = { estimatedDays: 28, ...makeName('carpentry', 'Carpentry Works', '木工柜体工程') };
+  if (tradeSections.aluminium)     tradeScope.aluminium     = { estimatedDays: 3, ...makeName('aluminium', 'Aluminium & Windows', '铝窗工程') };
+  if (tradeSections.aircon)        tradeScope.aircon        = { estimatedDays: 2, ...makeName('aircon', 'Aircon Installation', '空调安装') };
+  // New standard trades
+  if (tradeSections.glass)         tradeScope.glass         = { estimatedDays: 5, ...makeName('glass', 'Glass Work', '玻璃工程') };
+  if (tradeSections.landscape)     tradeScope.landscape     = { estimatedDays: 10, ...makeName('landscape', 'Landscape Works', '景观工程') };
+  if (tradeSections.metalwork)     tradeScope.metalwork     = { estimatedDays: 7, ...makeName('metalwork', 'Metal Work', '金属工程') };
+  if (tradeSections.stonework)     tradeScope.stonework     = { estimatedDays: 5, ...makeName('stonework', 'Stone & Marble Work', '石材工程') };
+  if (tradeSections.curtain)       tradeScope.curtain       = { estimatedDays: 1, ...makeName('curtain', 'Curtain & Blinds', '窗帘安装') };
+  if (tradeSections.delivery)      tradeScope.delivery      = { estimatedDays: 2, ...makeName('delivery', 'Appliance & Furniture Delivery', '电器家具交付') };
 
   // If no specific trades detected, fall back to full default schedule
   if (Object.keys(tradeScope).length === 0) {
@@ -1216,6 +1348,7 @@ export function generateGanttFromQuotation(
   const TRADE_INSERT_AFTER: Record<string, string> = {
     tiling: 'waterproofing', electrical: 'masonry', plumbing: 'masonry',
     painting: 'ceiling', carpentry: 'painting1', falseCeiling: 'tiling',
+    glass: 'tiling', landscape: 'painting2', metalwork: 'masonry', stonework: 'tiling',
   };
 
   for (const [tradeKey, floorMap] of Object.entries(tradeFloorItems)) {
@@ -1232,12 +1365,16 @@ export function generateGanttFromQuotation(
       plumbing: { en: 'Plumbing', zh: '水管' }, painting: { en: 'Painting', zh: '油漆' },
       carpentry: { en: 'Carpentry', zh: '木工' }, falseCeiling: { en: 'False Ceiling', zh: '吊顶' },
       waterproofing: { en: 'Waterproofing', zh: '防水' }, flooring: { en: 'Flooring', zh: '地板' },
+      glass: { en: 'Glass Work', zh: '玻璃' }, landscape: { en: 'Landscape', zh: '景观' },
+      metalwork: { en: 'Metal Work', zh: '金属' }, stonework: { en: 'Stone Work', zh: '石材' },
     };
     const label = TRADE_LABELS[tradeKey] || { en: tradeKey, zh: tradeKey };
 
     // Also include ALL-floor items in every floor phase
     const allFloorItems = floorMap['ALL'] || [];
 
+    // Chain floor phases: each floor depends on previous floor (Fix 4)
+    let lastFloorPhaseName: string | null = null;
     for (const floor of floors) {
       const floorItems = [...floorMap[floor], ...allFloorItems];
       const totalQty = floorItems.reduce((s, i) => s + (i.qty || 0), 0);
@@ -1246,14 +1383,16 @@ export function generateGanttFromQuotation(
       ).filter(Boolean))];
       const secLabel = secs.slice(0, 3).join(' & ');
       const estDays = Math.max(2, Math.ceil(totalQty / 80));
+      const phaseName = `${floor} ${secLabel ? secLabel + ' ' : ''}${label.en} (${totalQty}${floorItems[0]?.unit || 'sqft'})`;
 
       customPhases!.push({
-        name: `${floor} ${secLabel ? secLabel + ' ' : ''}${label.en} (${totalQty}${floorItems[0]?.unit || 'sqft'})`,
+        name: phaseName,
         name_zh: `${floor} ${secLabel ? secLabel + ' ' : ''}${label.zh} (${totalQty}${floorItems[0]?.unit || 'sqft'})`,
         trade: label.en,
         estimatedDays: estDays,
-        insertAfter,
+        insertAfter: lastFloorPhaseName ? `custom_${lastFloorPhaseName.replace(/\s+/g, '_').toLowerCase()}` : insertAfter,
       });
+      lastFloorPhaseName = phaseName;
     }
   }
 
