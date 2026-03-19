@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useI18n } from '@/lib/i18n/context';
 import { extractTextFromFile } from '@/lib/pdf/extractor';
-import { buildQuotationPrompt } from '@/lib/ai/quotation-prompt';
+import { buildQuotationPrompt, buildGanttParamsPrompt } from '@/lib/ai/quotation-prompt';
 import { generateGanttFromAIParams, generateGanttFromQuotation } from '@/lib/utils/gantt-rules';
 import { QuotationAnalysis, QuotationItem, AIItemStatus, SupplyType, GanttParams, ScoreBreakdown, DimensionBreakdown } from '@/types';
 import { formatCurrency } from '@/lib/utils';
@@ -197,43 +197,62 @@ export default function QuotationPage() {
       setProgressLabel(lang === 'ZH' ? 'AI 正在分析报价单...' : lang === 'BM' ? 'AI menganalisis sebut harga...' : 'AI analyzing quotation...');
       setProgress(60);
 
-      // Smooth progress simulation during AI call
-      const progressTimer = setInterval(() => {
-        setProgress(prev => prev < 92 ? prev + Math.random() * 3 : prev);
-      }, 800);
-
       const { data: { session } } = await supabase.auth.getSession();
       const outputLang = lang === 'ZH' ? 'Chinese (Simplified)' : lang === 'BM' ? 'Bahasa Malaysia' : 'English';
       const prompt = buildQuotationPrompt(text, outputLang);
+      const authHeaders: Record<string, string> = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
 
-      const res = await fetch('/api/claude', {
+      // ── Streaming AI call for items + score (no ganttParams) ──
+      const res = await fetch('/api/claude/stream', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 32000, messages: [{ role: 'user', content: prompt }] }),
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 16000, messages: [{ role: 'user', content: prompt }] }),
       });
-
-      clearInterval(progressTimer);
 
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'AI 分析失败');
       }
 
-      const aiResult = await res.json();
-      const content = aiResult.content?.[0]?.text || '';
+      // Read SSE stream
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('Stream unavailable');
+      const decoder = new TextDecoder();
+      let content = '';
+      let charCount = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') break;
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.error) throw new Error(parsed.error);
+              if (parsed.text) {
+                content += parsed.text;
+                charCount += parsed.text.length;
+                // Progress: scale from 60 to 95 based on chars received (typical ~8K-15K)
+                setProgress(Math.min(95, 60 + Math.floor(charCount / 400)));
+              }
+            } catch { /* skip malformed SSE lines */ }
+          }
+        }
+      }
+
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('AI 返回格式异常，请重试');
 
-      // Repair truncated JSON: close any open arrays/objects from the end
+      // Repair truncated JSON
       let rawJson = jsonMatch[0];
       let parsed: QuotationAnalysis;
       try {
         parsed = JSON.parse(rawJson);
       } catch {
-        // Attempt to close truncated JSON by trimming to last valid comma-free position
         const truncated = rawJson.replace(/,\s*$/, '').replace(/[\s,]*$/, '');
         const stack: string[] = [];
         for (const ch of truncated) {
@@ -249,13 +268,54 @@ export default function QuotationPage() {
         }
       }
 
-      setProgress(100);
+      setProgress(98);
       setAnalysis(parsed);
       setStep('done');
       setProgressLabel(lang === 'ZH' ? '分析完成' : lang === 'BM' ? 'Analisis selesai' : 'Analysis complete');
       toast({ title: '✅ 分析完成', description: parsed.summary?.slice(0, 80) });
+      setProgress(100);
 
-      // Hybrid scoring: blend AI scores with price database data
+      // ── Background: parallel gantt params generation ──
+      if (parsed.items?.length > 0) {
+        const ganttPrompt = buildGanttParamsPrompt(
+          parsed.items.map(i => ({ name: i.name, section: i.section, unit: i.unit, qty: i.qty, supplyType: i.supplyType || 'supply_install' })),
+          parsed.projectType || 'landed_terrace',
+          parsed.projectSqft || 1200,
+          outputLang,
+        );
+        fetch('/api/claude/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 4000, skipQuota: true, messages: [{ role: 'user', content: ganttPrompt }] }),
+        }).then(async (ganttRes) => {
+          if (!ganttRes.ok) return;
+          const gr = ganttRes.body?.getReader();
+          if (!gr) return;
+          const gd = new TextDecoder();
+          let ganttContent = '';
+          while (true) {
+            const { done, value } = await gr.read();
+            if (done) break;
+            const chunk = gd.decode(value, { stream: true });
+            for (const line of chunk.split('\n')) {
+              if (line.startsWith('data: ')) {
+                const d = line.slice(6).trim();
+                if (d === '[DONE]') break;
+                try { const p = JSON.parse(d); if (p.text) ganttContent += p.text; } catch {}
+              }
+            }
+          }
+          const gMatch = ganttContent.match(/\{[\s\S]*\}/);
+          if (gMatch) {
+            try {
+              const ganttParams = JSON.parse(gMatch[0]) as GanttParams;
+              setAnalysis(prev => prev ? { ...prev, ganttParams } : prev);
+            } catch { /* gantt params parse failed — Gantt will use fallback */ }
+          }
+        }).catch(() => {});
+      }
+
+      // ── Background: hybrid scoring ──
       calculateHybridScores(parsed, 'MY_KL').then(breakdown => {
         setScoreBreakdown(breakdown);
         setAnalysis(prev => prev ? {
@@ -285,14 +345,13 @@ export default function QuotationPage() {
             };
           }),
         } : prev);
-      }).catch(() => { /* Non-critical — fall back to pure AI scores */ });
+      }).catch(() => {});
 
       // Background: price-db update
       if (parsed.items?.length > 0) {
-        const { data: { session: s2 } } = await supabase.auth.getSession();
         fetch('/api/price-db', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(s2?.access_token ? { Authorization: `Bearer ${s2.access_token}` } : {}) },
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
           body: JSON.stringify({ items: parsed.items, region: 'MY_KL' }),
         }).catch(() => {});
       }

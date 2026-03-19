@@ -121,10 +121,8 @@ IMPORTANT: "Supply & Install" means BOTH material + labour included. "Labour Onl
 `;
 
 export function buildQuotationPrompt(textForAI: string, outputLang: string): string {
-  return `You are a senior Quantity Surveyor (QS) AI for Malaysia and Singapore renovation projects (RenoSmart).
-Audit the quotation below like a professional QS — parse items AND catch problems: missing items, calculation errors, overpriced/underpriced items, scope gaps, coordination risks.
-
-Return ONLY valid JSON. No markdown, no extra text. Keep all string values concise (max 150 chars each).
+  return `You are a senior Quantity Surveyor (QS) AI for Malaysia and Singapore renovation projects.
+Audit the quotation below — parse ALL items AND catch problems. Return ONLY valid JSON. No markdown.
 Output language: ${outputLang}
 
 Quotation:
@@ -133,122 +131,56 @@ ${textForAI}
 \`\`\`
 
 RULES:
-1. CLIENT vs CONTRACTOR: "client" = property OWNER paying (look for "To:", "Attn:", "Bill To:", "Prepared for:"). The issuing company is the contractor — do NOT put in client. Leave client fields empty if unclear.
+1. CLIENT vs CONTRACTOR: "client" = property OWNER paying (look for "To:", "Attn:", "Bill To:"). The issuing company is the contractor — do NOT put in client. Leave client fields empty if unclear.
 2. Section totals → subtotals array only (not items).
 3. Copy item names VERBATIM. Do NOT translate English names.
 4. warn/flag items: add "note" (max 20 chars) on price issue.
-5. Items: include ALL line items from the quotation in their ORIGINAL order (same sequence as the source document). Do NOT sort by value. Do NOT skip any items. Group by section/page as they appear. Include "page" field (1-based integer) indicating which source page the item appears on (use the "--- Page N ---" markers in the text).
+5. Items: include ALL line items in ORIGINAL order. Do NOT sort by value. Do NOT skip items. Include "page" field (1-based integer) from "--- Page N ---" markers.
 6. status: "ok"|"warn"|"flag"|"nodata"
-
-${PRICE_REFERENCE}
-
 7. supplyType per item: "supply_install"|"labour_only"|"supply_only"
-13. PRICE CLASSIFICATION — For each item, detect subcategory and materialMethod from the item name:
-    subcategory = specific work type within its trade category
-    materialMethod = specific material, size, or method variant
-    Use this taxonomy:
-    Construction: Brick Wall(Clay/AAC)|Extension Work(RC Slab/Roof)|RC Floor Slab(150mm G25/G30/200mm G30)|Plastering|Screed|Retaining Wall|Column/Beam|Staircase|Drainage|Boundary Wall/Fence
-    Demolition: Floor Hacking|Wall Hacking(Non-structural/Structural)|Ceiling Removal|Door/Window Removal|Debris Disposal
-    Tiling: Floor Tiles(300x300/300x600/600x600/900x900/1200x600)|Wall Tiles(200x300/300x600/600x600/600x1200/Feature/Mosaic)|Outdoor/Balcony Tiles(Anti-slip)|Tile Grouting(Standard/Epoxy)|Waterline/Skirting
-    Electrical: Power Points(13A/15A/USB)|Lighting Points(Standard/Downlight/Cove)(>12ft=extra cost)|DB Box(12-way/18-way/36-way/48-way/Upgrade)|Rewiring|Data/Comms(TV/Data/Telephone)|Fan Points(Ceiling/Exhaust)
-    Plumbing: Piping Installation(PVC/PPR/Copper/SS)|Sanitary Installation(Basin/WC/Heater/Shower)|Basin/Sink|WC/Toilet(Standard/Wall-hung)|Shower(Rain/Handheld)|Water Heater|Floor Trap
-    Painting: Interior Wall(2-coat/3-coat)|Ceiling(2-coat/Skim+Paint)|Feature Wall(Texture/Design/Limewash)|Exterior(Standard/Weather-shield)|Skimcoat/Prep|Wood/Metal(Lacquer/Spray)
-    False Ceiling: False Ceiling(Plasterboard/Calcium Silicate)|Design Ceiling(L-box/Coffered/Drop)|Partition Wall(Single/Double/Fire-rated)|Cornice(Plaster/PU)
-    Carpentry: Kitchen Cabinet(Laminated/Melamine/Aluminium/Solid Wood)|Wardrobe(Swing/Sliding/Walk-in/Glass Door)|TV Console/Feature|Shoe Cabinet|Vanity Cabinet(Laminated/Solid Surface)|Study/Bookshelf|Door(Hollow/Solid/Barn/Sliding)|Door Frame(Timber/Aluminium)
-    Waterproofing: Bathroom Floor(Cementitious/Membrane)|Flat Roof(Torch-on/Liquid)|Balcony|Planter Box
-    Roofing: Glass Roofing(Tempered/Laminated)|Aluminium Composite Roofing|Polycarbonate Roof(Twinwall/Solid)|Aluminium Deco Panel|Metal Deck(PU Metal/PU Foam/PU Foil)|Roof Tiles(Clay/Concrete/Metal)|Gutter/Downpipe(PVC/Aluminium/SS)
-    Aluminium: Casement Window(Standard/Acoustic)|Sliding Window|Sliding Door(Standard/Slim-frame)|Bi-fold Door|Louvre Window|Fixed Panel/Screen
-    Glass: Shower Screen(10mm/12mm)|Fixed Glass(Clear/Frosted/Fluted)|Glass Panel(Clear/Tempered/Laminated + 8mm/10mm/12mm/15mm)|Mirror(Standard/Anti-fog)|Backsplash(Tempered Painted/Clear)
-    Flooring: Timber(Solid Parquet/Engineered)|Vinyl(LVT/SPC)|Laminate(Standard/AC4-AC5)|Skirting(PVC/Timber/Aluminium)
-    Air Conditioning: Split Unit(1.0HP/1.5HP/2.0HP/2.5HP)|Ceiling Cassette|Ducted|Piping(Refrigerant/Trunking/Drain)
-    Metal Work: Railing(Mild Steel/SS304/Wrought Iron)|Gate(Single/Double/Auto)|Grille(Window/Door)|Awning(Polycarbonate/Metal)
-    Landscape: Garden Paving(Interlocking/Natural Stone/Concrete)|Turfing(Cow Grass/Japanese/Artificial)|Planting|Pergola/Gazebo(Timber/Steel/Aluminium)|Decking(Timber/Composite)|Water Feature|Fencing(Chain Link/Timber/BRC)|Irrigation
-    Cleaning: Post-renovation(Standard/Deep)|Window/Glass|Chemical Wash(Floor/Facade)
-    Default: subcategory="General", materialMethod="Standard" if unclear.
-8. projectType — Detect the SPECIFIC property type using these clues:
-    FROM ADDRESS: "Residensi/Residence/Tower/Suite" → "condo" | "Taman/Jalan/Lorong + house number" → "landed_terrace" | "Semi-D/Semi Detached" → "landed_semid" | "Bungalow/Banglo/Detached" → "landed_bungalow" | "Apartment/Flat/Walk-up" → "apartment" | "Shop/Lot/Ground Floor" → "shop_lot" | "Industrial/Factory/Warehouse" → "factory" | "Mall/Retail" → "mall" | "Office/Commercial" → "commercial"
-    FROM CONTENT: roofing/fence/gate/landscape items → landed type | lift lobby/corridor/management fee → condo | signage/shopfront/roller shutter → shop_lot | fire suppression/sprinkler → commercial/mall
-    FROM AMOUNT: <RM80k likely condo/apartment | RM80k-250k likely landed_terrace/landed_semid | >RM300k likely landed_bungalow/commercial
-    Values: "condo"|"apartment"|"landed_terrace"|"landed_semid"|"landed_bungalow"|"shop_lot"|"commercial"|"mall"|"factory"
-    Default to "landed_terrace" if unclear.
-9. projectSqft: estimate from context (room sizes, tiling/flooring areas).
-10. QS AUDIT — alerts (keep each desc under 120 chars):
-    CHECK FOR MISSING: waterproofing for wet areas, DB/MCB upgrade, painting primer, door hardware, hot water heater (residential/condo); gate/fence/external painting (landed); M&E drawings/fire suppression (commercial).
-    PRICE ANOMALIES: flag >50% above market; warn 20-50% above or >30% below market. Cite: "Market RM X-Y, Quoted RM Z".
+8. projectType: detect from address/content/amount. Values: "condo"|"apartment"|"landed_terrace"|"landed_semid"|"landed_bungalow"|"shop_lot"|"commercial"|"mall"|"factory". Default "landed_terrace".
+9. projectSqft: estimate from context.
+10. QS AUDIT alerts (max 4 critical + 4 warnings + 2 tips, each desc under 120 chars):
+    MISSING: waterproofing for wet areas, DB upgrade, painting primer, door hardware, water heater; gate/fence (landed); fire suppression (commercial).
+    PRICE: flag >50% above market; warn 20-50% above or >30% below. Cite: "Market RM X-Y, Quoted RM Z".
     CALC ERRORS: if qty×unitPrice≠total by >1%, flag.
-    COORDINATION: tiling without waterproofing → critical; carpentry without touch-up paint → warning.
-    levels: "critical"|"warning"|"tip". Max 4 critical + 4 warnings + 2 tips.
-
+    COORDINATION: tiling without waterproofing → critical.
 11. paymentTerms: extract if present, else [].
-12. ganttParams — IMPORTANT: You are a professional construction planner. Read EVERY line item carefully.
-    STEP 1 — Identify ALL work categories in this quotation (detectedCategories).
-    STEP 2 — Map each category to either a standard tradeScope key OR a customPhase.
-    STEP 3 — Calculate realistic working days from ACTUAL quantities.
+12. subcategory + materialMethod: classify each item per its trade (e.g. "Floor Tiles"+"600x600", "Kitchen Cabinet"+"Laminated").
+13. estMinPrice, estMaxPrice: estimate MY/SG market unit price range for EVERY item based on your knowledge. Consider supplyType (S&I vs labour only), material grade, unit type. These are critical for price scoring. Never leave as 0.
 
-    Standard tradeScope keys (use these exact keys when the category matches):
-      demolition | masonry | tiling | electrical | plumbing | painting | carpentry | falseCeiling | waterproofing | flooring | aluminium | aircon
+JSON structure:
+{"projectType":"landed_terrace","projectSqft":1200,"client":{"company":"","address":"","attention":"","tel":"","email":null,"projectRef":"","projectName":""},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"one-line summary","items":[{"no":"1","section":"Section","name":"Item name verbatim","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"supplyType":"supply_install","status":"ok","note":"","subcategory":"Floor Tiles","materialMethod":"600x600","estMinPrice":5.0,"estMaxPrice":12.0,"page":1}],"subtotals":[{"label":"Section Total","amount":1000}],"totalAmount":50000,"missing":["item1"],"alerts":[{"level":"critical","title":"Title","desc":"Short desc under 120 chars"}],"paymentTerms":[]}`;
+}
 
-    Non-standard categories → customPhases (glass, stone/marble, metalwork, CCTV/alarm, landscape, smart home, solar, pool, signage, furniture, curtain, cleaning, etc.)
-      For each non-standard category, add to customPhases with:
-        - name: specific task from quotation (e.g. "Tempered Glass Partition & Spider Fittings")
-        - name_zh: Chinese equivalent
-        - trade: category name in English (e.g. "Glass Work")
-        - estimatedDays: realistic estimate
-        - insertAfter: phase ID where this fits — use "tiling" for glass/stone/marble, "carpentry_install" for furniture/curtain/signage, "painting2" for cleaning, "measurement" for landscape/external
+/**
+ * Builds a focused prompt to generate ganttParams from parsed items.
+ * Called as a separate (parallel) AI call for speed.
+ */
+export function buildGanttParamsPrompt(items: { name: string; section: string; unit: string; qty: number; supplyType: string }[], projectType: string, projectSqft: number, outputLang: string): string {
+  const itemList = items.map((i, idx) => `${idx + 1}. [${i.section}] ${i.name} | ${i.qty} ${i.unit} | ${i.supplyType}`).join('\n');
 
-    Day estimation rules:
-    - demolition: ceil(hackingSqft / 120) min 2 max 14
-    - masonry: ceil(wallSqft / 60) min 3 max 20 (only if new wall items exist)
-    - tiling: ceil(totalTileSqft / 80) min 3
-    - electrical: ceil(totalPoints / 5) min 3  (points = sockets+switches+lights+fans+DB)
-    - plumbing: ceil(totalUnits / 2) min 2  (units = basins+WC+shower+floor trap)
-    - carpentry: estimatedDays = max(21, ceil(totalFtRun * 0.7))  (factory min 21 days)
-    - painting: ceil((projectSqft * 2.0) / 150) min 4
-    - falseCeiling: ceil(ceilingSqft / 100) min 3
-    - waterproofing: ceil(wetSqft / 70) min 2
-    - flooring (timber/vinyl/SPC): ceil(flooringSqft / 70) min 3
-    - aluminium: ceil(aluminiumSqft / 35) min 2
-    - aircon: ceil(units / 2) min 1
+  return `You are a professional construction planner for MY/SG renovation. Generate ganttParams from these quotation items.
+Output language: ${outputLang}. Return ONLY valid JSON.
 
-    taskName: REQUIRED for EVERY trade and customPhase — describe the ACTUAL scope from this quotation:
-      - tiling: "Kitchen Floor + 3 Bathrooms Wall Tiling (950sqft)" NOT "Tiling Works"
-      - electrical: "DB Upgrade + 52pts Wiring, Switches & Lights" NOT "Electrical Works"
-      - carpentry: "Kitchen Cabinet 12ft + Master Wardrobe 10ft" NOT "Carpentry Works"
-      - glass (custom): "Tempered Glass Partition + Shower Screen (3 panels)" NOT "Glass Work"
-      - landscape (custom): "Garden Paving + Planting (front & rear yard)" NOT "Landscape"
-      FLOOR-AWARE: If items span multiple floors (GF, FF, 2F etc), include floor prefix:
-        - Multi-floor: "GF Kitchen Tiling (400sqft)" and "FF Bathroom Tiling (200sqft)" as SEPARATE entries
-        - Single floor: "Kitchen & Bathroom Tiling (600sqft)" (no prefix needed)
-    taskName_zh: Chinese equivalent of taskName.
-    riskNotes: brief scheduling risk per trade (max 50 chars).
+Project: ${projectType}, ~${projectSqft} sqft
+Items:
+${itemList}
 
-    IMPORTANT AC SCHEDULING:
-    - If aircon items exist, include in tradeScope with combined estimatedDays
-    - System will auto-split into ac_piping (before ceiling) + ac_install (after carpentry)
+STEP 1 — Identify ALL work categories (detectedCategories).
+STEP 2 — Map to standard tradeScope keys OR customPhases.
+STEP 3 — Calculate days from ACTUAL quantities.
 
-    CONSTRUCTION ORDER RULES (respect these):
-    - Construction/masonry AFTER demolition
-    - Electrical & plumbing rough-in PARALLEL, AFTER construction
-    - Waterproofing AFTER plumbing rough-in, BEFORE tiling
-    - AC piping AFTER tiling, BEFORE ceiling
-    - Landscape/external AFTER most indoor work
-    - CCTV/alarm AFTER electrical phase 2
-    - Furniture delivery AFTER painting phase 2
-    - Cleaning BEFORE handover
+Standard keys: demolition|masonry|tiling|electrical|plumbing|painting|carpentry|falseCeiling|waterproofing|flooring|aluminium|aircon
 
-    detectedCategories: FULL LIST of all trade/work categories found in this quotation (English names).
-      Example: ["Demolition","Tiling","Electrical","Plumbing","Painting","Carpentry","Glass Work","Landscape"]
-      Include EVERY category, standard AND non-standard. This is the definitive list for Gantt generation.
+Non-standard → customPhases with: name, name_zh, trade, estimatedDays, insertAfter (phase ID).
 
-14. AI PRICE ESTIMATE — For EVERY item, estimate the market unit price range (estMinPrice, estMaxPrice) based on:
-    - The PRICE_REFERENCE data provided above for the item's unit type
-    - Your knowledge of MY/SG renovation market 2024-2025
-    - Consider the item's subcategory and materialMethod for more precise estimation
-    - These estimates are used as fallback when our price database has insufficient data
-    - If genuinely unsure, use a wide range but NEVER leave as 0
+Day rules: demolition=ceil(sqft/120) min2; masonry=ceil(sqft/60) min3; tiling=ceil(sqft/80) min3; electrical=ceil(pts/5) min3; plumbing=ceil(units/2) min2; carpentry=max(21,ceil(ft*0.7)); painting=ceil(sqft*2/150) min4; falseCeiling=ceil(sqft/100) min3; waterproofing=ceil(sqft/70) min2; flooring=ceil(sqft/70) min3; aluminium=ceil(sqft/35) min2; aircon=ceil(units/2) min1.
 
-Return this exact JSON structure:
-{"projectType":"landed_terrace","projectSqft":1200,"client":{"company":"","address":"","attention":"","tel":"","email":null,"projectRef":"","projectName":""},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"one-line summary","items":[{"no":"1","section":"Section","name":"Item name verbatim","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"supplyType":"supply_install","status":"ok","note":"","subcategory":"Floor Tiles","materialMethod":"600x600","estMinPrice":5.0,"estMaxPrice":12.0,"page":1}],"subtotals":[{"label":"Section Total","amount":1000}],"totalAmount":50000,"missing":["item1"],"alerts":[{"level":"critical","title":"Title","desc":"Short desc under 120 chars"}],"paymentTerms":[],"ganttParams":{"sqft":1200,"projectType":"landed_terrace","hasDemolition":true,"detectedCategories":["Demolition","Tiling","Electrical","Plumbing","Carpentry","Painting","False Ceiling","Waterproofing","Glass Work"],"tradeScope":{"demolition":{"sqft":200,"estimatedDays":4,"taskName":"Demolition & Hacking (200sqft)","taskName_zh":"拆除工程 (200平方尺)"},"tiling":{"sqft":800,"estimatedDays":10,"taskName":"Kitchen Floor + Bathroom Wall Tiling (800sqft)","taskName_zh":"厨房地砖 + 浴室墙砖工程 (800平方尺)"},"electrical":{"points":40,"estimatedDays":8,"taskName":"DB Upgrade + 40pts Wiring & Switches","taskName_zh":"电箱升级 + 40点位布线及开关安装"},"plumbing":{"units":6,"estimatedDays":3,"taskName":"Bathroom Plumbing & Sanitary Ware (6 units)","taskName_zh":"卫浴水管及洁具安装 (6件)"},"carpentry":{"ft":28,"estimatedDays":25,"taskName":"Kitchen Cabinet 10ft + Wardrobe 18ft","taskName_zh":"厨柜10尺 + 衣柜18尺制作安装"},"painting":{"sqft":2400,"estimatedDays":9,"taskName":"Full Unit Painting + Skim Coat (1200sqft)","taskName_zh":"全屋油漆及批灰 (1200平方尺)"},"falseCeiling":{"sqft":400,"estimatedDays":5,"taskName":"Living & Bedroom False Ceiling (400sqft)","taskName_zh":"客厅及房间吊顶 (400平方尺)"},"waterproofing":{"sqft":100,"estimatedDays":2,"taskName":"Bathroom Waterproofing (100sqft)","taskName_zh":"浴室防水工程 (100平方尺)"}},"customPhases":[{"name":"Tempered Glass Partition & Shower Screen","name_zh":"钢化玻璃隔断及淋浴房","trade":"Glass Work","estimatedDays":4,"insertAfter":"tiling"}],"riskNotes":{"carpentry":"Confirm factory slot 6wks ahead"}}}`;
+taskName: describe ACTUAL scope (e.g. "Kitchen Floor + 3 Bathrooms Wall Tiling (950sqft)" NOT "Tiling Works"). Include floor prefix if multi-floor.
+
+JSON:
+{"sqft":${projectSqft},"projectType":"${projectType}","hasDemolition":true,"detectedCategories":["Demolition","Tiling"],"tradeScope":{"demolition":{"sqft":200,"estimatedDays":4,"taskName":"...","taskName_zh":"..."}},"customPhases":[],"riskNotes":{"carpentry":"Confirm factory slot"}}`;
 }
 
 /**
