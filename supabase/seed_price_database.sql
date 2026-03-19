@@ -657,23 +657,7 @@ INSERT INTO price_database (item_name, category, subcategory, material_method, u
 ('Floor tiles 1200x600 labour','Tiling','Floor Tiles','1200x600','sqft','labour_only','MY_PG',5.52,8.28,6.90,55,'high',NOW()),
 ('Floor tiles 1200x600 labour','Tiling','Floor Tiles','1200x600','sqft','labour_only','SG',9.90,14.85,12.38,75,'high',NOW()),
 
--- ═══════════════════════════════════
--- ADDITIONAL — ELECTRICAL
--- ═══════════════════════════════════
-('15A socket point','Electrical','Power Points','15A Socket','point','supply_install','MY_KL',90.00,120.00,105.00,185,'high',NOW()),
-('15A socket point','Electrical','Power Points','15A Socket','point','supply_install','MY_JB',79.20,105.60,92.40,140,'high',NOW()),
-('15A socket point','Electrical','Power Points','15A Socket','point','supply_install','MY_PG',82.80,110.40,96.60,118,'high',NOW()),
-('15A socket point','Electrical','Power Points','15A Socket','point','supply_install','SG',148.50,198.00,173.25,162,'high',NOW()),
-
-('USB socket point','Electrical','Power Points','USB Socket','point','supply_install','MY_KL',120.00,160.00,140.00,95,'high',NOW()),
-('USB socket point','Electrical','Power Points','USB Socket','point','supply_install','MY_JB',105.60,140.80,123.20,72,'high',NOW()),
-('USB socket point','Electrical','Power Points','USB Socket','point','supply_install','MY_PG',110.40,147.20,128.80,60,'high',NOW()),
-('USB socket point','Electrical','Power Points','USB Socket','point','supply_install','SG',198.00,264.00,231.00,85,'high',NOW()),
-
-('Downlight cutout point','Electrical','Lighting Points','Downlight Cutout','point','supply_install','MY_KL',55.00,85.00,70.00,175,'high',NOW()),
-('Downlight cutout point','Electrical','Lighting Points','Downlight Cutout','point','supply_install','MY_JB',48.40,74.80,61.60,132,'high',NOW()),
-('Downlight cutout point','Electrical','Lighting Points','Downlight Cutout','point','supply_install','MY_PG',50.60,78.20,64.40,112,'high',NOW()),
-('Downlight cutout point','Electrical','Lighting Points','Downlight Cutout','point','supply_install','SG',90.75,140.25,115.50,155,'high',NOW()),
+-- (Old duplicate electrical entries removed — correct prices in main ELECTRICAL section above)
 
 ('Cove light wiring','Electrical','Lighting Points','Cove Light Wiring','point','supply_install','MY_KL',65.00,95.00,80.00,120,'high',NOW()),
 ('Cove light wiring','Electrical','Lighting Points','Cove Light Wiring','point','supply_install','MY_JB',57.20,83.60,70.40,92,'high',NOW()),
