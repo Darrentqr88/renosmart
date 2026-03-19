@@ -1,35 +1,123 @@
 export const PRICE_REFERENCE = `
-MY/SG Market Price Reference (2025-2026, supply & install):
-- Tiling (floor 600x600): RM 8-18/sqft | SG $12-28/sqft
-- Tiling (wall 300x600): RM 10-20/sqft | SG $15-30/sqft
-- Tiling (large format 1200x600): RM 15-30/sqft | SG $20-45/sqft
+MY/SG Market Price Reference (2025-2026):
+IMPORTANT: "Supply & Install" means BOTH material + labour included. "Labour Only" means workmanship only, material supplied by owner.
+
+=== TILING (per sqft) ===
+- Tiling LABOUR ONLY (floor 300x300-600x600): RM 6-10/sqft | SG $8-15/sqft
+- Tiling LABOUR ONLY (wall 300x600-600x600): RM 7-12/sqft | SG $10-18/sqft
+- Tiling LABOUR ONLY (large format 900x900+): RM 8-14/sqft | SG $12-20/sqft
+- Tiling S&I (floor 300x300): RM 15-22/sqft | SG $20-32/sqft
+- Tiling S&I (floor 300x600): RM 16-24/sqft | SG $22-35/sqft
+- Tiling S&I (floor 600x600): RM 18-28/sqft | SG $25-40/sqft
+- Tiling S&I (floor 800x800): RM 20-30/sqft | SG $28-42/sqft
+- Tiling S&I (floor 900x900): RM 22-32/sqft | SG $30-45/sqft
+- Tiling S&I (floor 1200x600): RM 25-35/sqft | SG $32-48/sqft
+- Tiling S&I (wall 200x300): RM 15-22/sqft | SG $20-32/sqft
+- Tiling S&I (wall 300x600): RM 18-26/sqft | SG $24-38/sqft
+- Tiling S&I (wall 600x600): RM 20-28/sqft | SG $28-40/sqft
+- Tiling S&I (wall 600x1200): RM 25-35/sqft | SG $32-48/sqft
+- Tiling S&I (outdoor anti-slip): RM 18-30/sqft | SG $25-42/sqft
+- Tiling S&I (feature/mosaic): RM 25-45/sqft | SG $35-60/sqft
+- Tiling S&I (rubber tiles): RM 25-40/sqft | SG $35-55/sqft
+
+=== CONSTRUCTION (per sqft) ===
+- Build-up brick wall c/w plastering: RM 20-35/sqft | SG $30-50/sqft
+- Build-up brick wall (labour only): RM 12-20/sqft | SG $18-30/sqft
+- RC floor slab 150mm G25: RM 35-55/sqft | SG $50-75/sqft
+- RC floor slab 150mm G30: RM 38-60/sqft | SG $55-80/sqft
+- RC slab extension: RM 40-65/sqft | SG $55-85/sqft
+- Concrete flooring c/w BRC: RM 15-35/sqft | SG $22-48/sqft
+- Screed/Re-leveling: RM 8-15/sqft | SG $12-22/sqft
+- Plastering finish: RM 5-10/sqft | SG $8-15/sqft
+- Kerb (brick/concrete): RM 40-80/ft | SG $55-100/ft
+
+=== ELECTRICAL (per point/unit) ===
+- Lighting point S&I (new wiring + cable): RM 55-100/pt | SG $80-150/pt
+- Lighting point S&I (>12ft height, extra): RM 80-130/pt | SG $110-180/pt
+- 13A socket power point S&I: RM 85-150/pt | SG $130-220/pt
+- 15A socket power point S&I: RM 100-170/pt | SG $150-250/pt
+- USB socket point S&I: RM 120-200/pt | SG $180-280/pt
+- Ceiling fan point S&I: RM 100-200/pt | SG $150-280/pt
+- Exhaust fan point S&I: RM 80-150/pt | SG $120-220/pt
+- Cove light point S&I: RM 120-250/pt | SG $180-350/pt
+- Downlight cutout + wiring: RM 35-60/pt | SG $50-85/pt
+- Re-locate existing point: RM 150-300/pt | SG $200-400/pt
+- Data/internet point (Cat5e/6): RM 200-400/pt | SG $300-600/pt
+- TV point S&I: RM 150-300/pt | SG $200-450/pt
+- Electrical labour only (install fitting): RM 15-35/pt | SG $25-50/pt
+- DB box upgrade (18-way): RM 800-1500/unit | SG $1200-2000/unit
+- DB box upgrade (36-way): RM 1200-2200/unit | SG $1800-3000/unit
+
+=== PAINTING (per sqft or L/sum) ===
 - Painting (interior 2-coat): RM 2.50-5.00/sqft | SG $3.50-7/sqft
 - Painting (skim coat + paint): RM 4-8/sqft | SG $6-12/sqft
+- Painting (exterior weather-shield): RM 3-6/sqft | SG $5-9/sqft
+- Re-paint existing roofing: RM 2-4/sqft | SG $3-6/sqft
+
+=== FALSE CEILING (per sqft) ===
 - False ceiling (flat plasterboard): RM 10-18/sqft | SG $15-25/sqft
+- False ceiling c/w cove light: RM 14-22/sqft | SG $20-32/sqft
 - False ceiling (L-box/design): RM 18-35/sqft | SG $25-50/sqft
-- Carpentry (wardrobe laminated): RM 1000-2500/ft-run | SG $1500-3500/ft-run
-- Carpentry (kitchen cabinet laminated): RM 800-2000/ft-run | SG $1200-3000/ft-run
-- Carpentry (solid wood): RM 2000-4500/ft-run | SG $3000-6000/ft-run
-- Electrical lighting point (S&I with cable): RM 45-70/pt | SG $65-110/pt
-- Electrical 13A socket point (S&I with cable): RM 85-150/pt | SG $130-220/pt
-- Electrical cove light point (S&I): RM 120-250/pt | SG $180-350/pt
-- Electrical labour only (install light/fan): RM 15-35/pt | SG $25-50/pt
-- Electrical (DB box upgrade 18-way): RM 800-1500/unit | SG $1200-2000/unit
-- Plumbing (basin + mixer tap install): RM 300-600/unit | SG $500-900/unit
-- Plumbing (WC floor-mount): RM 400-800/unit | SG $600-1200/unit
-- Plumbing (water heater install): RM 200-500/unit | SG $350-700/unit
-- Waterproofing (bathroom cementitious): RM 8-18/sqft | SG $12-25/sqft
-- Waterproofing (flat roof torch-on): RM 12-25/sqft | SG $18-35/sqft
-- Demolition/Hacking (floor): RM 3-8/sqft | SG $5-12/sqft
-- Demolition/Hacking (wall): RM 5-12/sqft | SG $8-18/sqft
-- Aluminium window (casement): RM 100-250/sqft | SG $150-350/sqft
+- False ceiling (calcium silicate): RM 12-20/sqft | SG $18-28/sqft
+- Partition wall (single layer): RM 18-30/sqft | SG $25-42/sqft
+
+=== CARPENTRY (per ft-run) ===
+- Kitchen cabinet (laminated): RM 800-2000/ft | SG $1200-3000/ft
+- Kitchen cabinet (aluminium honeycomb/ACP): RM 600-1500/ft | SG $900-2200/ft
+- Kitchen cabinet (solid wood): RM 2000-4500/ft | SG $3000-6000/ft
+- Wardrobe (laminated swing door): RM 400-650/ft | SG $600-950/ft
+- Wardrobe (laminated sliding): RM 500-800/ft | SG $750-1200/ft
+- Wardrobe (aluminium honeycomb): RM 1200-2500/ft | SG $1800-3500/ft
+- TV console/feature wall: RM 300-600/ft | SG $450-900/ft
+- Shoe cabinet: RM 400-800/ft | SG $600-1200/ft
+- Vanity cabinet: RM 500-1000/ft | SG $750-1500/ft
+
+=== PLUMBING (per unit) ===
+- Basin + mixer tap install: RM 300-600/unit | SG $500-900/unit
+- WC floor-mount: RM 400-800/unit | SG $600-1200/unit
+- WC wall-hung: RM 800-1500/unit | SG $1200-2200/unit
+- Water heater install: RM 200-500/unit | SG $350-700/unit
+- Rain shower set: RM 400-900/unit | SG $600-1300/unit
+- Toilet bowl outlet piping: RM 800-2000/L-sum | SG $1200-3000/L-sum
+- Inlet/outlet pipe for basin/tap: RM 400-1000/L-sum | SG $600-1500/L-sum
+
+=== WATERPROOFING (per sqft) ===
+- Bathroom (cementitious): RM 8-18/sqft | SG $12-25/sqft
+- Flat roof (torch-on membrane): RM 12-25/sqft | SG $18-35/sqft
+- Balcony/patio: RM 10-20/sqft | SG $15-28/sqft
+
+=== DEMOLITION (per sqft) ===
+- Hacking floor: RM 3-8/sqft | SG $5-12/sqft
+- Hacking wall: RM 5-12/sqft | SG $8-18/sqft
+- Hacking + re-leveling: RM 8-15/sqft | SG $12-22/sqft
+
+=== ROOFING (per sqft) ===
+- Metal roofing (PU metal deck): RM 22-34/sqft | SG $30-48/sqft
+- Polycarbonate roof (twinwall): RM 18-30/sqft | SG $25-42/sqft
+- Glass roofing (tempered): RM 55-90/sqft | SG $75-125/sqft
+
+=== ALUMINIUM & GLASS ===
+- Aluminium casement window: RM 100-250/sqft | SG $150-350/sqft
 - Aluminium sliding door: RM 120-300/sqft | SG $180-400/sqft
-- Glass (shower screen 10mm): RM 45-90/sqft | SG $65-130/sqft
-- Vinyl flooring (SPC click-lock): RM 6-12/sqft | SG $8-18/sqft
-- Timber flooring (engineered): RM 12-28/sqft | SG $18-40/sqft
-- Air conditioning (1.5HP split inverter): RM 1800-3500/unit | SG $2500-4500/unit
-- Metal railing (mild steel powder coated): RM 80-180/ft-run | SG $120-250/ft-run
-- Construction (brick wall): RM 15-30/sqft | SG $25-45/sqft
+- Glass shower screen (10mm): RM 45-90/sqft | SG $65-130/sqft
+- Tempered glass fix panel: RM 55-100/sqft | SG $75-140/sqft
+- Mirror (standard): RM 22-40/sqft | SG $30-55/sqft
+
+=== FLOORING ===
+- Vinyl SPC click-lock: RM 6-12/sqft | SG $8-18/sqft
+- Timber engineered: RM 12-28/sqft | SG $18-40/sqft
+- Carpet grass (artificial turf): RM 8-18/sqft | SG $12-25/sqft
+- Artificial grass: RM 15-35/sqft | SG $22-48/sqft
+- Composite decking: RM 45-90/sqft | SG $60-120/sqft
+
+=== OTHERS ===
+- Air conditioning 1.5HP split inverter: RM 1800-3500/unit | SG $2500-4500/unit
+- Metal railing mild steel powder coated: RM 80-180/ft | SG $120-250/ft
+- Stainless steel fencing: RM 35-80/sqft | SG $50-110/sqft
+- PVC wall panel: RM 20-50/sqft | SG $30-70/sqft
+- Staircase (metal I-beam structure): RM 15000-35000/L-sum | SG $22000-50000/L-sum
+- Staircase (wood step + handrail): RM 30000-60000/L-sum | SG $45000-85000/L-sum
+- Landscape soil re-leveling + carpet grass: RM 8-18/sqft | SG $12-25/sqft
 `;
 
 export function buildQuotationPrompt(textForAI: string, outputLang: string): string {
