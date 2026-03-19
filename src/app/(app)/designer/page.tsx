@@ -592,7 +592,7 @@ export default function DesignerDashboard() {
       {/* ── KPI Stats ───────────────────────────────────────────────────── */}
       {!loading && (
         <div className="px-5 py-3 flex-shrink-0">
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <KpiCard icon={BarChart2}     color="#3B82F6" iconBg="rgba(59,130,246,0.1)"
               label={t.dash.pendingProjects}   value={pending.length}
               sub={`${t.dash.pipelineValue} ${prices.currency} ${(totalPendingVal/1000).toFixed(0)}k`} />
@@ -631,7 +631,7 @@ export default function DesignerDashboard() {
           </div>
         ) : (
           /* Kanban columns + Calendar — always show calendar */
-          <div style={{ display: 'grid', gridTemplateColumns: projects.length === 0 ? '1fr 280px' : '1fr 1fr 1fr 280px', gap: 16, alignItems: 'start', minHeight: 0 }}>
+          <div className="dashboard-kanban-grid" style={{ display: 'grid', gridTemplateColumns: projects.length === 0 ? '1fr 280px' : '1fr 1fr 1fr 280px', gap: 16, alignItems: 'start', minHeight: 0 }}>
             {projects.length === 0 ? (
               /* Empty state in the main area */
               <div className="flex flex-col items-center justify-center py-16 px-8">

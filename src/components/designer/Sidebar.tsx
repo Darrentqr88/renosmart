@@ -15,6 +15,8 @@ interface SidebarProps {
   profile?: Profile | null;
   aiUsed?: number;
   aiLimit?: number;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 const STATUS_DOT: Record<string, string> = {
@@ -33,7 +35,7 @@ const NAV_KEYS: { href: string; icon: typeof LayoutDashboard; key: string }[] = 
   { href: '/designer/cost-database',  icon: Receipt,         key: 'costDb' },
 ];
 
-export function Sidebar({ profile, aiUsed = 0, aiLimit = 3 }: SidebarProps) {
+export function Sidebar({ profile, aiUsed = 0, aiLimit = 3, isOpen, onClose }: SidebarProps) {
   const { lang, t } = useI18n();
   const pathname = usePathname();
   const supabase = createClient();
@@ -54,8 +56,11 @@ export function Sidebar({ profile, aiUsed = 0, aiLimit = 3 }: SidebarProps) {
 
   const aiPercent = aiLimit === Infinity ? 10 : Math.min((aiUsed / aiLimit) * 100, 100);
 
+  // Close sidebar on mobile after any link click
+  const handleNavClick = () => { onClose?.(); };
+
   return (
-    <aside className="designer-sidebar" role="navigation" aria-label="Main navigation">
+    <aside className={`designer-sidebar${isOpen ? ' mobile-open' : ''}`} role="navigation" aria-label="Main navigation">
       {/* User info — compact */}
       <div className="px-4 py-4 border-b border-[#E2E4EE]">
         <div className="flex items-center gap-3">
@@ -87,6 +92,7 @@ export function Sidebar({ profile, aiUsed = 0, aiLimit = 3 }: SidebarProps) {
                 href={href}
                 className={`nav-item${active ? ' active' : ''}`}
                 aria-current={active ? 'page' : undefined}
+                onClick={handleNavClick}
               >
                 <Icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.6} />
                 <span className="nav-label">{key === 'costDb' ? t.costDb : (t.nav as Record<string, string>)[key] || key}</span>
@@ -107,6 +113,7 @@ export function Sidebar({ profile, aiUsed = 0, aiLimit = 3 }: SidebarProps) {
                 href={href}
                 className={`nav-item${active ? ' active' : ''}`}
                 aria-current={active ? 'page' : undefined}
+                onClick={handleNavClick}
               >
                 <Icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.6} />
                 <span className="nav-label">{key === 'costDb' ? t.costDb : (t.nav as Record<string, string>)[key] || key}</span>

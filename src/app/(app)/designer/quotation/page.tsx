@@ -636,7 +636,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
       </div>
 
       {/* ── Scrollable content ────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-8 py-6 space-y-5" style={{ paddingBottom: analysis ? 80 : 24 }}>
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6 space-y-5" style={{ paddingBottom: analysis ? 80 : 24 }}>
 
         {/* Upload zone — shown when idle or loading (no results yet) */}
         {!analysis && (

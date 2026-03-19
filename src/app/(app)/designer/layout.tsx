@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
-import { Sidebar } from '@/components/designer/Sidebar';
 import { DesignerHeader } from '@/components/designer/DesignerHeader';
+import { DesignerShell } from '@/components/designer/DesignerShell';
 
 export default async function DesignerLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -35,12 +35,9 @@ export default async function DesignerLayout({ children }: { children: React.Rea
   return (
     <>
       <DesignerHeader profile={profile} />
-      <div className="designer-layout" style={{ marginTop: 0 }}>
-        <Sidebar profile={profile} aiUsed={aiUsed} aiLimit={aiLimit} />
-        <main style={{ background: 'var(--bg)', overflowY: 'auto', minHeight: 'calc(100vh - 60px)' }}>
-          {children}
-        </main>
-      </div>
+      <DesignerShell profile={profile} aiUsed={aiUsed} aiLimit={aiLimit}>
+        {children}
+      </DesignerShell>
     </>
   );
 }

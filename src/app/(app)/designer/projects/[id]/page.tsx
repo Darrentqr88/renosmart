@@ -1137,7 +1137,7 @@ export default function ProjectDetailPage() {
 
       {/* Financial Summary Bar */}
       <div className="bg-white border-b border-gray-100 px-6 py-3">
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: t.proj.contractTotal, value: formatCurrency(revenue), sub: t.proj.fromQuotation, color: '#3B82F6', bg: 'rgba(59,130,246,0.06)', borderColor: 'rgba(59,130,246,0.12)' },
             { label: t.proj.recordedCost, value: formatCurrency(totalCost), sub: t.proj.fromReceipts, color: '#F97316', bg: 'rgba(249,115,22,0.06)', borderColor: 'rgba(249,115,22,0.12)' },
@@ -1157,7 +1157,7 @@ export default function ProjectDetailPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
           <div className="bg-white border-b border-gray-100 px-6" style={{ overflowX: 'auto', scrollbarWidth: 'none' }}>
-            <TabsList className="bg-transparent h-auto p-0 gap-1.5 w-full justify-start" style={{ display: 'flex', padding: '8px 0' }}>
+            <TabsList className="bg-transparent h-auto p-0 gap-1.5 w-full justify-start overflow-x-auto" style={{ display: 'flex', padding: '8px 0' }}>
               {[
                 { value: 'quotations', label: t.proj.quotationsVO, icon: FileText },
                 { value: 'gantt',      label: t.proj.gantt, icon: BarChart2 },
@@ -1407,7 +1407,7 @@ export default function ProjectDetailPage() {
                   </div>
                   <div className="p-5">
                     {/* Summary */}
-                    <div className="grid grid-cols-3 gap-3 mb-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                       <div className="bg-gray-50 rounded-xl p-3 text-center">
                         <div className="text-xl font-bold text-gray-900">{ganttTasks.length}</div>
                         <div className="text-xs text-gray-500">工序总数</div>
@@ -1732,7 +1732,7 @@ export default function ProjectDetailPage() {
               return (
                 <>
                   {/* Summary cards */}
-                  <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                     <div className="bg-white rounded-xl border border-gray-100 p-4">
                       <div className="text-xs text-gray-500 mb-1">合同总额（含VO）</div>
                       <div className="text-lg font-bold text-gray-900">{formatCurrency(totalContract)}</div>
@@ -2043,7 +2043,7 @@ export default function ProjectDetailPage() {
 
                         {/* Score breakdown */}
                         {ar.score && (
-                          <div className="grid grid-cols-4 gap-2 mb-3">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
                             {[
                               { label: '完整性', val: ar.score.completeness },
                               { label: '价格合理', val: ar.score.price },

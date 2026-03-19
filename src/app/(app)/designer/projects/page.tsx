@@ -94,7 +94,7 @@ export default function ProjectsListPage() {
   };
 
   return (
-    <div className="flex-1 p-6">
+    <div className="flex-1 p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
@@ -125,7 +125,7 @@ export default function ProjectsListPage() {
       </div>
 
       {/* Statistics summary */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <div className="bg-white rounded-xl border border-[#ECEEF5] p-4">
           <div className="text-2xl font-bold text-[#1A1A2E]">{projects.length}</div>
           <div className="text-xs text-[#8B8BA8]">Total Projects</div>
