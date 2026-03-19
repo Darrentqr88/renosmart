@@ -645,28 +645,7 @@ INSERT INTO price_database (item_name, category, subcategory, material_method, u
 ('Hack structural wall','Demolition','Wall Hacking','Structural (with permit)','sqft','labour_only','MY_PG',9.20,14.72,11.96,28,'mid',NOW()),
 ('Hack structural wall','Demolition','Wall Hacking','Structural (with permit)','sqft','labour_only','SG',16.50,26.40,21.45,40,'mid',NOW()),
 
--- ═══════════════════════════════════
--- ADDITIONAL — TILING
--- ═══════════════════════════════════
-('Floor tiles 900x900 S&I','Tiling','Floor Tiles','900x900','sqft','supply_install','MY_KL',11.00,16.00,13.50,95,'high',NOW()),
-('Floor tiles 900x900 S&I','Tiling','Floor Tiles','900x900','sqft','supply_install','MY_JB',9.68,14.08,11.88,72,'high',NOW()),
-('Floor tiles 900x900 S&I','Tiling','Floor Tiles','900x900','sqft','supply_install','MY_PG',10.12,14.72,12.42,60,'high',NOW()),
-('Floor tiles 900x900 S&I','Tiling','Floor Tiles','900x900','sqft','supply_install','SG',18.15,26.40,22.28,85,'high',NOW()),
-
-('Floor tiles 300x600 S&I','Tiling','Floor Tiles','300x600','sqft','supply_install','MY_KL',6.50,9.50,8.00,165,'high',NOW()),
-('Floor tiles 300x600 S&I','Tiling','Floor Tiles','300x600','sqft','supply_install','MY_JB',5.72,8.36,7.04,125,'high',NOW()),
-('Floor tiles 300x600 S&I','Tiling','Floor Tiles','300x600','sqft','supply_install','MY_PG',5.98,8.74,7.36,105,'high',NOW()),
-('Floor tiles 300x600 S&I','Tiling','Floor Tiles','300x600','sqft','supply_install','SG',10.73,15.68,13.20,145,'high',NOW()),
-
-('Wall tiles 600x600 S&I','Tiling','Wall Tiles','600x600','sqft','supply_install','MY_KL',9.00,13.00,11.00,125,'high',NOW()),
-('Wall tiles 600x600 S&I','Tiling','Wall Tiles','600x600','sqft','supply_install','MY_JB',7.92,11.44,9.68,95,'high',NOW()),
-('Wall tiles 600x600 S&I','Tiling','Wall Tiles','600x600','sqft','supply_install','MY_PG',8.28,11.96,10.12,80,'high',NOW()),
-('Wall tiles 600x600 S&I','Tiling','Wall Tiles','600x600','sqft','supply_install','SG',14.85,21.45,18.15,110,'high',NOW()),
-
-('Wall tiles 200x300 S&I','Tiling','Wall Tiles','200x300','sqft','supply_install','MY_KL',5.50,8.00,6.75,145,'high',NOW()),
-('Wall tiles 200x300 S&I','Tiling','Wall Tiles','200x300','sqft','supply_install','MY_JB',4.84,7.04,5.94,110,'high',NOW()),
-('Wall tiles 200x300 S&I','Tiling','Wall Tiles','200x300','sqft','supply_install','MY_PG',5.06,7.36,6.21,92,'high',NOW()),
-('Wall tiles 200x300 S&I','Tiling','Wall Tiles','200x300','sqft','supply_install','SG',9.08,13.20,11.14,128,'high',NOW()),
+-- (Old duplicate tiling entries removed — correct prices are in main TILING section above)
 
 ('Epoxy grout','Tiling','Tile Grouting','Epoxy Grout','sqft','supply_install','MY_KL',3.50,5.50,4.50,55,'high',NOW()),
 ('Epoxy grout','Tiling','Tile Grouting','Epoxy Grout','sqft','supply_install','MY_JB',3.08,4.84,3.96,42,'mid',NOW()),
