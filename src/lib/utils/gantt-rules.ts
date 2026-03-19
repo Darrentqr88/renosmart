@@ -1015,6 +1015,18 @@ export function generateGanttFromAIParams(
     landscape:         'landscape',
   };
 
+  // ── Phase-specific item filter: sub-phases only show relevant items ──────
+  // Without this, ALL electrical items appear in ALL 3 electrical phases.
+  const PHASE_ITEM_FILTER: Record<string, RegExp> = {
+    electrical1: /\bwir(?:ing|e)\b|\bdb\b|\bmcb\b|circuit|conduit|cable|rewir/i,
+    electrical2: /switch|socket|power\s*point|13a|\brelocat/i,
+    electrical3: /light\s*point|downlight|pendant|\bfan\s*point|cove\s*light|lighting|ceiling\s*fan/i,
+    plumbing1:   /pipe|drain|floor\s*trap|rough|relocat|extend/i,
+    plumbing2:   /basin|\bwc\b|toilet|tap|shower|sanit|bidet|wash/i,
+    painting1:   /primer|sealer|skim/i,
+    painting2:   /paint|emulsion|putty|topcoat/i,
+  };
+
   const phases: ConstructionPhase[] = CONSTRUCTION_PHASES
     .filter(p => includedIds.has(p.id))
     .map(p => {
@@ -1024,7 +1036,17 @@ export function generateGanttFromAIParams(
       const tradeData = tradeKey ? ts[tradeKey] : undefined;
       const customName = tradeData?.taskName;
       const customNameZh = tradeData?.taskName_zh;
-      const sourceItems = tradeData?.itemNames || [];
+      const allTradeItems = tradeData?.itemNames || [];
+
+      // Filter items to phase-specific subset (e.g. electrical1 only gets wiring items)
+      const phaseFilter = PHASE_ITEM_FILTER[p.id];
+      let sourceItems = allTradeItems;
+      if (phaseFilter && allTradeItems.length > 0) {
+        const filtered = allTradeItems.filter(name => phaseFilter.test(name));
+        // Fall back to all trade items if filter yields nothing
+        sourceItems = filtered.length > 0 ? filtered : allTradeItems;
+      }
+
       if (overrides[p.id] !== undefined) {
         return {
           ...p, deps: remappedDeps, baseDays: overrides[p.id], scaleBy: undefined, scaleFactor: undefined,
@@ -1287,34 +1309,49 @@ export function generateGanttFromQuotation(
     tradeFloorItems[key][floor].push(item);
   };
 
-  // ── Tightened trade detection regex (Fix 5: reduce false matches) ──
+  // ── Scoring-based single trade classification ──
+  // Each item is assigned to exactly ONE trade (highest keyword score wins).
+  // This prevents cross-contamination (e.g. "Lighting Power Point Including Hacking Work"
+  // matching both electrical AND demolition).
+  const TRADE_CLASSIFY_PATTERNS: Record<string, RegExp[]> = {
+    demolition:     [/\bdemol/, /\bhack(?:ing)?\b/, /\bbreak/, /strip.?out/, /chipping/, /\bremov(?:e|al)\b/],
+    masonry:        [/\bbrick/, /\bplaster(?!.*ceil)/, /\bscreed/, /\brender/, /\bnew\s*wall/, /\bbrickwork/, /\brc\s/, /reinforc/],
+    waterproofing:  [/water.?proof/, /\bmembrane/, /\bponding/],
+    aircon:         [/air.?con/, /\baircon/, /\bdaikin/, /\bmidea/, /split\s*unit/, /\bac\s/],
+    falseCeiling:   [/false\s*ceil/, /\bgypsum/, /\bpartition/, /plaster\s*ceil/, /cove\s*light/, /\bcornice/],
+    plumbing:       [/\bplumb/, /\bpipe\b/, /\bbasin\b/, /\bwc\b/, /\btoilet/, /\btap\b/, /\bdrain/, /\bshower/, /\bsanit/, /floor\s*trap/, /\bbidet/],
+    electrical:     [/\belectr/, /\bwir(?:ing|e)\b/, /\bswitch\b/, /\bsocket\b/, /\bdb\s*box/, /\bdb\b.*(?:rewir|box)/, /\bmcb\b/, /\blight\s*point/, /\bdownlight/, /\bpendant/, /\bpower\s*point/, /\bcircuit/, /\bfan\s*point/, /\bconduit/],
+    tiling:         [/\btil(?:e[sd]?|ing)\b/, /\bceram/, /\bporcel/, /\bmosaic/, /\bhomogeneous/],
+    flooring:       [/\bvinyl/, /timber\s*floor/, /\bparquet/, /laminate\s*floor/, /\bspc\b/, /\blvt\b/],
+    painting:       [/\bpaint(?:ing)?\b/, /\bprimer/, /skim.?coat/, /\bputty/, /\bemulsion/, /\bsealer/],
+    carpentry:      [/\bcabinet/, /\bcarpent/, /\bwardrobe/, /\bjoiner/, /\bshelf\b|\bshelv/, /\bvanity/, /\bcupboard/, /\bkitchen\s*top/, /\bsolid\s*plywood/],
+    aluminium:      [/\balumi?n/, /\bwindow\b/, /sliding\s*door/, /door\s*frame/, /\bgrille/, /\bcasement/],
+    glass:          [/\bglass\b/, /shower\s*screen/, /\bmirror\b/, /\btempered/, /\bfolding\s*door.*glass|glass.*folding\s*door/],
+    stonework:      [/\bmarble/, /\bgranite/, /\bquartz/, /\bstone\b/, /\bcountertop/, /table\s*top/],
+    metalwork:      [/metal\s*work/, /iron\s*work/, /\bwrought/, /stainless\s*steel\s*(gate|fence|railing|stair|pole)/, /\bmetal\s*(gate|fence|railing)/],
+    landscape:      [/\blandscap/, /\bgarden\b/, /\bturf\b/, /\bplanting/, /\bpaving\b/, /\bfenc(?:e|ing)\b/, /\bgate\b/],
+    curtain:        [/\bcurtain/, /\bblind\b/, /roller\s*blind/, /\bsheer/, /\bdrape/],
+    delivery:       [/\bappliance/, /furniture\s*deliver/, /loose\s*furniture/],
+  };
+
   for (const item of dedupedItems) {
     const text = ((item.section || '') + ' ' + item.name).toLowerCase();
-    let matched = false;
-    // Order matters: more specific patterns first to avoid false matches
-    if (/demol|hack|break|strip.?out|chipping/.test(text)) { addSection('demolition', item); addFloorItem('demolition', item); matched = true; }
-    if (/brick|plaster|screed|skim.?coat|render|new wall|brickwork/.test(text)) { addSection('masonry', item); addFloorItem('masonry', item); matched = true; }
-    // Electrical: removed generic "light" and "fan" — use specific patterns
-    if (/electr|wir(?:ing|e)|switch|socket|\bdb\b|\bmcb\b|light\s*point|downlight|pendant|power\s*point|circuit/.test(text)) { addSection('electrical', item); addFloorItem('electrical', item); matched = true; }
-    if (/plumb|pipe|basin|\bwc\b|toilet|tap|drain|shower|sanit|floor\s*trap/.test(text)) { addSection('plumbing', item); addFloorItem('plumbing', item); matched = true; }
-    if (/water.?proof|membrane|ponding/.test(text)) { addSection('waterproofing', item); addFloorItem('waterproofing', item); matched = true; }
-    if (/til(?:e|ing)|ceram|porcel|mosaic|homogeneous/.test(text)) { addSection('tiling', item); addFloorItem('tiling', item); matched = true; }
-    if (/vinyl|timber\s*floor|parquet|laminate\s*floor|spc|lvt/.test(text)) { addSection('flooring', item); addFloorItem('flooring', item); matched = true; }
-    // False ceiling: added "cove light" here (was wrongly caught by electrical)
-    if (/false\s*ceil|gypsum|partition|plaster\s*ceil|cove\s*light|cornice/.test(text)) { addSection('falseCeiling', item); addFloorItem('falseCeiling', item); matched = true; }
-    // Painting: removed generic "coat", use specific patterns
-    if (/paint|primer|skim.?coat|putty|emulsion|sealer/.test(text)) { addSection('painting', item); addFloorItem('painting', item); matched = true; }
-    // Carpentry: removed "laminate" (conflicts with flooring)
-    if (/cabinet|carpent|wardrobe|kitchen\s*cab|joiner|shelf|vanity/.test(text)) { addSection('carpentry', item); addFloorItem('carpentry', item); matched = true; }
-    if (/alumin|window|sliding\s*door|door\s*frame|grille/.test(text)) { addSection('aluminium', item); addFloorItem('aluminium', item); matched = true; }
-    if (/air.?con|aircon|daikin|midea|split\s*unit/.test(text)) { addSection('aircon', item); addFloorItem('aircon', item); matched = true; }
-    // New standard trades
-    if (/glass|shower\s*screen|mirror|tempered/.test(text)) { addSection('glass', item); addFloorItem('glass', item); matched = true; }
-    if (/landscape|garden|turf|planting|paving|fence|fencing|gate/.test(text)) { addSection('landscape', item); addFloorItem('landscape', item); matched = true; }
-    if (/metal\s*work|iron\s*work|wrought|stainless\s*steel|steel\s*(gate|fence|railing|stair)|metal\s*(gate|fence|railing)/.test(text)) { addSection('metalwork', item); addFloorItem('metalwork', item); matched = true; }
-    if (/marble|granite|quartz|stone|countertop|table\s*top/.test(text)) { addSection('stonework', item); addFloorItem('stonework', item); matched = true; }
-    if (/curtain|blind|roller\s*blind|sheer|drape/.test(text)) { addSection('curtain', item); addFloorItem('curtain', item); matched = true; }
-    if (/appliance|furniture\s*deliver|loose\s*furniture/.test(text)) { addSection('delivery', item); addFloorItem('delivery', item); matched = true; }
+
+    // Score each trade by counting matching patterns
+    let bestTrade: string | null = null;
+    let bestScore = 0;
+    for (const [trade, patterns] of Object.entries(TRADE_CLASSIFY_PATTERNS)) {
+      const score = patterns.filter(p => p.test(text)).length;
+      if (score > bestScore) {
+        bestScore = score;
+        bestTrade = trade;
+      }
+    }
+
+    if (bestTrade) {
+      addSection(bestTrade, item);
+      addFloorItem(bestTrade, item);
+    }
   }
 
   if (tradeSections.demolition)    tradeScope.demolition    = { estimatedDays: 5, ...makeName('demolition', 'Demolition & Hacking', '拆除工程') };
