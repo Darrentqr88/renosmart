@@ -68,6 +68,8 @@ export interface QuotationItem {
   supplyType?: SupplyType;
   status: AIItemStatus;
   note?: string;
+  subcategory?: string;       // e.g., "Kitchen Cabinet", "Floor Tiles"
+  materialMethod?: string;    // e.g., "Laminated", "600x600"
 }
 
 export interface QuotationSubtotal {
