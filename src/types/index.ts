@@ -70,6 +70,8 @@ export interface QuotationItem {
   note?: string;
   subcategory?: string;       // e.g., "Kitchen Cabinet", "Floor Tiles"
   materialMethod?: string;    // e.g., "Laminated", "600x600"
+  estMinPrice?: number;       // AI-estimated market min price for this item
+  estMaxPrice?: number;       // AI-estimated market max price for this item
 }
 
 export interface QuotationSubtotal {
@@ -303,6 +305,47 @@ export interface Translations {
     extracting: string;
     done: string;
   };
+}
+
+// ============================================
+// Hybrid Scoring System
+// ============================================
+
+export interface PriceComparison {
+  itemIndex: number;
+  itemName: string;
+  quotedPrice: number;
+  dbMin: number | null;
+  dbMax: number | null;
+  dbAvg: number | null;
+  aiEstMin: number | null;
+  aiEstMax: number | null;
+  deviation: number | null;
+  verdict: 'ok' | 'warn_high' | 'flag_high' | 'flag_low' | 'ai_estimated';
+  source: 'database' | 'ai_estimate' | 'ai_status';
+  sampleCount: number;
+  category: string;
+  subcategory: string;
+  materialMethod: string;
+}
+
+export interface DimensionBreakdown {
+  aiScore: number;
+  dataScore: number;
+  blendedScore: number;
+  detail: string;
+}
+
+export interface ScoreBreakdown {
+  price: DimensionBreakdown;
+  completeness: DimensionBreakdown;
+  logic: DimensionBreakdown;
+  risk: DimensionBreakdown;
+  total: number;
+  priceComparisons: PriceComparison[];
+  dbMatchCount: number;
+  aiEstimateCount: number;
+  dbMatchTotal: number;
 }
 
 export const WORKER_TRADES = [

@@ -7,8 +7,9 @@ import { useI18n } from '@/lib/i18n/context';
 import { extractTextFromFile } from '@/lib/pdf/extractor';
 import { buildQuotationPrompt } from '@/lib/ai/quotation-prompt';
 import { generateGanttFromAIParams, generateGanttFromQuotation } from '@/lib/utils/gantt-rules';
-import { QuotationAnalysis, QuotationItem, AIItemStatus, SupplyType, GanttParams } from '@/types';
+import { QuotationAnalysis, QuotationItem, AIItemStatus, SupplyType, GanttParams, ScoreBreakdown, DimensionBreakdown } from '@/types';
 import { formatCurrency } from '@/lib/utils';
+import { calculateHybridScores } from '@/lib/utils/score-calculator';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { Button } from '@/components/ui/button';
@@ -56,15 +57,33 @@ function ScoreCircle({ score }: { score: number }) {
   );
 }
 
-function ScoreBar({ label, value }: { label: string; value: number }) {
+function ScoreBar({ label, value, breakdown }: { label: string; value: number; breakdown?: DimensionBreakdown }) {
   const color = value >= 75 ? '#16A34A' : value >= 50 ? '#4F8EF7' : '#E53935';
   return (
-    <div className="flex items-center gap-3">
+    <div className="group relative flex items-center gap-3">
       <span className="text-[12px] text-rs-text2 w-20 shrink-0">{label}</span>
       <div className="flex-1 h-1.5 bg-rs-surface3 rounded-full overflow-hidden">
         <div className="h-full rounded-full" style={{ width: `${value}%`, background: color }} />
       </div>
       <span className="text-[12px] font-semibold text-rs-text w-7 text-right">{value}</span>
+      {breakdown && (
+        <div className="hidden group-hover:block absolute left-0 top-full mt-1 z-50
+                        bg-white border border-rs-surface3 rounded-lg shadow-lg p-3 w-72 text-[11px]">
+          <div className="flex justify-between mb-1">
+            <span className="text-rs-text3">AI Score:</span>
+            <span className="font-medium">{breakdown.aiScore}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span className="text-rs-text3">Data Score:</span>
+            <span className="font-medium">{breakdown.dataScore}</span>
+          </div>
+          <div className="flex justify-between mb-2">
+            <span className="text-rs-text3">Blended (40/60):</span>
+            <span className="font-bold text-[#4F8EF7]">{breakdown.blendedScore}</span>
+          </div>
+          <div className="text-rs-text2 border-t border-rs-surface3 pt-1.5">{breakdown.detail}</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -104,6 +123,9 @@ export default function QuotationPage() {
 
   // Editable client info
   const [clientInfo, setClientInfo] = useState<QuotationAnalysis['client'] | null>(null);
+
+  // Hybrid scoring
+  const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdown | null>(null);
 
   // Full report
   const [showFullReport, setShowFullReport] = useState(false);
@@ -153,6 +175,7 @@ export default function QuotationPage() {
     setActiveSection('all');
     setClientInfo(null);
     setShowFullReport(false);
+    setScoreBreakdown(null);
     setSavedProjectId(null);
     setStep('idle');
     setProgress(0);
@@ -167,14 +190,19 @@ export default function QuotationPage() {
 
     try {
       setStep('extracting');
-      setProgressLabel('正在读取文件...');
+      setProgressLabel(lang === 'ZH' ? '正在读取文件...' : lang === 'BM' ? 'Membaca fail...' : 'Reading file...');
       setProgress(20);
       const text = await extractTextFromFile(file);
       setProgress(50);
 
       setStep('analyzing');
-      setProgressLabel('AI 正在分析报价单...');
+      setProgressLabel(lang === 'ZH' ? 'AI 正在分析报价单...' : lang === 'BM' ? 'AI menganalisis sebut harga...' : 'AI analyzing quotation...');
       setProgress(60);
+
+      // Smooth progress simulation during AI call
+      const progressTimer = setInterval(() => {
+        setProgress(prev => prev < 92 ? prev + Math.random() * 3 : prev);
+      }, 800);
 
       const { data: { session } } = await supabase.auth.getSession();
       const outputLang = lang === 'ZH' ? 'Chinese (Simplified)' : lang === 'BM' ? 'Bahasa Malaysia' : 'English';
@@ -188,6 +216,8 @@ export default function QuotationPage() {
         },
         body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 16000, messages: [{ role: 'user', content: prompt }] }),
       });
+
+      clearInterval(progressTimer);
 
       if (!res.ok) {
         const err = await res.json();
@@ -224,8 +254,40 @@ export default function QuotationPage() {
       setProgress(100);
       setAnalysis(parsed);
       setStep('done');
-      setProgressLabel('分析完成');
+      setProgressLabel(lang === 'ZH' ? '分析完成' : lang === 'BM' ? 'Analisis selesai' : 'Analysis complete');
       toast({ title: '✅ 分析完成', description: parsed.summary?.slice(0, 80) });
+
+      // Hybrid scoring: blend AI scores with price database data
+      calculateHybridScores(parsed, 'MY_KL').then(breakdown => {
+        setScoreBreakdown(breakdown);
+        setAnalysis(prev => prev ? {
+          ...prev,
+          score: {
+            total: breakdown.total,
+            completeness: breakdown.completeness.blendedScore,
+            price: breakdown.price.blendedScore,
+            logic: breakdown.logic.blendedScore,
+            risk: breakdown.risk.blendedScore,
+          },
+          items: prev.items.map((item, idx) => {
+            const comp = breakdown.priceComparisons.find(c => c.itemIndex === idx);
+            if (!comp || comp.source === 'ai_status') return item;
+            const newStatus: AIItemStatus =
+              (comp.verdict === 'flag_high' || comp.verdict === 'flag_low') ? 'flag' :
+              comp.verdict === 'warn_high' ? 'warn' : item.status;
+            const rangeLabel = comp.source === 'database'
+              ? `市场${comp.dbMin?.toFixed(0)}-${comp.dbMax?.toFixed(0)}`
+              : comp.source === 'ai_estimate' && comp.aiEstMin
+                ? `AI估${comp.aiEstMin.toFixed(0)}-${comp.aiEstMax?.toFixed(0)}`
+                : item.note;
+            return {
+              ...item,
+              status: newStatus === 'flag' || newStatus === 'warn' ? newStatus : item.status,
+              note: rangeLabel && rangeLabel.length <= 25 ? rangeLabel : item.note,
+            };
+          }),
+        } : prev);
+      }).catch(() => { /* Non-critical — fall back to pure AI scores */ });
 
       // Background: price-db update
       if (parsed.items?.length > 0) {
@@ -600,19 +662,68 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                 <p className="text-[12px] text-[#9CA3AF]">PDF, Excel (.xlsx/.xls), CSV · Max 50MB</p>
               </>
             ) : isLoading ? (
-              <div className="max-w-sm mx-auto">
-                <div className="flex items-center justify-center gap-3 mb-5">
-                  <FileText className="w-8 h-8 text-[#4F8EF7]" />
-                  <div className="text-left">
-                    <p className="font-medium text-rs-text">{fileName}</p>
-                    <p className="text-sm text-rs-text3">{fileSize}</p>
+              <div className="max-w-md mx-auto py-4">
+                {/* File info pill */}
+                <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-gradient-to-r from-[rgba(79,142,247,0.08)] to-[rgba(139,92,246,0.08)] border border-[rgba(79,142,247,0.15)] mb-8">
+                  <FileText className="w-4 h-4 text-[#4F8EF7]" />
+                  <span className="text-sm font-medium text-rs-text">{fileName}</span>
+                  <span className="text-xs text-rs-text3">{fileSize}</span>
+                </div>
+                {/* Animated orbital loader */}
+                <div className="relative w-28 h-28 mx-auto mb-8">
+                  <div className="absolute inset-0 rounded-full animate-[spin_3s_linear_infinite]" style={{ background: 'conic-gradient(from 0deg, transparent 0%, #4F8EF7 25%, #8B5CF6 50%, #EC4899 75%, transparent 100%)', padding: 2 }}>
+                    <div className="w-full h-full rounded-full bg-white" />
+                  </div>
+                  <div className="absolute inset-3 rounded-full bg-gradient-to-br from-[rgba(79,142,247,0.12)] to-[rgba(139,92,246,0.12)] animate-pulse" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    {step === 'extracting' ? (
+                      <FileText className="w-8 h-8 text-[#4F8EF7] animate-bounce" style={{ animationDuration: '1.5s' }} />
+                    ) : (
+                      <svg className="w-8 h-8 animate-pulse" viewBox="0 0 24 24" fill="none" style={{ animationDuration: '2s' }}>
+                        <path d="M12 2L2 7l10 5 10-5-10-5z" fill="url(#ai-grad)" opacity="0.9" />
+                        <path d="M2 17l10 5 10-5" stroke="url(#ai-grad)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+                        <path d="M2 12l10 5 10-5" stroke="url(#ai-grad)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+                        <defs><linearGradient id="ai-grad" x1="2" y1="2" x2="22" y2="22"><stop stopColor="#4F8EF7" /><stop offset="1" stopColor="#8B5CF6" /></linearGradient></defs>
+                      </svg>
+                    )}
                   </div>
                 </div>
-                <Progress value={progress} className="h-2 mb-3" />
-                <div className="flex items-center justify-center gap-2 text-sm text-rs-text2">
-                  <Loader2 className="w-4 h-4 animate-spin text-[#4F8EF7]" />
-                  {progressLabel}
+                {/* Step indicators */}
+                <div className="flex items-center justify-center gap-3 mb-6">
+                  {[
+                    { key: 'extract', label: lang === 'ZH' ? '读取文件' : lang === 'BM' ? 'Baca fail' : 'Reading', threshold: 0 },
+                    { key: 'parse', label: lang === 'ZH' ? '解析结构' : lang === 'BM' ? 'Analisis' : 'Parsing', threshold: 40 },
+                    { key: 'ai', label: lang === 'ZH' ? 'AI 审核' : lang === 'BM' ? 'AI Semakan' : 'AI Review', threshold: 60 },
+                  ].map((s, i) => {
+                    const active = progress >= s.threshold;
+                    const done = progress >= [40, 60, 100][i];
+                    return (
+                      <div key={s.key} className="flex items-center gap-2">
+                        {i > 0 && <div className={`w-6 h-px transition-colors duration-500 ${active ? 'bg-[#4F8EF7]' : 'bg-gray-200'}`} />}
+                        <div className="flex items-center gap-1.5">
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all duration-500 ${done ? 'bg-[#4F8EF7] text-white scale-100' : active ? 'bg-[#4F8EF7]/15 text-[#4F8EF7] animate-pulse' : 'bg-gray-100 text-gray-400'}`}>
+                            {done ? '✓' : i + 1}
+                          </div>
+                          <span className={`text-xs font-medium transition-colors duration-500 ${active ? 'text-rs-text' : 'text-gray-300'}`}>{s.label}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+                {/* Gradient progress bar */}
+                <div className="relative h-1.5 bg-gray-100 rounded-full overflow-hidden mb-3">
+                  <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${progress}%`, background: 'linear-gradient(90deg, #4F8EF7, #8B5CF6, #EC4899)' }} />
+                  <div className="absolute inset-0 overflow-hidden rounded-full">
+                    <div className="h-full w-1/3 animate-[shimmer_1.5s_ease-in-out_infinite]" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)' }} />
+                  </div>
+                </div>
+                {/* Status text */}
+                <p className="text-sm text-rs-text2 font-medium">{progressLabel}</p>
+                <p className="text-xs text-rs-text3 mt-1">
+                  {step === 'extracting'
+                    ? (lang === 'ZH' ? '正在识别文件格式与表格结构...' : lang === 'BM' ? 'Mengenal pasti format fail...' : 'Identifying file format and table structure...')
+                    : (lang === 'ZH' ? '正在分析价格、风险及缺失项目...' : lang === 'BM' ? 'Menganalisis harga dan risiko...' : 'Analyzing prices, risks and missing items...')}
+                </p>
               </div>
             ) : (
               <div>
@@ -741,12 +852,26 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                 <div className="flex items-start gap-6 mb-4">
                   <ScoreCircle score={analysis.score.total} />
                   <div className="flex-1 space-y-2.5 pt-1">
-                    <ScoreBar label="项目完整性" value={analysis.score.completeness} />
-                    <ScoreBar label="单价合理性" value={analysis.score.price} />
-                    <ScoreBar label="工序逻辑性" value={analysis.score.logic} />
-                    <ScoreBar label="遗项风险" value={analysis.score.risk} />
+                    <ScoreBar label="项目完整性" value={analysis.score.completeness} breakdown={scoreBreakdown?.completeness} />
+                    <ScoreBar label="单价合理性" value={analysis.score.price} breakdown={scoreBreakdown?.price} />
+                    <ScoreBar label="工序逻辑性" value={analysis.score.logic} breakdown={scoreBreakdown?.logic} />
+                    <ScoreBar label="遗项风险" value={analysis.score.risk} breakdown={scoreBreakdown?.risk} />
                   </div>
                 </div>
+                {scoreBreakdown && (
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded">
+                      数据支撑
+                    </span>
+                    <span className="text-[11px] text-rs-text3">
+                      {scoreBreakdown.dbMatchCount > 0 && <span className="text-green-600 font-medium">{scoreBreakdown.dbMatchCount} DB</span>}
+                      {scoreBreakdown.dbMatchCount > 0 && scoreBreakdown.aiEstimateCount > 0 && ' + '}
+                      {scoreBreakdown.aiEstimateCount > 0 && <span className="text-blue-600 font-medium">{scoreBreakdown.aiEstimateCount} AI估算</span>}
+                      {(scoreBreakdown.dbMatchCount > 0 || scoreBreakdown.aiEstimateCount > 0) && ' / '}
+                      {scoreBreakdown.dbMatchTotal} items
+                    </span>
+                  </div>
+                )}
                 {analysis.summary && (
                   <div className="bg-[#F8F9FB] rounded-xl px-4 py-3 text-[13px] text-rs-text2 leading-relaxed border border-rs-surface3">
                     <span className="text-base mr-1.5">🤖</span>
@@ -815,6 +940,18 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                             <span className={item.unitPriceDerived ? 'text-[#F97316] italic' : 'text-rs-text2'}>
                               {item.unitPrice.toFixed(2)}{item.unitPriceDerived ? '*' : ''}
                             </span>
+                            {(() => {
+                              const origIdx = analysis?.items.indexOf(item) ?? -1;
+                              const comp = scoreBreakdown?.priceComparisons.find(c => c.itemIndex === origIdx);
+                              if (!comp) return null;
+                              if (comp.source === 'database' && comp.dbMin != null && comp.dbMax != null) {
+                                return <div className="text-[9px] text-green-600 mt-0.5">市场 {comp.dbMin.toFixed(0)}-{comp.dbMax.toFixed(0)}</div>;
+                              }
+                              if (comp.source === 'ai_estimate' && comp.aiEstMin != null && comp.aiEstMax != null) {
+                                return <div className="text-[9px] text-blue-500 mt-0.5">AI估 {comp.aiEstMin.toFixed(0)}-{comp.aiEstMax.toFixed(0)}</div>;
+                              }
+                              return null;
+                            })()}
                           </td>
                           <td className="px-4 py-3 text-right font-mono font-semibold text-rs-text">
                             RM {item.total.toLocaleString()}
@@ -1048,10 +1185,10 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
               <div className="bg-[#F8F9FB] rounded-2xl p-4 flex items-center gap-5">
                 <ScoreCircle score={analysis.score.total} />
                 <div className="flex-1 space-y-2">
-                  <ScoreBar label="项目完整性" value={analysis.score.completeness} />
-                  <ScoreBar label="单价合理性" value={analysis.score.price} />
-                  <ScoreBar label="工序逻辑性" value={analysis.score.logic} />
-                  <ScoreBar label="遗项风险" value={analysis.score.risk} />
+                  <ScoreBar label="项目完整性" value={analysis.score.completeness} breakdown={scoreBreakdown?.completeness} />
+                  <ScoreBar label="单价合理性" value={analysis.score.price} breakdown={scoreBreakdown?.price} />
+                  <ScoreBar label="工序逻辑性" value={analysis.score.logic} breakdown={scoreBreakdown?.logic} />
+                  <ScoreBar label="遗项风险" value={analysis.score.risk} breakdown={scoreBreakdown?.risk} />
                 </div>
               </div>
               {analysis.summary && (
