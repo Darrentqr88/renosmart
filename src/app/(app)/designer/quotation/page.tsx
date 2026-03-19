@@ -18,7 +18,7 @@ import { Progress } from '@/components/ui/progress';
 import { GanttAutoGenerator } from '@/components/gantt/GanttAutoGenerator';
 import {
   FileText, CheckCircle2, AlertTriangle, AlertCircle, XCircle,
-  ChevronDown, ChevronUp, Loader2, X, RefreshCw, Printer,
+  Loader2, X, RefreshCw, Printer,
   ChevronRight, User, Save, Calendar, ArrowRight, Send,
 } from 'lucide-react';
 
@@ -118,7 +118,6 @@ export default function QuotationPage() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   const [showGantt, setShowGantt] = useState(false);
-  const [showAllItems, setShowAllItems] = useState(false);
   const [activeSection, setActiveSection] = useState('all');
 
   // Editable client info
@@ -171,7 +170,6 @@ export default function QuotationPage() {
     setPdfUrl(null);
     setShowPdfViewer(false);
     setShowGantt(false);
-    setShowAllItems(false);
     setActiveSection('all');
     setClientInfo(null);
     setShowFullReport(false);
@@ -214,7 +212,7 @@ export default function QuotationPage() {
           'Content-Type': 'application/json',
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 16000, messages: [{ role: 'user', content: prompt }] }),
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 32000, messages: [{ role: 'user', content: prompt }] }),
       });
 
       clearInterval(progressTimer);
@@ -336,7 +334,7 @@ export default function QuotationPage() {
     return analysis.items.filter(i => (i.section || '综合') === activeSection);
   }, [analysis, activeSection]);
 
-  const displayedItems = showAllItems ? filteredItems : filteredItems.slice(0, 20);
+  const displayedItems = filteredItems;
 
   /* ─── Save Gantt tasks to DB from quotation analysis ─────────────────── */
   const saveGanttFromAnalysis = async (
@@ -996,18 +994,6 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                   )}
                 </table>
               </div>
-
-              {/* Show more */}
-              {filteredItems.length > 20 && (
-                <div className="px-5 py-3 border-t border-rs-surface3 text-center">
-                  <button onClick={() => setShowAllItems(!showAllItems)}
-                    className="text-[13px] text-[#4F8EF7] hover:underline flex items-center gap-1 mx-auto font-medium">
-                    {showAllItems
-                      ? <><ChevronUp className="w-4 h-4" /> 收起</>
-                      : <><ChevronDown className="w-4 h-4" /> 显示全部 {filteredItems.length} 项</>}
-                  </button>
-                </div>
-              )}
 
               {/* Legend */}
               <div className="px-5 py-3 border-t border-[#F0F2F7] flex flex-wrap gap-x-5 gap-y-1">

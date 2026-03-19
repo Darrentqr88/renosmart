@@ -1,20 +1,32 @@
 export const PRICE_REFERENCE = `
-MY/SG Market Price Reference (2024-2025):
-- Tiling (floor): RM 5-12/sqft | SG $8-20/sqft
-- Tiling (wall): RM 8-15/sqft | SG $10-25/sqft
-- Painting: RM 1.50-3.50/sqft | SG $2-5/sqft
-- False ceiling (basic gypsum): RM 8-15/sqft | SG $12-20/sqft
-- False ceiling (design): RM 15-30/sqft | SG $20-45/sqft
-- Carpentry (wardrobe): RM 800-2000/ft-run | SG $1200-3000/ft-run
-- Carpentry (kitchen cabinet): RM 600-1500/ft-run | SG $800-2500/ft-run
-- Electrical point (light/switch): RM 80-150/pt | SG $120-250/pt
-- Plumbing (basin): RM 200-400/unit | SG $300-600/unit
-- Plumbing (WC): RM 300-600/unit | SG $500-1000/unit
-- Waterproofing: RM 3-8/sqft | SG $5-12/sqft
-- Demolition/Hacking: RM 1-4/sqft | SG $2-6/sqft
-- Aluminium window: RM 80-200/sqft | SG $120-300/sqft
-- Vinyl flooring: RM 4-8/sqft | SG $6-12/sqft
-- Timber flooring: RM 8-20/sqft | SG $12-30/sqft
+MY/SG Market Price Reference (2025-2026, supply & install):
+- Tiling (floor 600x600): RM 8-18/sqft | SG $12-28/sqft
+- Tiling (wall 300x600): RM 10-20/sqft | SG $15-30/sqft
+- Tiling (large format 1200x600): RM 15-30/sqft | SG $20-45/sqft
+- Painting (interior 2-coat): RM 2.50-5.00/sqft | SG $3.50-7/sqft
+- Painting (skim coat + paint): RM 4-8/sqft | SG $6-12/sqft
+- False ceiling (flat plasterboard): RM 10-18/sqft | SG $15-25/sqft
+- False ceiling (L-box/design): RM 18-35/sqft | SG $25-50/sqft
+- Carpentry (wardrobe laminated): RM 1000-2500/ft-run | SG $1500-3500/ft-run
+- Carpentry (kitchen cabinet laminated): RM 800-2000/ft-run | SG $1200-3000/ft-run
+- Carpentry (solid wood): RM 2000-4500/ft-run | SG $3000-6000/ft-run
+- Electrical point (13A socket/switch): RM 100-180/pt | SG $150-280/pt
+- Electrical (DB box upgrade 18-way): RM 800-1500/unit | SG $1200-2000/unit
+- Plumbing (basin + mixer tap install): RM 300-600/unit | SG $500-900/unit
+- Plumbing (WC floor-mount): RM 400-800/unit | SG $600-1200/unit
+- Plumbing (water heater install): RM 200-500/unit | SG $350-700/unit
+- Waterproofing (bathroom cementitious): RM 8-18/sqft | SG $12-25/sqft
+- Waterproofing (flat roof torch-on): RM 12-25/sqft | SG $18-35/sqft
+- Demolition/Hacking (floor): RM 3-8/sqft | SG $5-12/sqft
+- Demolition/Hacking (wall): RM 5-12/sqft | SG $8-18/sqft
+- Aluminium window (casement): RM 100-250/sqft | SG $150-350/sqft
+- Aluminium sliding door: RM 120-300/sqft | SG $180-400/sqft
+- Glass (shower screen 10mm): RM 45-90/sqft | SG $65-130/sqft
+- Vinyl flooring (SPC click-lock): RM 6-12/sqft | SG $8-18/sqft
+- Timber flooring (engineered): RM 12-28/sqft | SG $18-40/sqft
+- Air conditioning (1.5HP split inverter): RM 1800-3500/unit | SG $2500-4500/unit
+- Metal railing (mild steel powder coated): RM 80-180/ft-run | SG $120-250/ft-run
+- Construction (brick wall): RM 15-30/sqft | SG $25-45/sqft
 `;
 
 export function buildQuotationPrompt(textForAI: string, outputLang: string): string {
@@ -34,7 +46,7 @@ RULES:
 2. Section totals → subtotals array only (not items).
 3. Copy item names VERBATIM. Do NOT translate English names.
 4. warn/flag items: add "note" (max 20 chars) on price issue.
-5. Items max 15 (highest value first).
+5. Items: include ALL line items from the quotation in their ORIGINAL order (same sequence as the source document). Do NOT sort by value. Do NOT skip any items. Group by section/page as they appear.
 6. status: "ok"|"warn"|"flag"|"nodata"
 
 ${PRICE_REFERENCE}
