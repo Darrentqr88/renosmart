@@ -10,7 +10,10 @@ MY/SG Market Price Reference (2025-2026, supply & install):
 - Carpentry (wardrobe laminated): RM 1000-2500/ft-run | SG $1500-3500/ft-run
 - Carpentry (kitchen cabinet laminated): RM 800-2000/ft-run | SG $1200-3000/ft-run
 - Carpentry (solid wood): RM 2000-4500/ft-run | SG $3000-6000/ft-run
-- Electrical point (13A socket/switch): RM 100-180/pt | SG $150-280/pt
+- Electrical lighting point (S&I with cable): RM 45-70/pt | SG $65-110/pt
+- Electrical 13A socket point (S&I with cable): RM 85-150/pt | SG $130-220/pt
+- Electrical cove light point (S&I): RM 120-250/pt | SG $180-350/pt
+- Electrical labour only (install light/fan): RM 15-35/pt | SG $25-50/pt
 - Electrical (DB box upgrade 18-way): RM 800-1500/unit | SG $1200-2000/unit
 - Plumbing (basin + mixer tap install): RM 300-600/unit | SG $500-900/unit
 - Plumbing (WC floor-mount): RM 400-800/unit | SG $600-1200/unit

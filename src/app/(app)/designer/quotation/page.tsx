@@ -273,10 +273,10 @@ export default function QuotationPage() {
             const newStatus: AIItemStatus =
               (comp.verdict === 'flag_high' || comp.verdict === 'flag_low') ? 'flag' :
               comp.verdict === 'warn_high' ? 'warn' : item.status;
-            const rangeLabel = comp.source === 'database'
-              ? `市场${comp.dbMin?.toFixed(0)}-${comp.dbMax?.toFixed(0)}`
-              : comp.source === 'ai_estimate' && comp.aiEstMin
-                ? `AI估${comp.aiEstMin.toFixed(0)}-${comp.aiEstMax?.toFixed(0)}`
+            const rangeLabel = comp.source === 'database' && comp.dbMin != null && comp.dbMax != null
+              ? `市场${comp.dbMin.toFixed(0)}-${comp.dbMax.toFixed(0)}`
+              : comp.source === 'ai_estimate' && comp.aiEstMin != null && comp.aiEstMax != null
+                ? `AI估${comp.aiEstMin.toFixed(0)}-${comp.aiEstMax.toFixed(0)}`
                 : item.note;
             return {
               ...item,
