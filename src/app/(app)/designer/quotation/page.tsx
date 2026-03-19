@@ -520,6 +520,8 @@ export default function QuotationPage() {
       setSavedProjectId(projectId);
       setShowSaveDialog(false);
       toast({ title: '✅ 已保存至项目', description: saveMode === 'new' ? `新项目: ${newProjectName}` : '已更新现有项目' });
+      // Auto-navigate to the project detail page
+      router.push(`/designer/projects/${projectId}`);
     } catch (err) {
       toast({ variant: 'destructive', title: '保存失败', description: String(err) });
     } finally {
