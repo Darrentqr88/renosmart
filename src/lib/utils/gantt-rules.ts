@@ -1427,6 +1427,43 @@ export function generateGanttFromQuotation(
   return generateGanttFromAIParams(projectId, derivedParams, startDate, region, workOnSaturday, workOnSunday, siteType);
 }
 
+// ─── Classify a single item into a trade key ───────────────────────────────
+// Exported so GanttAutoGenerator can enrich AI ganttParams with itemNames
+const TRADE_PATTERNS_SHARED: Record<string, RegExp[]> = {
+  demolition:     [/\bdemol/, /\bhack(?:ing)?\b/, /\bbreak/, /strip.?out/, /chipping/, /\bremov(?:e|al)\b/],
+  masonry:        [/\bbrick/, /\bplaster(?!.*ceil)/, /\bscreed/, /\brender/, /\bnew\s*wall/, /\bbrickwork/, /\brc\s/, /reinforc/, /\bconstruct/, /\bextension/, /\braise\s*floor/, /\bmasonry/],
+  waterproofing:  [/water.?proof/, /\bmembrane/, /\bponding/],
+  aircon:         [/air.?con/, /\baircon/, /\bdaikin/, /\bmidea/, /split\s*unit/, /\bac\s/],
+  falseCeiling:   [/false\s*ceil/, /\bgypsum/, /\bpartition/, /plaster\s*ceil/, /cove\s*light/, /\bcornice/],
+  plumbing:       [/\bplumb/, /\bpipe\b/, /\bbasin\b/, /\bwc\b/, /\btoilet/, /\btap\b/, /\bdrain/, /\bshower/, /\bsanit/, /floor\s*trap/, /\bbidet/],
+  electrical:     [/\belectr/, /\bwir(?:ing|e)\b/, /\bswitch\b/, /\bsocket\b/, /\bdb\s*box/, /\bdb\b.*(?:rewir|box)/, /\bmcb\b/, /\blight\s*point/, /\bdownlight/, /\bpendant/, /\bpower\s*point/, /\bcircuit/, /\bfan\s*point/, /\bconduit/],
+  tiling:         [/\btil(?:e[sd]?|ing)\b/, /\bceram/, /\bporcel/, /\bmosaic/, /\bhomogeneous/],
+  flooring:       [/\bvinyl/, /timber\s*floor/, /\bparquet/, /laminate\s*floor/, /\bspc\b/, /\blvt\b/],
+  painting:       [/\bpaint(?:ing)?\b/, /\bprimer/, /skim.?coat/, /\bputty/, /\bemulsion/, /\bsealer/],
+  carpentry:      [/\bcabinet/, /\bcarpent/, /\bwardrobe/, /\bjoiner/, /\bshelf\b|\bshelv/, /\bvanity/, /\bcupboard/, /\bkitchen\s*top/, /\bsolid\s*plywood/],
+  aluminium:      [/\balumi?n/, /\bwindow\b/, /sliding\s*door/, /door\s*frame/, /\bgrille/, /\bcasement/],
+  glass:          [/\bglass\b/, /shower\s*screen/, /\bmirror\b/, /\btempered/, /\bfolding\s*door.*glass|glass.*folding\s*door/],
+  stonework:      [/\bmarble/, /\bgranite/, /\bquartz/, /\bstone\b/, /\bcountertop/, /table\s*top/],
+  metalwork:      [/metal\s*work/, /iron\s*work/, /\bwrought/, /stainless\s*steel\s*(gate|fence|railing|stair|pole)/, /\bmetal\s*(gate|fence|railing)/],
+  landscape:      [/\blandscap/, /\bgarden\b/, /\bturf\b/, /\bplanting/, /\bpaving\b/, /\bfenc(?:e|ing)\b/, /\bgate\b/],
+  curtain:        [/\bcurtain/, /\bblind\b/, /roller\s*blind/, /\bsheer/, /\bdrape/],
+  delivery:       [/\bappliance/, /furniture\s*deliver/, /loose\s*furniture/],
+};
+
+export function classifyItemTrade(section: string, name: string): string | null {
+  const text = ((section || '') + ' ' + name).toLowerCase();
+  let bestTrade: string | null = null;
+  let bestScore = 0;
+  for (const [trade, patterns] of Object.entries(TRADE_PATTERNS_SHARED)) {
+    const score = patterns.filter(p => p.test(text)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestTrade = trade;
+    }
+  }
+  return bestTrade;
+}
+
 // ─── Detect construction trade from free text ──────────────────────────────
 export function detectTradeForVO(text: string): string {
   const t = text.toLowerCase();

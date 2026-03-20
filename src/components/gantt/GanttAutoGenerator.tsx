@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { QuotationAnalysis, GanttTask, GanttParams, SiteType } from '@/types';
-import { generateGanttTasks, generateGanttFromAIParams, getPhaseChecklist, getPhaseById, CONSTRUCTION_PHASES } from '@/lib/utils/gantt-rules';
+import { generateGanttTasks, generateGanttFromAIParams, getPhaseChecklist, getPhaseById, CONSTRUCTION_PHASES, classifyItemTrade } from '@/lib/utils/gantt-rules';
 import { GanttChart } from './GanttChart';
 import { TaskDetailPanel } from './TaskDetailPanel';
 import { Sparkles, Pencil, Building2, Zap } from 'lucide-react';
@@ -77,6 +77,22 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
     // Use AI-extracted ganttParams when available (phase filtering by tradeScope)
     const ganttParams = (analysis as QuotationAnalysis & { ganttParams?: GanttParams }).ganttParams;
     if (ganttParams) {
+      // Enrich tradeScope with itemNames from quotation items (AI doesn't return these)
+      if (ganttParams.tradeScope && analysis.items?.length) {
+        const tradeItems: Record<string, string[]> = {};
+        for (const item of analysis.items) {
+          const trade = classifyItemTrade(item.section || '', item.name);
+          if (trade) {
+            if (!tradeItems[trade]) tradeItems[trade] = [];
+            if (!tradeItems[trade].includes(item.name)) tradeItems[trade].push(item.name);
+          }
+        }
+        for (const [key, data] of Object.entries(ganttParams.tradeScope)) {
+          if (data && !data.itemNames?.length && tradeItems[key]?.length) {
+            Object.assign(data, { itemNames: tradeItems[key] });
+          }
+        }
+      }
       const generatedTasks = generateGanttFromAIParams(projectId, ganttParams, new Date(startDate), 'MY', workSat, workSun, effectiveSiteType);
       setTasks(generatedTasks);
       setGenerating(false);
