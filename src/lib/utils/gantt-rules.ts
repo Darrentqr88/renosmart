@@ -548,12 +548,6 @@ function calculateDuration(phase: ConstructionPhase, sqft: number, typeMultiplie
     days = Math.max(phase.baseDays, Math.ceil(sqft * phase.scaleFactor));
   }
 
-  // Waterproofing: surface prep + 2-coat membrane application + drying
-  // Ponding test runs concurrently / after hours — not counted as separate workdays
-  if (phase.id === 'waterproofing') {
-    days = Math.max(4, Math.ceil(sqft / 150));
-  }
-
   // Apply project type multiplier
   days = Math.max(1, Math.round(days * typeMultiplier));
 
@@ -1358,46 +1352,8 @@ export function generateGanttFromQuotation(
     tradeFloorItems[key][floor].push(item);
   };
 
-  // ── Scoring-based single trade classification ──
-  // Each item is assigned to exactly ONE trade (highest keyword score wins).
-  // This prevents cross-contamination (e.g. "Lighting Power Point Including Hacking Work"
-  // matching both electrical AND demolition).
-  const TRADE_CLASSIFY_PATTERNS: Record<string, RegExp[]> = {
-    demolition:     [/\bdemol/, /\bhack(?:ing)?\b/, /\bbreak/, /strip.?out/, /chipping/, /\bremov(?:e|al)\b/],
-    masonry:        [/\bbrick/, /\bplaster(?!.*ceil)/, /\bscreed/, /\brender/, /\bnew\s*wall/, /\bbrickwork/, /\brc\s/, /reinforc/, /\bconstruct/, /\bextension/, /\braise\s*floor/, /\bmasonry/],
-    waterproofing:  [/water.?proof/, /\bmembrane/, /\bponding/],
-    aircon:         [/air.?con/, /\baircon/, /\bdaikin/, /\bmidea/, /split\s*unit/, /\bac\s/],
-    falseCeiling:   [/false\s*ceil/, /\bgypsum/, /\bpartition/, /plaster\s*ceil/, /cove\s*light/, /\bcornice/],
-    plumbing:       [/\bplumb/, /\bpipe\b/, /\bbasin\b/, /\bwc\b/, /\btoilet/, /\btap\b/, /\bdrain/, /\bshower/, /\bsanit/, /floor\s*trap/, /\bbidet/],
-    electrical:     [/\belectr/, /\bwir(?:ing|e)\b/, /\bswitch\b/, /\bsocket\b/, /\bdb\s*box/, /\bdb\b.*(?:rewir|box)/, /\bmcb\b/, /\blight\s*point/, /\bdownlight/, /\bpendant/, /\bpower\s*point/, /\bcircuit/, /\bfan\s*point/, /\bconduit/],
-    tiling:         [/\btil(?:e[sd]?|ing)\b/, /\bceram/, /\bporcel/, /\bmosaic/, /\bhomogeneous/],
-    flooring:       [/\bvinyl/, /timber\s*floor/, /\bparquet/, /laminate\s*floor/, /\bspc\b/, /\blvt\b/],
-    painting:       [/\bpaint(?:ing)?\b/, /\bprimer/, /skim.?coat/, /\bputty/, /\bemulsion/, /\bsealer/],
-    carpentry:      [/\bcabinet/, /\bcarpent/, /\bwardrobe/, /\bjoiner/, /\bshelf\b|\bshelv/, /\bvanity/, /\bcupboard/, /\bkitchen\s*top/, /\bsolid\s*plywood/],
-    aluminium:      [/\balumi?n/, /\bwindow\b/, /sliding\s*door/, /door\s*frame/, /\bgrille/, /\bcasement/],
-    glass:          [/\bglass\b/, /shower\s*screen/, /\bmirror\b/, /\btempered/, /\bfolding\s*door.*glass|glass.*folding\s*door/],
-    stonework:      [/\bmarble/, /\bgranite/, /\bquartz/, /\bstone\b/, /\bcountertop/, /table\s*top/],
-    metalwork:      [/metal\s*work/, /iron\s*work/, /\bwrought/, /stainless\s*steel\s*(gate|fence|railing|stair|pole)/, /\bmetal\s*(gate|fence|railing)/],
-    landscape:      [/\blandscap/, /\bgarden\b/, /\bturf\b/, /\bplanting/, /\bpaving\b/, /\bfenc(?:e|ing)\b/, /\bgate\b/],
-    curtain:        [/\bcurtain/, /\bblind\b/, /roller\s*blind/, /\bsheer/, /\bdrape/],
-    delivery:       [/\bappliance/, /furniture\s*deliver/, /loose\s*furniture/],
-    preliminary:    [/\bfloor\s*protect/, /\bsite\s*protect/, /\bhoarding/, /\bpreliminar/, /\bmobiliz/, /\bsite\s*prep/],
-    cleaning:       [/\bclean/, /\bdefect/, /\btouch.?up/, /\bsnag/, /\bpunch\s*list/, /\bconclus/],
-  };
-
   for (const item of dedupedItems) {
-    const text = ((item.section || '') + ' ' + item.name).toLowerCase();
-
-    // Score each trade by counting matching patterns
-    let bestTrade: string | null = null;
-    let bestScore = 0;
-    for (const [trade, patterns] of Object.entries(TRADE_CLASSIFY_PATTERNS)) {
-      const score = patterns.filter(p => p.test(text)).length;
-      if (score > bestScore) {
-        bestScore = score;
-        bestTrade = trade;
-      }
-    }
+    const bestTrade = classifyItemTrade(item.section || '', item.name);
 
     if (bestTrade) {
       addSection(bestTrade, item);
@@ -1485,6 +1441,8 @@ const TRADE_PATTERNS_SHARED: Record<string, RegExp[]> = {
   landscape:      [/\blandscap/, /\bgarden\b/, /\bturf\b/, /\bplanting/, /\bpaving\b/, /\bfenc(?:e|ing)\b/, /\bgate\b/],
   curtain:        [/\bcurtain/, /\bblind\b/, /roller\s*blind/, /\bsheer/, /\bdrape/],
   delivery:       [/\bappliance/, /furniture\s*deliver/, /loose\s*furniture/],
+  preliminary:    [/\bfloor\s*protect/, /\bsite\s*protect/, /\bhoarding/, /\bpreliminar/, /\bmobiliz/, /\bsite\s*prep/],
+  cleaning:       [/\bclean/, /\bdefect/, /\btouch.?up/, /\bsnag/, /\bpunch\s*list/, /\bconclus/],
 };
 
 export function classifyItemTrade(section: string, name: string): string | null {
