@@ -24,8 +24,21 @@ export interface ConstructionPhase {
 
 export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
   {
+    id: 'design_conf', name: 'Design Confirmation', name_zh: '设计确认',
+    trade: 'Measurement', baseDays: 3, deps: [], phaseGroup: 'design',
+    prepChecklist: [
+      { icon: '🎨', text: 'Finalize material selections', text_zh: '确定材料选择', type: 'order' },
+      { icon: '📐', text: 'Complete 3D rendering', text_zh: '完成3D效果图', type: 'check' },
+    ],
+    subItems: [
+      { name: 'Layout plan approval', name_zh: '平面布局确认' },
+      { name: 'Material & color scheme', name_zh: '材料及色彩方案' },
+      { name: 'Client sign-off', name_zh: '客户签名确认' },
+    ],
+  },
+  {
     id: 'measurement', name: 'Site Survey & Preparation', name_zh: '现场勘查 & 备料',
-    trade: 'Measurement', baseDays: 1, deps: [], phaseGroup: 'design',
+    trade: 'Measurement', baseDays: 1, deps: ['design_conf'], phaseGroup: 'design',
     prepChecklist: [
       { icon: '📐', text: 'Prepare measuring tools (laser/tape)', text_zh: '准备测量工具(激光/卷尺)', type: 'check' },
       { icon: '📋', text: 'Bring floor plan drawings', text_zh: '携带平面图', type: 'info' },
@@ -41,21 +54,8 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     ],
   },
   {
-    id: 'design_conf', name: 'Design Confirmation', name_zh: '设计确认',
-    trade: 'Measurement', baseDays: 3, deps: ['measurement'], phaseGroup: 'design',
-    prepChecklist: [
-      { icon: '🎨', text: 'Finalize material selections', text_zh: '确定材料选择', type: 'order' },
-      { icon: '📐', text: 'Complete 3D rendering', text_zh: '完成3D效果图', type: 'check' },
-    ],
-    subItems: [
-      { name: 'Layout plan approval', name_zh: '平面布局确认' },
-      { name: 'Material & color scheme', name_zh: '材料及色彩方案' },
-      { name: 'Client sign-off', name_zh: '客户签名确认' },
-    ],
-  },
-  {
     id: 'demolition', name: 'Demolition Works', name_zh: '拆除工程',
-    trade: 'Demolition', baseDays: 5, deps: ['design_conf'], phaseGroup: 'construction',
+    trade: 'Demolition', baseDays: 5, deps: ['measurement'], phaseGroup: 'construction',
     scaleBy: 'sqft', scaleFactor: 1 / 150,
     hint_MY: 'Debris disposal in MY: coordinate with DBKL/MBPP for lorry booking. Avoid hacking load-bearing walls without S.E. approval.',
     hint_SG: 'Singapore: BCA permit required for structural hacking. Engage Licensed Builder for approved works. Notify MCST if condo.',
@@ -1112,7 +1112,7 @@ export function generateGanttFromAIParams(
   // ── Auto-create phases for detectedCategories not yet covered ────────────────
   // Maps category keywords → standard tradeScope key (already handled above)
   const standardKeywords = new Set([
-    'demolition','hacking','masonry','brickwork','plastering','screed',
+    'demolition','hacking','masonry','brickwork','plastering','screed','structural','rc','construct','construction',
     'tiling','tile','ceramic','homogeneous','vinyl','timber floor','parquet','spc','flooring',
     'electrical','wiring','electrics','lighting',
     'plumbing','sanitary','piping',
