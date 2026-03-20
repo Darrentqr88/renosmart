@@ -1128,6 +1128,10 @@ export function generateGanttFromAIParams(
     'stone','marble','granite','quartz','countertop',
     'curtain','blind','drape',
     'delivery','appliance','furniture delivery',
+    'floor protection','site protection','site preparation',
+    'preliminaries','preliminary','preparation','hoarding',
+    'conclusion','defect','handover','touch up','touch-up',
+    'protective','mobilization','mobilisation',
   ]);
   const isStandardCategory = (cat: string) => {
     const lower = cat.toLowerCase();
@@ -1145,6 +1149,23 @@ export function generateGanttFromAIParams(
       const alreadyAdded = phases.some(p => p.trade.toLowerCase() === lower);
       if (alreadyAdded) continue;
 
+      // Detect if this is pre-construction or post-construction work
+      const isPreConstruction = /protect|hoarding|site\s*prep|preliminar|pre.?construct|mobiliz/i.test(lower);
+      const isPostConstruction = /conclus|defect|touch.?up|snag|punch/i.test(lower);
+
+      let autoDeps: string[];
+      let autoPhaseGroup: PhaseGroup | undefined;
+      if (isPreConstruction) {
+        autoDeps = ['design_conf'].filter(d => includedIds.has(d));
+        autoPhaseGroup = 'preparation';
+      } else if (isPostConstruction) {
+        autoDeps = ['cleaning'].filter(d => includedIds.has(d));
+        autoPhaseGroup = undefined; // stays in construction group, after cleaning
+      } else {
+        autoDeps = ['painting2'].filter(d => includedIds.has(d));
+        autoPhaseGroup = undefined;
+      }
+
       // Create a simple phase for this non-standard category
       phases.push({
         id: `auto_${cat.replace(/\s+/g, '_').toLowerCase()}`,
@@ -1152,7 +1173,8 @@ export function generateGanttFromAIParams(
         name_zh: cat,
         trade: cat,
         baseDays: 3,
-        deps: ['painting2'].filter(d => includedIds.has(d)),
+        deps: autoDeps,
+        phaseGroup: autoPhaseGroup,
         prepChecklist: [],
         subItems: [],
       });
@@ -1326,6 +1348,8 @@ export function generateGanttFromQuotation(
     landscape:      [/\blandscap/, /\bgarden\b/, /\bturf\b/, /\bplanting/, /\bpaving\b/, /\bfenc(?:e|ing)\b/, /\bgate\b/],
     curtain:        [/\bcurtain/, /\bblind\b/, /roller\s*blind/, /\bsheer/, /\bdrape/],
     delivery:       [/\bappliance/, /furniture\s*deliver/, /loose\s*furniture/],
+    preliminary:    [/\bfloor\s*protect/, /\bsite\s*protect/, /\bhoarding/, /\bpreliminar/, /\bmobiliz/, /\bsite\s*prep/],
+    cleaning:       [/\bclean/, /\bdefect/, /\btouch.?up/, /\bsnag/, /\bpunch\s*list/, /\bconclus/],
   };
 
   for (const item of dedupedItems) {
