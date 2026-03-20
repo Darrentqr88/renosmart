@@ -127,8 +127,8 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     hint_MY: '48-hour ponding test is mandatory before tiling. Do NOT proceed with tiling if any leakage detected. Use min 2 coats of membrane.',
     hint_SG: 'Waterproofing warranty min 5 years per SS 212. 48-hr ponding test required, witnessed by supervisor. Document with photos.',
     hint_zh: '防水层必须做2道，待第一道干透后再做第二道。做完防水后必须进行48小时蓄水试验，确认无渗漏才能铺砖。',
-    trade: 'Waterproofing', baseDays: 3, deps: ['plumbing1'],
-    scaleBy: 'sqft', scaleFactor: 1 / 300,
+    trade: 'Waterproofing', baseDays: 4, deps: ['plumbing1'],
+    scaleBy: 'sqft', scaleFactor: 1 / 150,
     prepChecklist: [
       { icon: '💧', text: 'Waterproofing membrane ordered', text_zh: '防水膜已订购', type: 'order' },
       { icon: '⏰', text: '48-hour ponding test required', text_zh: '需进行48小时蓄水试验', type: 'warn' },
@@ -548,6 +548,12 @@ function calculateDuration(phase: ConstructionPhase, sqft: number, typeMultiplie
     days = Math.max(phase.baseDays, Math.ceil(sqft * phase.scaleFactor));
   }
 
+  // Waterproofing: surface prep + 2-coat membrane application + drying
+  // Ponding test runs concurrently / after hours — not counted as separate workdays
+  if (phase.id === 'waterproofing') {
+    days = Math.max(4, Math.ceil(sqft / 150));
+  }
+
   // Apply project type multiplier
   days = Math.max(1, Math.round(days * typeMultiplier));
 
@@ -947,7 +953,8 @@ export function generateGanttFromAIParams(
   if (ts.demolition?.estimatedDays)   overrides['demolition']       = ts.demolition.estimatedDays;
   if (ts.masonry?.estimatedDays)      overrides['masonry']          = ts.masonry.estimatedDays;
   if (ts.tiling?.estimatedDays)       overrides['tiling']           = ts.tiling.estimatedDays;
-  if (ts.waterproofing?.estimatedDays) overrides['waterproofing']   = ts.waterproofing.estimatedDays;
+  // Waterproofing: enforce min 4 days (surface prep + 2-coat membrane + drying)
+  if (ts.waterproofing?.estimatedDays) overrides['waterproofing']   = Math.max(4, ts.waterproofing.estimatedDays);
   if (ts.falseCeiling?.estimatedDays) overrides['ceiling']          = ts.falseCeiling.estimatedDays;
   if (ts.flooring?.estimatedDays)     overrides['tiling']           = Math.max(overrides['tiling'] || 0, ts.flooring.estimatedDays);
 
@@ -1416,7 +1423,8 @@ export function generateGanttFromQuotation(
   if (tradeSections.masonry)       tradeScope.masonry       = { estimatedDays: masonryDays, ...makeName('masonry', 'Construction Works', '建筑工程') };
   if (tradeSections.electrical)    tradeScope.electrical    = { estimatedDays: sc(8), ...makeName('electrical', 'Electrical Works', '电气工程') };
   if (tradeSections.plumbing)      tradeScope.plumbing      = { estimatedDays: sc(5), ...makeName('plumbing', 'Plumbing Works', '水管工程') };
-  if (tradeSections.waterproofing) tradeScope.waterproofing = { estimatedDays: sc(3), ...makeName('waterproofing', 'Waterproofing', '防水工程') };
+  // Waterproofing: surface prep + 2-coat membrane + drying (ponding test concurrent)
+  if (tradeSections.waterproofing) tradeScope.waterproofing = { estimatedDays: Math.max(4, sc(Math.ceil(sqft / 150))), ...makeName('waterproofing', 'Waterproofing', '防水工程') };
   if (tradeSections.tiling)        tradeScope.tiling        = { sqft, estimatedDays: Math.max(5, sc(Math.ceil(sqft / 80))), ...makeName('tiling', 'Tiling Works', '铺砖工程') };
   if (tradeSections.flooring)      tradeScope.flooring      = { estimatedDays: Math.max(3, sc(Math.ceil(sqft / 70))), ...makeName('flooring', 'Flooring Works', '地板工程') };
   if (tradeSections.falseCeiling)  tradeScope.falseCeiling  = { estimatedDays: sc(5), ...makeName('falseCeiling', 'False Ceiling', '吊顶工程') };
