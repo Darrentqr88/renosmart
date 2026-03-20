@@ -357,50 +357,50 @@ INSERT INTO price_database (item_name, category, subcategory, material_method, u
 -- ═══════════════════════════════════
 -- CARPENTRY (verified: Recommend.my, ZBOM, EverKitchen)
 -- ═══════════════════════════════════
-('Kitchen cabinet laminated','Carpentry','Kitchen Cabinet','Laminated','ft run','supply_install','MY_KL',350.00,500.00,425.00,245,'high',NOW()),
-('Kitchen cabinet laminated','Carpentry','Kitchen Cabinet','Laminated','ft run','supply_install','MY_JB',308.00,440.00,374.00,185,'high',NOW()),
-('Kitchen cabinet laminated','Carpentry','Kitchen Cabinet','Laminated','ft run','supply_install','MY_PG',322.00,460.00,391.00,158,'high',NOW()),
-('Kitchen cabinet laminated','Carpentry','Kitchen Cabinet','Laminated','ft run','supply_install','SG',577.50,825.00,701.00,215,'high',NOW()),
+('Kitchen cabinet laminated','Carpentry','Kitchen Cabinet','Laminated','ft run','supply_install','MY_KL',450.00,950.00,700.00,245,'high',NOW()),
+('Kitchen cabinet laminated','Carpentry','Kitchen Cabinet','Laminated','ft run','supply_install','MY_JB',396.00,836.00,616.00,185,'high',NOW()),
+('Kitchen cabinet laminated','Carpentry','Kitchen Cabinet','Laminated','ft run','supply_install','MY_PG',414.00,874.00,644.00,158,'high',NOW()),
+('Kitchen cabinet laminated','Carpentry','Kitchen Cabinet','Laminated','ft run','supply_install','SG',700.00,1400.00,1050.00,215,'high',NOW()),
 
-('Kitchen cabinet melamine','Carpentry','Kitchen Cabinet','Melamine','ft run','supply_install','MY_KL',250.00,380.00,315.00,185,'high',NOW()),
-('Kitchen cabinet melamine','Carpentry','Kitchen Cabinet','Melamine','ft run','supply_install','MY_JB',220.00,334.40,277.20,140,'high',NOW()),
-('Kitchen cabinet melamine','Carpentry','Kitchen Cabinet','Melamine','ft run','supply_install','MY_PG',230.00,349.60,289.80,118,'high',NOW()),
-('Kitchen cabinet melamine','Carpentry','Kitchen Cabinet','Melamine','ft run','supply_install','SG',412.50,627.00,519.75,162,'high',NOW()),
+('Kitchen cabinet melamine','Carpentry','Kitchen Cabinet','Melamine','ft run','supply_install','MY_KL',450.00,950.00,700.00,185,'high',NOW()),
+('Kitchen cabinet melamine','Carpentry','Kitchen Cabinet','Melamine','ft run','supply_install','MY_JB',396.00,836.00,616.00,140,'high',NOW()),
+('Kitchen cabinet melamine','Carpentry','Kitchen Cabinet','Melamine','ft run','supply_install','MY_PG',414.00,874.00,644.00,118,'high',NOW()),
+('Kitchen cabinet melamine','Carpentry','Kitchen Cabinet','Melamine','ft run','supply_install','SG',700.00,1400.00,1050.00,162,'high',NOW()),
 
-('Kitchen cabinet aluminium','Carpentry','Kitchen Cabinet','Aluminium','ft run','supply_install','MY_KL',400.00,600.00,500.00,120,'high',NOW()),
-('Kitchen cabinet aluminium','Carpentry','Kitchen Cabinet','Aluminium','ft run','supply_install','MY_JB',352.00,528.00,440.00,92,'high',NOW()),
-('Kitchen cabinet aluminium','Carpentry','Kitchen Cabinet','Aluminium','ft run','supply_install','MY_PG',368.00,552.00,460.00,78,'high',NOW()),
-('Kitchen cabinet aluminium','Carpentry','Kitchen Cabinet','Aluminium','ft run','supply_install','SG',660.00,990.00,825.00,105,'high',NOW()),
+('Kitchen cabinet aluminium','Carpentry','Kitchen Cabinet','Aluminium','ft run','supply_install','MY_KL',400.00,900.00,650.00,120,'high',NOW()),
+('Kitchen cabinet aluminium','Carpentry','Kitchen Cabinet','Aluminium','ft run','supply_install','MY_JB',352.00,792.00,572.00,92,'high',NOW()),
+('Kitchen cabinet aluminium','Carpentry','Kitchen Cabinet','Aluminium','ft run','supply_install','MY_PG',368.00,828.00,598.00,78,'high',NOW()),
+('Kitchen cabinet aluminium','Carpentry','Kitchen Cabinet','Aluminium','ft run','supply_install','SG',600.00,1300.00,950.00,105,'high',NOW()),
 
-('Kitchen cabinet solid wood','Carpentry','Kitchen Cabinet','Solid Wood','ft run','supply_install','MY_KL',700.00,1200.00,950.00,65,'high',NOW()),
-('Kitchen cabinet solid wood','Carpentry','Kitchen Cabinet','Solid Wood','ft run','supply_install','MY_JB',616.00,1056.00,836.00,50,'high',NOW()),
-('Kitchen cabinet solid wood','Carpentry','Kitchen Cabinet','Solid Wood','ft run','supply_install','MY_PG',644.00,1104.00,874.00,42,'mid',NOW()),
-('Kitchen cabinet solid wood','Carpentry','Kitchen Cabinet','Solid Wood','ft run','supply_install','SG',1155.00,1980.00,1567.50,58,'high',NOW()),
+('Kitchen cabinet solid wood','Carpentry','Kitchen Cabinet','Solid Wood','ft run','supply_install','MY_KL',800.00,1800.00,1300.00,65,'high',NOW()),
+('Kitchen cabinet solid wood','Carpentry','Kitchen Cabinet','Solid Wood','ft run','supply_install','MY_JB',704.00,1584.00,1144.00,50,'high',NOW()),
+('Kitchen cabinet solid wood','Carpentry','Kitchen Cabinet','Solid Wood','ft run','supply_install','MY_PG',736.00,1656.00,1196.00,42,'mid',NOW()),
+('Kitchen cabinet solid wood','Carpentry','Kitchen Cabinet','Solid Wood','ft run','supply_install','SG',1200.00,2500.00,1850.00,58,'high',NOW()),
 
-('Wardrobe sliding door','Carpentry','Wardrobe','Sliding Door','ft','supply_install','MY_KL',400.00,650.00,525.00,218,'high',NOW()),
-('Wardrobe sliding door','Carpentry','Wardrobe','Sliding Door','ft','supply_install','MY_JB',352.00,572.00,462.00,165,'high',NOW()),
-('Wardrobe sliding door','Carpentry','Wardrobe','Sliding Door','ft','supply_install','MY_PG',368.00,598.00,483.00,140,'high',NOW()),
-('Wardrobe sliding door','Carpentry','Wardrobe','Sliding Door','ft','supply_install','SG',660.00,1072.50,866.25,192,'high',NOW()),
+('Wardrobe sliding door','Carpentry','Wardrobe','Sliding Door','ft','supply_install','MY_KL',800.00,1400.00,1100.00,218,'high',NOW()),
+('Wardrobe sliding door','Carpentry','Wardrobe','Sliding Door','ft','supply_install','MY_JB',704.00,1232.00,968.00,165,'high',NOW()),
+('Wardrobe sliding door','Carpentry','Wardrobe','Sliding Door','ft','supply_install','MY_PG',736.00,1288.00,1012.00,140,'high',NOW()),
+('Wardrobe sliding door','Carpentry','Wardrobe','Sliding Door','ft','supply_install','SG',1200.00,2000.00,1600.00,192,'high',NOW()),
 
-('Wardrobe swing door','Carpentry','Wardrobe','Swing Door','ft','supply_install','MY_KL',380.00,600.00,490.00,180,'high',NOW()),
-('Wardrobe swing door','Carpentry','Wardrobe','Swing Door','ft','supply_install','MY_JB',334.40,528.00,431.20,136,'high',NOW()),
-('Wardrobe swing door','Carpentry','Wardrobe','Swing Door','ft','supply_install','MY_PG',349.60,552.00,450.80,115,'high',NOW()),
-('Wardrobe swing door','Carpentry','Wardrobe','Swing Door','ft','supply_install','SG',627.00,990.00,808.50,158,'high',NOW()),
+('Wardrobe swing door','Carpentry','Wardrobe','Swing Door','ft','supply_install','MY_KL',700.00,1200.00,950.00,180,'high',NOW()),
+('Wardrobe swing door','Carpentry','Wardrobe','Swing Door','ft','supply_install','MY_JB',616.00,1056.00,836.00,136,'high',NOW()),
+('Wardrobe swing door','Carpentry','Wardrobe','Swing Door','ft','supply_install','MY_PG',644.00,1104.00,874.00,115,'high',NOW()),
+('Wardrobe swing door','Carpentry','Wardrobe','Swing Door','ft','supply_install','SG',1000.00,1800.00,1400.00,158,'high',NOW()),
 
 ('TV feature wall','Carpentry','TV Console/Feature','Wall-mounted','ft','supply_install','MY_KL',700.00,1100.00,900.00,185,'high',NOW()),
 ('TV feature wall','Carpentry','TV Console/Feature','Wall-mounted','ft','supply_install','MY_JB',616.00,968.00,792.00,140,'high',NOW()),
 ('TV feature wall','Carpentry','TV Console/Feature','Wall-mounted','ft','supply_install','MY_PG',644.00,1012.00,828.00,118,'high',NOW()),
 ('TV feature wall','Carpentry','TV Console/Feature','Wall-mounted','ft','supply_install','SG',1155.00,1815.00,1485.00,162,'high',NOW()),
 
-('Shoe cabinet','Carpentry','Shoe Cabinet','Standard','ft','supply_install','MY_KL',350.00,550.00,450.00,175,'high',NOW()),
-('Shoe cabinet','Carpentry','Shoe Cabinet','Standard','ft','supply_install','MY_JB',308.00,484.00,396.00,132,'high',NOW()),
-('Shoe cabinet','Carpentry','Shoe Cabinet','Standard','ft','supply_install','MY_PG',322.00,506.00,414.00,112,'high',NOW()),
-('Shoe cabinet','Carpentry','Shoe Cabinet','Standard','ft','supply_install','SG',577.50,907.50,742.50,155,'high',NOW()),
+('Shoe cabinet','Carpentry','Shoe Cabinet','Standard','ft','supply_install','MY_KL',250.00,550.00,400.00,175,'high',NOW()),
+('Shoe cabinet','Carpentry','Shoe Cabinet','Standard','ft','supply_install','MY_JB',220.00,484.00,352.00,132,'high',NOW()),
+('Shoe cabinet','Carpentry','Shoe Cabinet','Standard','ft','supply_install','MY_PG',230.00,506.00,368.00,112,'high',NOW()),
+('Shoe cabinet','Carpentry','Shoe Cabinet','Standard','ft','supply_install','SG',400.00,800.00,600.00,155,'high',NOW()),
 
-('Vanity cabinet','Carpentry','Vanity Cabinet','Laminated','ft','supply_install','MY_KL',380.00,600.00,490.00,168,'high',NOW()),
-('Vanity cabinet','Carpentry','Vanity Cabinet','Laminated','ft','supply_install','MY_JB',334.40,528.00,431.20,128,'high',NOW()),
-('Vanity cabinet','Carpentry','Vanity Cabinet','Laminated','ft','supply_install','MY_PG',349.60,552.00,450.80,108,'high',NOW()),
-('Vanity cabinet','Carpentry','Vanity Cabinet','Laminated','ft','supply_install','SG',627.00,990.00,808.50,148,'high',NOW()),
+('Vanity cabinet','Carpentry','Vanity Cabinet','Laminated','ft','supply_install','MY_KL',350.00,700.00,525.00,168,'high',NOW()),
+('Vanity cabinet','Carpentry','Vanity Cabinet','Laminated','ft','supply_install','MY_JB',308.00,616.00,462.00,128,'high',NOW()),
+('Vanity cabinet','Carpentry','Vanity Cabinet','Laminated','ft','supply_install','MY_PG',322.00,644.00,483.00,108,'high',NOW()),
+('Vanity cabinet','Carpentry','Vanity Cabinet','Laminated','ft','supply_install','SG',500.00,1000.00,750.00,148,'high',NOW()),
 
 ('Study desk & bookshelf','Carpentry','Study/Bookshelf','Standard','ft','supply_install','MY_KL',450.00,750.00,600.00,152,'high',NOW()),
 ('Study desk & bookshelf','Carpentry','Study/Bookshelf','Standard','ft','supply_install','MY_JB',396.00,660.00,528.00,115,'high',NOW()),
@@ -415,10 +415,10 @@ INSERT INTO price_database (item_name, category, subcategory, material_method, u
 -- ═══════════════════════════════════
 -- WATERPROOFING
 -- ═══════════════════════════════════
-('Bathroom waterproofing','Waterproofing','Bathroom Floor','Cementitious','sqft','supply_install','MY_KL',6.00,10.00,8.00,195,'high',NOW()),
-('Bathroom waterproofing','Waterproofing','Bathroom Floor','Cementitious','sqft','supply_install','MY_JB',5.28,8.80,7.04,148,'high',NOW()),
-('Bathroom waterproofing','Waterproofing','Bathroom Floor','Cementitious','sqft','supply_install','MY_PG',5.52,9.20,7.36,125,'high',NOW()),
-('Bathroom waterproofing','Waterproofing','Bathroom Floor','Cementitious','sqft','supply_install','SG',9.90,16.50,13.20,172,'high',NOW()),
+('Bathroom waterproofing','Waterproofing','Bathroom Floor','Cementitious','sqft','supply_install','MY_KL',8.00,18.00,13.00,195,'high',NOW()),
+('Bathroom waterproofing','Waterproofing','Bathroom Floor','Cementitious','sqft','supply_install','MY_JB',7.04,15.84,11.44,148,'high',NOW()),
+('Bathroom waterproofing','Waterproofing','Bathroom Floor','Cementitious','sqft','supply_install','MY_PG',7.36,16.56,11.96,125,'high',NOW()),
+('Bathroom waterproofing','Waterproofing','Bathroom Floor','Cementitious','sqft','supply_install','SG',12.00,25.00,18.50,172,'high',NOW()),
 
 ('Flat roof waterproofing','Waterproofing','Flat Roof','Torch-on Membrane','sqft','supply_install','MY_KL',9.00,14.00,11.50,145,'high',NOW()),
 ('Flat roof waterproofing','Waterproofing','Flat Roof','Torch-on Membrane','sqft','supply_install','MY_JB',7.92,12.32,10.12,110,'high',NOW()),
@@ -761,15 +761,15 @@ INSERT INTO price_database (item_name, category, subcategory, material_method, u
 -- ═══════════════════════════════════
 -- ADDITIONAL — CARPENTRY
 -- ═══════════════════════════════════
-('Wardrobe walk-in','Carpentry','Wardrobe','Walk-in','ft','supply_install','MY_KL',500.00,850.00,675.00,85,'high',NOW()),
-('Wardrobe walk-in','Carpentry','Wardrobe','Walk-in','ft','supply_install','MY_JB',440.00,748.00,594.00,65,'high',NOW()),
-('Wardrobe walk-in','Carpentry','Wardrobe','Walk-in','ft','supply_install','MY_PG',460.00,782.00,621.00,55,'high',NOW()),
-('Wardrobe walk-in','Carpentry','Wardrobe','Walk-in','ft','supply_install','SG',825.00,1402.50,1113.75,75,'high',NOW()),
+('Wardrobe walk-in','Carpentry','Wardrobe','Walk-in','ft','supply_install','MY_KL',900.00,1600.00,1250.00,85,'high',NOW()),
+('Wardrobe walk-in','Carpentry','Wardrobe','Walk-in','ft','supply_install','MY_JB',792.00,1408.00,1100.00,65,'high',NOW()),
+('Wardrobe walk-in','Carpentry','Wardrobe','Walk-in','ft','supply_install','MY_PG',828.00,1472.00,1150.00,55,'high',NOW()),
+('Wardrobe walk-in','Carpentry','Wardrobe','Walk-in','ft','supply_install','SG',1300.00,2300.00,1800.00,75,'high',NOW()),
 
-('Wardrobe glass door','Carpentry','Wardrobe','Glass Door','ft','supply_install','MY_KL',550.00,900.00,725.00,55,'high',NOW()),
-('Wardrobe glass door','Carpentry','Wardrobe','Glass Door','ft','supply_install','MY_JB',484.00,792.00,638.00,42,'mid',NOW()),
-('Wardrobe glass door','Carpentry','Wardrobe','Glass Door','ft','supply_install','MY_PG',506.00,828.00,667.00,35,'mid',NOW()),
-('Wardrobe glass door','Carpentry','Wardrobe','Glass Door','ft','supply_install','SG',907.50,1485.00,1196.25,48,'mid',NOW()),
+('Wardrobe glass door','Carpentry','Wardrobe','Glass Door','ft','supply_install','MY_KL',1000.00,1800.00,1400.00,55,'high',NOW()),
+('Wardrobe glass door','Carpentry','Wardrobe','Glass Door','ft','supply_install','MY_JB',880.00,1584.00,1232.00,42,'mid',NOW()),
+('Wardrobe glass door','Carpentry','Wardrobe','Glass Door','ft','supply_install','MY_PG',920.00,1656.00,1288.00,35,'mid',NOW()),
+('Wardrobe glass door','Carpentry','Wardrobe','Glass Door','ft','supply_install','SG',1500.00,2700.00,2100.00,48,'mid',NOW()),
 
 ('TV console floor-standing','Carpentry','TV Console/Feature','Floor-standing','ft','supply_install','MY_KL',500.00,800.00,650.00,115,'high',NOW()),
 ('TV console floor-standing','Carpentry','TV Console/Feature','Floor-standing','ft','supply_install','MY_JB',440.00,704.00,572.00,88,'high',NOW()),
