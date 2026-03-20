@@ -122,11 +122,15 @@ IMPORTANT: These are DESIGNER-TO-HOMEOWNER prices (retail quotation prices), NOT
 - Landscape soil re-leveling + carpet grass: RM 8-18/sqft | SG $12-25/sqft
 `;
 
-export function buildQuotationPrompt(textForAI: string, outputLang: string): string {
+export function buildQuotationPrompt(textForAI: string, outputLang: string, dbPriceRef?: string): string {
+  const priceSection = dbPriceRef
+    ? `\nDesigner-to-homeowner quotation price reference (from our database):\n${dbPriceRef}\n`
+    : '';
+
   return `You are a senior Quantity Surveyor (QS) AI for Malaysia and Singapore renovation projects.
 Audit the quotation below — parse ALL items AND catch problems. Return ONLY valid JSON. No markdown.
 Output language: ${outputLang}
-
+${priceSection}
 Quotation:
 \`\`\`
 ${textForAI}
@@ -216,4 +220,70 @@ ${itemList}
   "warnings": ["1-3条风险提醒或注意事项"],
   "quotationNotes": "一句话总结该工种报价内容（含金额）"
 }`;
+}
+
+/**
+ * Fetches price_database for a region and formats as compact text for the AI prompt.
+ * Only fetches the base region (e.g. MY_KL) to save tokens.
+ * Returns a compact string like:
+ *   [Tiling] Floor Tiles 600x600 S&I: RM 18-28/sqft (245 samples)
+ */
+export async function fetchDbPriceReference(
+  supabaseClient: unknown,
+  region: string,
+): Promise<string> {
+  try {
+    const sb = supabaseClient as { from: (t: string) => { select: (c: string) => { eq: (c: string, v: string) => { order: (c: string) => PromiseLike<{ data: DbPriceRow[] | null }> } } } };
+    const { data } = await sb
+      .from('price_database')
+      .select('item_name, category, subcategory, material_method, unit, supply_type, min_price, max_price, sample_count, confidence')
+      .eq('region', region)
+      .order('category');
+
+    if (!data || data.length === 0) return PRICE_REFERENCE;
+
+    // Group by category for compact output
+    const groups = new Map<string, string[]>();
+    for (const row of data) {
+      const r = row as DbPriceRow;
+      if (r.sample_count < 10) continue; // skip low-confidence entries
+      const cat = r.category;
+      if (!groups.has(cat)) groups.set(cat, []);
+      const supplyLabel = r.supply_type === 'labour_only' ? ' [Labour]' : '';
+      const currency = region === 'SG' ? '$' : 'RM';
+      const min = Number(r.min_price);
+      const max = Number(r.max_price);
+      const minStr = min >= 1000 ? `${(min / 1000).toFixed(1)}k` : min % 1 === 0 ? min.toString() : min.toFixed(1);
+      const maxStr = max >= 1000 ? `${(max / 1000).toFixed(1)}k` : max % 1 === 0 ? max.toString() : max.toFixed(1);
+      groups.get(cat)!.push(
+        `${r.item_name}${supplyLabel}: ${currency}${minStr}-${maxStr}/${r.unit}`
+      );
+    }
+
+    const lines: string[] = [];
+    for (const [cat, items] of groups) {
+      lines.push(`[${cat}]`);
+      for (const item of items) {
+        lines.push(`- ${item}`);
+      }
+    }
+
+    return lines.join('\n');
+  } catch {
+    // If DB fetch fails, fall back to hardcoded PRICE_REFERENCE
+    return PRICE_REFERENCE;
+  }
+}
+
+interface DbPriceRow {
+  item_name: string;
+  category: string;
+  subcategory: string;
+  material_method: string;
+  unit: string;
+  supply_type: string;
+  min_price: number;
+  max_price: number;
+  sample_count: number;
+  confidence: string;
 }

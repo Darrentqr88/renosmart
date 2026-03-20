@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useI18n } from '@/lib/i18n/context';
 import { extractTextFromFile } from '@/lib/pdf/extractor';
-import { buildQuotationPrompt, buildGanttParamsPrompt } from '@/lib/ai/quotation-prompt';
+import { buildQuotationPrompt, buildGanttParamsPrompt, fetchDbPriceReference } from '@/lib/ai/quotation-prompt';
 import { generateGanttFromAIParams, generateGanttFromQuotation } from '@/lib/utils/gantt-rules';
 import { QuotationAnalysis, QuotationItem, AIItemStatus, SupplyType, GanttParams, ScoreBreakdown, DimensionBreakdown } from '@/types';
 import { formatCurrency } from '@/lib/utils';
@@ -100,7 +100,7 @@ function SupplyBadge({ type }: { type?: SupplyType }) {
 
 /* ─── Main Page ─────────────────────────────────────────────────────────── */
 export default function QuotationPage() {
-  const { lang } = useI18n();
+  const { lang, region } = useI18n();
   const router = useRouter();
   const supabase = createClient();
 
@@ -199,7 +199,9 @@ export default function QuotationPage() {
 
       const { data: { session } } = await supabase.auth.getSession();
       const outputLang = lang === 'ZH' ? 'Chinese (Simplified)' : lang === 'BM' ? 'Bahasa Malaysia' : 'English';
-      const prompt = buildQuotationPrompt(text, outputLang);
+      // Fetch live price reference from DB (falls back to hardcoded PRICE_REFERENCE if DB empty)
+      const dbPriceRef = await fetchDbPriceReference(supabase, region === 'SG' ? 'SG' : 'MY_KL');
+      const prompt = buildQuotationPrompt(text, outputLang, dbPriceRef);
       const authHeaders: Record<string, string> = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
 
       // ── Streaming AI call for items + score (no ganttParams) ──
@@ -352,7 +354,7 @@ export default function QuotationPage() {
         fetch('/api/price-db', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeaders },
-          body: JSON.stringify({ items: parsed.items, region: 'MY_KL' }),
+          body: JSON.stringify({ items: parsed.items, region: region === 'SG' ? 'SG' : 'MY_KL' }),
         }).catch(() => {});
       }
     } catch (error: unknown) {
