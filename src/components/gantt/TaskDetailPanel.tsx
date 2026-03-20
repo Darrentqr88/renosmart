@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { GanttTask, QuotationItem, TradeHint } from '@/types';
-import { getPhaseChecklist, getPhaseById } from '@/lib/utils/gantt-rules';
+import { getPhaseChecklist, getPhaseById, classifyItemTrade } from '@/lib/utils/gantt-rules';
 import { buildTradeHintPrompt } from '@/lib/ai/quotation-prompt';
 import { useI18n } from '@/lib/i18n/context';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -40,33 +40,14 @@ export function TaskDetailPanel({
   const relatedItems = task.source_items?.length
     ? quotationItems.filter(item => task.source_items!.includes(item.name))
     : quotationItems.filter(item => {
-        // Fallback regex for legacy tasks without source_items
-        const name = item.name.toLowerCase();
+        const classified = classifyItemTrade(item.section || '', item.name);
+        if (!classified) return false;
         const trade = task.trade.toLowerCase();
-        if (trade === 'tiling') return /til(?:e|ing)|ceramic|porcelain|mosaic|homogeneous/.test(name);
-        if (trade === 'electrical') return /electr|wir(?:ing|e)|switch|socket|\bdb\b|\bmcb\b|light\s*point|downlight|pendant|power\s*point|led\s*strip|fan\s*point|bell\s*point/.test(name);
-        if (trade === 'plumbing') return /plumb|pipe|basin|\bwc\b|toilet|shower|sanit|tap|floor\s*trap|\bbidet\b|water\s*heater|mixer|rain\s*shower/.test(name);
-        if (trade === 'painting') return /paint|primer|skim.?coat|putty|emulsion|sealer|varnish|lacquer|touch.?up/.test(name);
-        if (trade === 'carpentry') return /cabinet|carpent|wardrobe|joiner|shelf|vanity|shoe\s*rack|tv\s*console|island|laminate\s*panel|display\s*cabinet/.test(name);
-        if (trade === 'demolition') return /demol|hack|break|strip.?out|chipping|\bremov(?:e|al)\b|\bdismantle/.test(name);
-        if (trade === 'waterproofing') return /waterproof|membrane|\bponding/.test(name);
-        if (trade === 'false ceiling') return /false\s*ceil|gypsum|partition|plaster\s*ceil|cove\s*light|cornice|\bdrywall/.test(name);
-        if (trade === 'cleaning') return /clean|polish|disposal/.test(name);
-        if (trade === 'flooring') return /vinyl|timber\s*floor|parquet|laminate\s*floor|spc|lvt|epoxy\s*floor/.test(name);
-        if (trade === 'aluminium') return /alumin|sliding\s*door|casement|louvre|grille/.test(name);
-        if (trade === 'doors & windows' || trade === 'door') return /\bdoor\b|\bwindow\b|alumin|timber\s*door|bifold|sliding\s*door|casement|grille|louvre|fix(?:ed)?\s*glass\s*(?:with\s*)?alumin/.test(name);
-        if (trade === 'air conditioning' || trade === 'aircon') return /air.?con|daikin|midea|split\s*unit|\bfcku?\b|cassette/.test(name);
-        if (trade === 'glass' || trade === 'glass work') return /(?!.*alumin)(?:glass|shower\s*screen|mirror|tempered|\bbacksplash\s*glass)/.test(name);
-        if (trade === 'landscape' || trade === 'landscaping') return /landscape|garden|turf|planting|paving|fence|fencing|gate|pergola|deck(?:ing)?/.test(name);
-        if (trade === 'metal work' || trade === 'metalwork') return /metal|iron|wrought|stainless\s*steel|railing|balustrade|awning/.test(name);
-        if (trade === 'stonework' || trade === 'stone') return /marble|granite|quartz|stone|countertop|table\s*top|solid\s*surface/.test(name);
-        if (trade === 'curtain') return /curtain|blind|drape|roller\s*blind|day.?night/.test(name);
-        if (trade === 'construction' || trade === 'masonry') return /\bbrick|\bplaster(?!.*ceil)|\bscreed|\brender|\bnew\s*wall|\bmasonry|\bskim\s*coat|\bcement/.test(name);
-        if (trade === 'measurement' || trade === 'general') return /measure|survey|prelim|permit|protection|site\s*prep/.test(name);
-        if (trade === 'delivery') return /deliver|appliance|furniture|install.*(?:oven|hob|hood|fridge|washer|dryer)/.test(name);
-        if (trade === 'handover') return /handover|hand.?over|defect|snag|final\s*inspect|touch.?up/.test(name);
-        if (trade === 'alarm & cctv' || trade === 'security') return /alarm|cctv|security|autogate|intercom|access\s*control/.test(name);
-        return false;
+        return classified === trade
+          || (trade === 'construction' && classified === 'masonry')
+          || (trade === 'masonry' && classified === 'construction')
+          || (trade === 'false ceiling' && classified === 'ceiling')
+          || (trade === 'ceiling' && classified === 'false ceiling');
       });
 
   // Generate AI hints on mount when quotation items are available

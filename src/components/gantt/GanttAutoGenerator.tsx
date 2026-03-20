@@ -6,7 +6,8 @@ import { generateGanttTasks, generateGanttFromAIParams, getPhaseChecklist, getPh
 import { GanttChart } from './GanttChart';
 import { TaskDetailPanel } from './TaskDetailPanel';
 import { Sparkles, Pencil, Building2, Zap } from 'lucide-react';
-import { format, differenceInDays, parseISO, addDays } from 'date-fns';
+import { format, parseISO, addDays } from 'date-fns';
+import { exportGanttToExcel } from '@/lib/utils/excel-export';
 import { MY_HOLIDAYS, SG_HOLIDAYS } from '@/lib/utils/dates';
 import { useI18n } from '@/lib/i18n/context';
 
@@ -174,73 +175,7 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
 
   // ── Export Gantt schedule to Excel ──
   const handleExportExcel = useCallback(async () => {
-    if (tasks.length === 0) return;
-    const XLSX = await import('xlsx');
-
-    // Build rows with professional columns
-    const rows = tasks.map((t, i) => ({
-      'No': i + 1,
-      'Phase': t.phase_group === 'design' ? 'Design' : t.phase_group === 'preparation' ? 'Preparation' : 'Construction',
-      'Task': lang === 'ZH' && t.name_zh ? t.name_zh : t.name,
-      'Trade': t.trade,
-      'Start Date': t.start_date,
-      'End Date': t.end_date,
-      'Duration (days)': t.duration,
-      'Status': t.taskStatus === 'completed' ? 'Completed' : t.taskStatus === 'confirmed' ? 'Confirmed' : 'Pending',
-      'Critical Path': t.is_critical ? 'Yes' : '',
-      'Dependencies': t.dependencies?.join(', ') || '',
-      'Assigned Workers': (t.assigned_workers || []).join(', '),
-      'Progress (%)': t.progress || 0,
-    }));
-
-    // Create worksheet
-    const ws = XLSX.utils.json_to_sheet(rows);
-
-    // Set column widths
-    ws['!cols'] = [
-      { wch: 4 },   // No
-      { wch: 14 },  // Phase
-      { wch: 36 },  // Task
-      { wch: 16 },  // Trade
-      { wch: 12 },  // Start
-      { wch: 12 },  // End
-      { wch: 14 },  // Duration
-      { wch: 12 },  // Status
-      { wch: 13 },  // Critical
-      { wch: 24 },  // Dependencies
-      { wch: 20 },  // Workers
-      { wch: 12 },  // Progress
-    ];
-
-    // Summary sheet
-    const projectEnd = tasks.length > 0 ? tasks[tasks.length - 1].end_date : '';
-    const calDays = tasks.length > 0
-      ? differenceInDays(parseISO(projectEnd), parseISO(tasks[0].start_date)) + 1
-      : 0;
-    const summaryRows = [
-      { 'Item': 'Project Start', 'Value': startDate },
-      { 'Item': 'Project End', 'Value': projectEnd },
-      { 'Item': 'Calendar Days', 'Value': calDays },
-      { 'Item': 'Calendar Weeks', 'Value': Math.ceil(calDays / 7) },
-      { 'Item': 'Total Tasks', 'Value': tasks.length },
-      { 'Item': 'Critical Tasks', 'Value': tasks.filter(t => t.is_critical).length },
-      { 'Item': 'Site Type', 'Value': siteType },
-      { 'Item': 'Work Saturday', 'Value': workSat ? 'Yes' : 'No' },
-      { 'Item': 'Work Sunday', 'Value': workSun ? 'Yes' : 'No' },
-      { 'Item': 'Generated', 'Value': format(new Date(), 'yyyy-MM-dd HH:mm') },
-    ];
-    const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
-    wsSummary['!cols'] = [{ wch: 18 }, { wch: 30 }];
-
-    // Create workbook with two sheets
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Gantt Schedule');
-    XLSX.utils.book_append_sheet(wb, wsSummary, 'Project Summary');
-
-    // Generate filename
-    const dateStr = format(new Date(), 'yyyyMMdd');
-    const fileName = `RenoSmart_Gantt_${dateStr}.xlsx`;
-    XLSX.writeFile(wb, fileName);
+    await exportGanttToExcel({ tasks, lang, startDate, siteType, workSat, workSun });
   }, [tasks, lang, startDate, siteType, workSat, workSun]);
 
   // AI schedule optimization: sends current schedule + quotation items to Haiku for professional review
