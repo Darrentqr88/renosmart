@@ -77,8 +77,10 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
     // Use AI-extracted ganttParams when available (phase filtering by tradeScope)
     const ganttParams = (analysis as QuotationAnalysis & { ganttParams?: GanttParams }).ganttParams;
     if (ganttParams) {
-      // Enrich tradeScope with itemNames from quotation items (AI doesn't return these)
-      if (ganttParams.tradeScope && analysis.items?.length) {
+      // Enrich tradeScope with itemNames from quotation items (AI doesn't return these).
+      // Clone to avoid mutating the analysis object in React state.
+      const enrichedScope = { ...ganttParams.tradeScope };
+      if (analysis.items?.length) {
         const tradeItems: Record<string, string[]> = {};
         for (const item of analysis.items) {
           const trade = classifyItemTrade(item.section || '', item.name);
@@ -87,21 +89,21 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
             if (!tradeItems[trade].includes(item.name)) tradeItems[trade].push(item.name);
           }
         }
-        // Update existing tradeScope entries with itemNames
-        for (const [key, data] of Object.entries(ganttParams.tradeScope)) {
+        for (const [key, data] of Object.entries(enrichedScope)) {
           if (data && !data.itemNames?.length && tradeItems[key]?.length) {
-            Object.assign(data, { itemNames: tradeItems[key] });
+            enrichedScope[key as keyof typeof enrichedScope] = { ...data, itemNames: tradeItems[key] };
           }
         }
-        // Also add itemNames for trades found in quotation but missing from AI tradeScope
+        // Add itemNames-only entries for trades found in quotation but missing from AI tradeScope
         // (e.g. masonry phase included via hasDemolition but not in tradeScope)
         for (const [trade, items] of Object.entries(tradeItems)) {
-          if (items.length && !(trade in ganttParams.tradeScope)) {
-            Object.assign(ganttParams.tradeScope, { [trade]: { estimatedDays: 5, itemNames: items } });
+          if (items.length && !(trade in enrichedScope)) {
+            Object.assign(enrichedScope, { [trade]: { itemNames: items } });
           }
         }
       }
-      const generatedTasks = generateGanttFromAIParams(projectId, ganttParams, new Date(startDate), 'MY', workSat, workSun, effectiveSiteType);
+      const enrichedParams = { ...ganttParams, tradeScope: enrichedScope };
+      const generatedTasks = generateGanttFromAIParams(projectId, enrichedParams, new Date(startDate), 'MY', workSat, workSun, effectiveSiteType);
       setTasks(generatedTasks);
       setGenerating(false);
       return;
@@ -422,10 +424,7 @@ Only include tasks where you changed the duration. Skip unchanged tasks.`;
             <input
               type="date"
               value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                setTimeout(() => generateTasks(), 0);
-              }}
+              onChange={(e) => setStartDate(e.target.value)}
               className="text-xs border border-rs-border rounded-lg px-2.5 py-1.5 text-rs-text bg-white focus:outline-none focus:border-[#4F8EF7] transition-colors font-sans"
             />
           </div>

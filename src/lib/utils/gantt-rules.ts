@@ -1450,7 +1450,8 @@ export function classifyItemTrade(section: string, name: string): string | null 
   let bestTrade: string | null = null;
   let bestScore = 0;
   for (const [trade, patterns] of Object.entries(TRADE_PATTERNS_SHARED)) {
-    const score = patterns.filter(p => p.test(text)).length;
+    let score = 0;
+    for (const p of patterns) { if (p.test(text)) score++; }
     if (score > bestScore) {
       bestScore = score;
       bestTrade = trade;
@@ -1460,20 +1461,19 @@ export function classifyItemTrade(section: string, name: string): string | null 
 }
 
 // ─── Detect construction trade from free text ──────────────────────────────
+// Trade key → display name mapping for VO tasks
+const TRADE_DISPLAY_NAMES: Record<string, string> = {
+  demolition: 'Demolition', masonry: 'Construction', electrical: 'Electrical',
+  plumbing: 'Plumbing', tiling: 'Tiling', flooring: 'Tiling',
+  painting: 'Painting', carpentry: 'Carpentry', falseCeiling: 'False Ceiling',
+  waterproofing: 'Waterproofing', aluminium: 'Aluminium', glass: 'Glass',
+  aircon: 'AC', stonework: 'Stone', metalwork: 'Metal Work',
+  landscape: 'Landscape', curtain: 'Curtain', delivery: 'Delivery',
+};
+
 export function detectTradeForVO(text: string): string {
-  const t = text.toLowerCase();
-  if (/electr|wir|switch|socket|db|mcb|light|pendant|downlight/.test(t)) return 'Electrical';
-  if (/plumb|pipe|basin|wc|toilet|tap|drain|shower/.test(t)) return 'Plumbing';
-  if (/til|ceram|porcel|mosaic|floor tile/.test(t)) return 'Tiling';
-  if (/carp|cabinet|wardrobe|kitchen|joiner|shelf/.test(t)) return 'Carpentry';
-  if (/paint|coat|primer|skim|putty/.test(t)) return 'Painting';
-  if (/ceil|gypsum|partition|false/.test(t)) return 'False Ceiling';
-  if (/water.?proof|membrane/.test(t)) return 'Waterproofing';
-  if (/demol|hack|break|removal/.test(t)) return 'Demolition';
-  if (/floor|timber|vinyl|laminate|parquet/.test(t)) return 'Tiling';
-  if (/glass|shower scr|mirror/.test(t)) return 'Glass';
-  if (/ac|air.?con|daikin|midea/.test(t)) return 'AC';
-  return 'Construction';
+  const key = classifyItemTrade('', text);
+  return (key && TRADE_DISPLAY_NAMES[key]) || 'Construction';
 }
 
 /**
