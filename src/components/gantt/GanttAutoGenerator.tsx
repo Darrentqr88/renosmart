@@ -87,9 +87,17 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
             if (!tradeItems[trade].includes(item.name)) tradeItems[trade].push(item.name);
           }
         }
+        // Update existing tradeScope entries with itemNames
         for (const [key, data] of Object.entries(ganttParams.tradeScope)) {
           if (data && !data.itemNames?.length && tradeItems[key]?.length) {
             Object.assign(data, { itemNames: tradeItems[key] });
+          }
+        }
+        // Also add itemNames for trades found in quotation but missing from AI tradeScope
+        // (e.g. masonry phase included via hasDemolition but not in tradeScope)
+        for (const [trade, items] of Object.entries(tradeItems)) {
+          if (items.length && !(trade in ganttParams.tradeScope)) {
+            Object.assign(ganttParams.tradeScope, { [trade]: { estimatedDays: 5, itemNames: items } });
           }
         }
       }
