@@ -71,9 +71,105 @@ export const SG_HOLIDAY_NAMES: Map<string, string> = new Map([
   ['2026-12-25', 'Christmas Day'],
 ]);
 
-// Derived Sets (for fast O(1) lookup)
+// Derived Sets (for fast O(1) lookup) — includes hardcoded + API-fetched holidays
 export const MY_HOLIDAYS = new Set(MY_HOLIDAY_NAMES.keys());
 export const SG_HOLIDAYS = new Set(SG_HOLIDAY_NAMES.keys());
+
+// ─── Dynamic holiday API (Nager.Date) ────────────────────────────────────────
+// Fetches holidays for years beyond hardcoded data (2027+).
+// Cached in localStorage, refreshed monthly. Non-blocking — falls back to hardcoded.
+const HOLIDAY_CACHE_KEY = 'rs_holidays_cache';
+const HOLIDAY_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+interface HolidayCacheEntry {
+  dates: Record<string, string>; // dateStr → name
+  fetchedAt: number;
+}
+
+interface HolidayCache {
+  MY: Record<number, HolidayCacheEntry>;
+  SG: Record<number, HolidayCacheEntry>;
+}
+
+function loadHolidayCache(): HolidayCache {
+  if (typeof window === 'undefined') return { MY: {}, SG: {} };
+  try {
+    const raw = localStorage.getItem(HOLIDAY_CACHE_KEY);
+    return raw ? JSON.parse(raw) : { MY: {}, SG: {} };
+  } catch { return { MY: {}, SG: {} }; }
+}
+
+function saveHolidayCache(cache: HolidayCache) {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(HOLIDAY_CACHE_KEY, JSON.stringify(cache)); } catch { /* quota */ }
+}
+
+// Country codes for Nager.Date API
+const NAGER_COUNTRY: Record<string, string> = { MY: 'MY', SG: 'SG' };
+
+async function fetchHolidaysForYear(region: 'MY' | 'SG', year: number): Promise<Record<string, string>> {
+  const cc = NAGER_COUNTRY[region];
+  const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/${cc}`);
+  if (!res.ok) return {};
+  const data: { date: string; localName: string; name: string }[] = await res.json();
+  const result: Record<string, string> = {};
+  for (const h of data) {
+    result[h.date] = h.localName || h.name;
+  }
+  return result;
+}
+
+/**
+ * Ensures holidays are cached for the given year and region.
+ * Non-blocking: initiates fetch in background, returns immediately.
+ * Call this early (e.g., on page mount) so data is ready when Gantt calculates.
+ */
+export function ensureHolidaysLoaded(region: 'MY' | 'SG', year: number): void {
+  // Already in hardcoded data (2025-2026)
+  if (year <= 2026) return;
+
+  const cache = loadHolidayCache();
+  const regionCache = cache[region];
+  const entry = regionCache[year];
+
+  // Fresh enough — already loaded
+  if (entry && (Date.now() - entry.fetchedAt) < HOLIDAY_CACHE_TTL) {
+    // Merge into runtime sets
+    const targetSet = region === 'MY' ? MY_HOLIDAYS : SG_HOLIDAYS;
+    const targetMap = region === 'MY' ? MY_HOLIDAY_NAMES : SG_HOLIDAY_NAMES;
+    for (const [date, name] of Object.entries(entry.dates)) {
+      targetSet.add(date);
+      targetMap.set(date, name);
+    }
+    return;
+  }
+
+  // Fetch in background (non-blocking)
+  fetchHolidaysForYear(region, year).then(dates => {
+    const targetSet = region === 'MY' ? MY_HOLIDAYS : SG_HOLIDAYS;
+    const targetMap = region === 'MY' ? MY_HOLIDAY_NAMES : SG_HOLIDAY_NAMES;
+    for (const [date, name] of Object.entries(dates)) {
+      targetSet.add(date);
+      targetMap.set(date, name);
+    }
+    // Save to cache
+    const freshCache = loadHolidayCache();
+    if (!freshCache[region]) freshCache[region] = {};
+    freshCache[region][year] = { dates, fetchedAt: Date.now() };
+    saveHolidayCache(freshCache);
+  }).catch(() => { /* Silently fall back to hardcoded data */ });
+}
+
+/**
+ * Pre-load holidays for a date range (useful when Gantt spans into future years).
+ */
+export function preloadHolidays(startDate: Date, endDate: Date, region: 'MY' | 'SG'): void {
+  const startYear = startDate.getFullYear();
+  const endYear = endDate.getFullYear();
+  for (let y = startYear; y <= endYear; y++) {
+    ensureHolidaysLoaded(region, y);
+  }
+}
 
 /** Returns the holiday name if the date is a public holiday, else null */
 export function getHolidayName(dateStr: string, region: 'MY' | 'SG' = 'MY'): string | null {

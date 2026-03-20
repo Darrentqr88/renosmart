@@ -752,6 +752,10 @@ export function GanttChart({
                 {lang === 'ZH' ? '仅调整顺序' : 'Order Only'}
               </button>
             </div>
+            <div style={{ marginTop: 12, fontSize: 11, color: '#9CA3AF', lineHeight: 1.6 }}>
+              <div><strong style={{ color: '#4F8EF7' }}>{lang === 'ZH' ? '重新计算' : 'Recalculate'}</strong>{lang === 'ZH' ? '：按新顺序重排所有日期，后续任务自动顺延' : ': Reschedule all dates based on new order, subsequent tasks shift accordingly'}</div>
+              <div><strong style={{ color: '#6B7280' }}>{lang === 'ZH' ? '仅调整顺序' : 'Order Only'}</strong>{lang === 'ZH' ? '：只移动行的显示位置，日期不变' : ': Only move the row position visually, dates stay unchanged'}</div>
+            </div>
           </div>
         </div>
       )}

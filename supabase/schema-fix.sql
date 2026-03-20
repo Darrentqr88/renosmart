@@ -98,6 +98,10 @@ ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_type TEXT DEFAULT 'residen
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS sqft INTEGER;
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS client_phone TEXT;
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS client_email TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS gantt_start_date DATE;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS gantt_deadline DATE;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS work_on_saturday BOOLEAN DEFAULT false;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS work_on_sunday BOOLEAN DEFAULT false;
 
 -- =====================
 -- PROJECT QUOTATIONS

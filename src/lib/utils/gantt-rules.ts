@@ -533,8 +533,16 @@ const PROJECT_TYPE_MULTIPLIERS: Record<ProjectType, number> = {
   mall: 2.0,
 };
 
-function calculateDuration(phase: ConstructionPhase, sqft: number, typeMultiplier: number): number {
+function calculateDuration(phase: ConstructionPhase, sqft: number, typeMultiplier: number, hasExtension = false): number {
   let days = phase.baseDays;
+
+  // Masonry with extension/build work: min 20 days (14-day curing + plastering + drying)
+  // Larger scope adds only marginal time since curing period is fixed
+  if (phase.id === 'masonry' && hasExtension) {
+    days = Math.max(20, 20 + Math.ceil(Math.max(0, sqft - 300) / 200));
+    days = Math.max(1, Math.round(days * typeMultiplier));
+    return days;
+  }
 
   if (phase.scaleBy === 'sqft' && phase.scaleFactor && sqft > 0) {
     days = Math.max(phase.baseDays, Math.ceil(sqft * phase.scaleFactor));
@@ -550,6 +558,14 @@ function calculateDuration(phase: ConstructionPhase, sqft: number, typeMultiplie
 
   return days;
 }
+
+// Detect extension/build work from quotation item names
+const EXTENSION_PATTERNS = [
+  /\bextension\b/i, /\bbuild\b/i, /\bnew\s*structure/i, /\b扩建/,
+  /\bnew\s*build/i, /\bstructural\s*work/i, /\brc\s*column/i,
+  /\brc\s*beam/i, /\bfoundation/i, /\bfooting/i, /\bpiling/i,
+  /\breinforced\s*concrete/i, /\bnew\s*room/i, /\badd(?:ition|ing)\s*room/i,
+];
 
 // ─── Site type multipliers ──────────────────────────────────────────────────
 const SITE_TYPE_MULTIPLIERS: Record<string, number> = {
@@ -693,6 +709,7 @@ function _schedulePhases(
   workOnSaturday: boolean,
   workOnSunday: boolean,
   siteType?: string,
+  hasExtension = false,
 ): GanttTask[] {
   // Inject permits phase if siteType known and not already present
   if (siteType && !phases.some(p => p.id === 'permits_compliance')) {
@@ -737,7 +754,7 @@ function _schedulePhases(
     }
 
     for (const phase of reversed) {
-      const duration = calculateDuration(phase, sqft, effectiveMultiplier);
+      const duration = calculateDuration(phase, sqft, effectiveMultiplier, hasExtension);
       const taskEnd = new Date(cursor);
 
       // Go back (duration - 1) workdays for start
@@ -787,7 +804,7 @@ function _schedulePhases(
   // ── Stage 2: Preparation phases — forward from constructionStart ────────────
   const scheduleForward = (phasesToSchedule: ConstructionPhase[], group: PhaseGroup, startFrom: Date) => {
     for (const phase of phasesToSchedule) {
-      const duration = calculateDuration(phase, sqft, effectiveMultiplier);
+      const duration = calculateDuration(phase, sqft, effectiveMultiplier, hasExtension);
 
       let taskStart: Date;
       if (phase.deps.length === 0) {
@@ -1181,7 +1198,16 @@ export function generateGanttFromAIParams(
     }
   }
 
-  return _schedulePhases(projectId, phases, startDate, params.sqft || 1000, 1.0, region, workOnSaturday, workOnSunday, siteType || params.siteType);
+  // Detect extension/build from masonry items
+  const masonryItems = ts.masonry?.itemNames || [];
+  const hasExtension = masonryItems.some(name => EXTENSION_PATTERNS.some(p => p.test(name)));
+
+  // If extension detected, ensure masonry override is at least 20 days
+  if (hasExtension && overrides['masonry'] !== undefined) {
+    overrides['masonry'] = Math.max(20, overrides['masonry']);
+  }
+
+  return _schedulePhases(projectId, phases, startDate, params.sqft || 1000, 1.0, region, workOnSaturday, workOnSunday, siteType || params.siteType, hasExtension);
 }
 
 // Export prep checklists for use in task detail panel
@@ -1384,7 +1410,10 @@ export function generateGanttFromQuotation(
   const sc = (days: number) => Math.round(days * amtScale);
 
   if (tradeSections.demolition)    tradeScope.demolition    = { estimatedDays: sc(5), ...makeName('demolition', 'Demolition Works', '拆除工程') };
-  if (tradeSections.masonry)       tradeScope.masonry       = { estimatedDays: sc(5), ...makeName('masonry', 'Construction Works', '建筑工程') };
+  // Extension/build detection: min 20 days for structural extension (14-day curing + plastering)
+  const masonryHasExtension = (tradeItemNames.masonry || []).some(name => EXTENSION_PATTERNS.some(p => p.test(name)));
+  const masonryDays = masonryHasExtension ? Math.max(20, sc(20)) : sc(5);
+  if (tradeSections.masonry)       tradeScope.masonry       = { estimatedDays: masonryDays, ...makeName('masonry', 'Construction Works', '建筑工程') };
   if (tradeSections.electrical)    tradeScope.electrical    = { estimatedDays: sc(8), ...makeName('electrical', 'Electrical Works', '电气工程') };
   if (tradeSections.plumbing)      tradeScope.plumbing      = { estimatedDays: sc(5), ...makeName('plumbing', 'Plumbing Works', '水管工程') };
   if (tradeSections.waterproofing) tradeScope.waterproofing = { estimatedDays: sc(3), ...makeName('waterproofing', 'Waterproofing', '防水工程') };

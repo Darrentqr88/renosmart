@@ -11,7 +11,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { GanttChart, GanttWorkerInfo } from '@/components/gantt/GanttChart';
 import { TaskDetailPanel } from '@/components/gantt/TaskDetailPanel';
 import { generateGanttTasks, generateGanttFromQuotation, generateGanttFromAIParams, appendVOTask, addWorkdays } from '@/lib/utils/gantt-rules';
-import { isWorkday } from '@/lib/utils/dates';
+import { isWorkday, preloadHolidays } from '@/lib/utils/dates';
 import { Project, PaymentPhase, GanttTask, GanttTaskStatus, VariationOrder, GanttParams } from '@/types';
 import {
   ArrowLeft, BarChart2, CreditCard, User, Camera, FileText, GitBranch,
@@ -189,6 +189,12 @@ export default function ProjectDetailPage() {
     const { data: p } = await supabase.from('projects').select('*').eq('id', id).single();
     setProject(p);
 
+    // Restore persisted Gantt schedule settings from project
+    if (p?.gantt_start_date) setGanttStartDate(p.gantt_start_date);
+    if (p?.gantt_deadline) setGanttDeadline(p.gantt_deadline);
+    if (p?.work_on_saturday) setWorkOnSaturday(true);
+    if (p?.work_on_sunday) setWorkOnSunday(true);
+
     const { data: g } = await supabase.from('gantt_tasks').select('*').eq('project_id', id).order('start_date');
     const { data: qvs } = await supabase.from('project_quotations').select('*').eq('project_id', id).order('created_at', { ascending: false });
     if (qvs) setQuotationVersions(qvs);
@@ -198,8 +204,11 @@ export default function ProjectDetailPage() {
     const ganttParams = activeQ?.analysis_result?.ganttParams;
     const region: 'MY' | 'SG' = (p?.address || '').toLowerCase().includes('singapore') ? 'SG' : 'MY';
 
-    // Use DB start date as reference (preserve user's chosen start date)
-    const dbStartDate = (g && g.length > 0) ? new Date(g[0].start_date + 'T00:00:00') : new Date();
+    // Use saved gantt_start_date > DB task start > today as reference
+    const savedStart = p?.gantt_start_date;
+    const dbStartDate = savedStart
+      ? new Date(savedStart + 'T00:00:00')
+      : (g && g.length > 0) ? new Date(g[0].start_date + 'T00:00:00') : new Date();
 
     if (ganttParams) {
       // Active quotation has AI-analysed params → always generate from it (source of truth)
@@ -250,6 +259,18 @@ export default function ProjectDetailPage() {
       setGanttTasks(tasks);
     }
 
+    // If no saved gantt_start_date, infer from first task
+    if (!p?.gantt_start_date && g && g.length > 0) {
+      setGanttStartDate(g[0].start_date);
+    }
+
+    // Pre-load holidays for years spanned by Gantt (2027+ fetched via API)
+    if (g && g.length > 0) {
+      const gStart = new Date(g[0].start_date + 'T00:00:00');
+      const gEnd = new Date(g[g.length - 1].end_date + 'T00:00:00');
+      preloadHolidays(gStart, gEnd, region);
+    }
+
     const { data: pay } = await supabase.from('payment_phases').select('*').eq('project_id', id).order('phase_number');
     if (pay) setPayments(pay);
     else {
@@ -274,6 +295,12 @@ export default function ProjectDetailPage() {
     setLoading(false);
   } catch (err) { console.error('[loadProject error]', err); setLoading(false); } };
 
+  // Persist Gantt schedule settings to projects table (non-blocking)
+  const saveGanttSetting = (field: string, value: string | boolean | null) => {
+    if (!id) return;
+    supabase.from('projects').update({ [field]: value || null }).eq('id', id).then(() => {});
+  };
+
   const handleTaskUpdate = (taskId: string, updates: Partial<GanttTask>) => {
     setGanttTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
     setIsDirty(true);
@@ -286,6 +313,32 @@ export default function ProjectDetailPage() {
       const cur = cycle.indexOf(t.taskStatus || 'confirmed');
       return { ...t, taskStatus: cycle[(cur + 1) % cycle.length] };
     }));
+    setIsDirty(true);
+  };
+
+  const handleTaskReorder = (taskId: string, newIndex: number, recalcDates: boolean) => {
+    setGanttTasks(prev => {
+      const idx = prev.findIndex(t => t.id === taskId);
+      if (idx < 0) return prev;
+      const updated = [...prev];
+      const [moved] = updated.splice(idx, 1);
+      updated.splice(newIndex, 0, moved);
+      const reordered = updated.map((t, i) => ({ ...t, sort_order: i }));
+
+      if (recalcDates && reordered.length > 0) {
+        // Recalculate dates sequentially based on new order
+        const firstStart = new Date(reordered[0].start_date + 'T00:00:00');
+        let currentEnd = firstStart;
+        for (let i = 0; i < reordered.length; i++) {
+          const t = reordered[i];
+          const start = i === 0 ? firstStart : addWorkdays(currentEnd, 1, projectRegion, workOnSaturday, workOnSunday);
+          const end = addWorkdays(start, Math.max(1, t.duration) - 1, projectRegion, workOnSaturday, workOnSunday);
+          reordered[i] = { ...t, start_date: start.toISOString().split('T')[0], end_date: end.toISOString().split('T')[0] };
+          currentEnd = end;
+        }
+      }
+      return reordered;
+    });
     setIsDirty(true);
   };
 
@@ -1220,7 +1273,7 @@ export default function ProjectDetailPage() {
                       <input
                         type="date"
                         value={ganttStartDate}
-                        onChange={e => setGanttStartDate(e.target.value)}
+                        onChange={e => { setGanttStartDate(e.target.value); saveGanttSetting('gantt_start_date', e.target.value); }}
                         className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:outline-none focus:border-[#4F8EF7] bg-gray-50 w-36"
                       />
                     </div>
@@ -1231,13 +1284,13 @@ export default function ProjectDetailPage() {
                       <div className="flex items-center gap-2">
                         <label className="flex items-center gap-1 text-xs text-gray-600 cursor-pointer select-none">
                           <input type="checkbox" checked={workOnSaturday}
-                            onChange={e => setWorkOnSaturday(e.target.checked)}
+                            onChange={e => { setWorkOnSaturday(e.target.checked); saveGanttSetting('work_on_saturday', e.target.checked); }}
                             className="accent-[#4F8EF7] w-3.5 h-3.5" />
                           周六
                         </label>
                         <label className="flex items-center gap-1 text-xs text-gray-600 cursor-pointer select-none">
                           <input type="checkbox" checked={workOnSunday}
-                            onChange={e => setWorkOnSunday(e.target.checked)}
+                            onChange={e => { setWorkOnSunday(e.target.checked); saveGanttSetting('work_on_sunday', e.target.checked); }}
                             className="accent-[#4F8EF7] w-3.5 h-3.5" />
                           周日
                         </label>
@@ -1253,7 +1306,7 @@ export default function ProjectDetailPage() {
                       <input
                         type="date"
                         value={ganttDeadline}
-                        onChange={e => setGanttDeadline(e.target.value)}
+                        onChange={e => { setGanttDeadline(e.target.value); saveGanttSetting('gantt_deadline', e.target.value); }}
                         className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:outline-none focus:border-[#4F8EF7] bg-gray-50 w-36"
                       />
                     </div>
@@ -1345,6 +1398,7 @@ export default function ProjectDetailPage() {
               onTaskUpdate={handleTaskUpdate}
               onStatusToggle={handleStatusToggle}
               onTaskClick={(taskId) => setSelectedTaskId(taskId)}
+              onTaskReorder={handleTaskReorder}
               onAssignWorker={openWorkerModal}
               onRemoveWorker={removeWorkerFromTask}
               workers={designerWorkers}
