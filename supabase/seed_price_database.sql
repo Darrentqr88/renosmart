@@ -1028,11 +1028,4 @@ INSERT INTO price_database (item_name, category, subcategory, material_method, u
 ('Chemical wash facade','Cleaning','Chemical Wash','Facade','sqft','labour_only','MY_PG',1.38,2.30,1.84,35,'mid',NOW()),
 ('Chemical wash facade','Cleaning','Chemical Wash','Facade','sqft','labour_only','SG',2.48,4.13,3.30,48,'mid',NOW())
 
-ON CONFLICT (category, subcategory, material_method, unit, supply_type, region) DO UPDATE SET
-  item_name    = EXCLUDED.item_name,
-  min_price    = EXCLUDED.min_price,
-  max_price    = EXCLUDED.max_price,
-  avg_price    = EXCLUDED.avg_price,
-  sample_count = EXCLUDED.sample_count,
-  confidence   = EXCLUDED.confidence,
-  updated_at   = NOW();
+;
