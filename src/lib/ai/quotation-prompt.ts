@@ -67,9 +67,9 @@ IMPORTANT: These are DESIGNER-TO-HOMEOWNER prices (retail quotation prices), NOT
 - Kitchen cabinet (solid plywood + veneer): RM 550-1200/ft | SG $800-1800/ft
 - Kitchen cabinet (aluminium honeycomb/ACP): RM 400-900/ft | SG $600-1300/ft
 - Kitchen cabinet (solid nyatoh/rubber wood): RM 800-1800/ft | SG $1200-2500/ft
-- Wardrobe (laminated swing door): RM 250-550/ft | SG $400-800/ft
-- Wardrobe (laminated sliding): RM 350-650/ft | SG $500-950/ft
-- Wardrobe (solid plywood): RM 400-800/ft | SG $600-1200/ft
+- Wardrobe (laminated swing door): RM 700-1200/ft | SG $1000-1800/ft
+- Wardrobe (laminated sliding): RM 800-1400/ft | SG $1200-2000/ft
+- Wardrobe (solid plywood): RM 900-1600/ft | SG $1300-2300/ft
 - TV console/feature wall: RM 200-500/ft | SG $300-750/ft
 - Shoe cabinet: RM 250-550/ft | SG $400-800/ft
 - Vanity cabinet: RM 350-700/ft | SG $500-1000/ft
