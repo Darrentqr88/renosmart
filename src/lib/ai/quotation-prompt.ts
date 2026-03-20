@@ -1,6 +1,7 @@
 export const PRICE_REFERENCE = `
-MY/SG Market Price Reference (2025-2026):
-IMPORTANT: "Supply & Install" means BOTH material + labour included. "Labour Only" means workmanship only, material supplied by owner.
+MY/SG Designer Quotation Price Reference (2025-2026):
+IMPORTANT: These are DESIGNER-TO-HOMEOWNER prices (retail quotation prices), NOT contractor costs or wholesale prices.
+"Supply & Install" = material + labour included. "Labour Only" = workmanship only, material by owner.
 
 === TILING (per sqft) ===
 - Tiling LABOUR ONLY (floor 300x300-600x600): RM 6-10/sqft | SG $8-15/sqft
@@ -61,16 +62,17 @@ IMPORTANT: "Supply & Install" means BOTH material + labour included. "Labour Onl
 - False ceiling (calcium silicate): RM 12-20/sqft | SG $18-28/sqft
 - Partition wall (single layer): RM 18-30/sqft | SG $25-42/sqft
 
-=== CARPENTRY (per ft-run) ===
-- Kitchen cabinet (laminated): RM 800-2000/ft | SG $1200-3000/ft
-- Kitchen cabinet (aluminium honeycomb/ACP): RM 600-1500/ft | SG $900-2200/ft
-- Kitchen cabinet (solid wood): RM 2000-4500/ft | SG $3000-6000/ft
-- Wardrobe (laminated swing door): RM 400-650/ft | SG $600-950/ft
-- Wardrobe (laminated sliding): RM 500-800/ft | SG $750-1200/ft
-- Wardrobe (aluminium honeycomb): RM 1200-2500/ft | SG $1800-3500/ft
-- TV console/feature wall: RM 300-600/ft | SG $450-900/ft
-- Shoe cabinet: RM 400-800/ft | SG $600-1200/ft
-- Vanity cabinet: RM 500-1000/ft | SG $750-1500/ft
+=== CARPENTRY (per ft-run, top+bottom combined) ===
+- Kitchen cabinet (laminated/melamine): RM 450-950/ft | SG $700-1400/ft
+- Kitchen cabinet (solid plywood + veneer): RM 550-1200/ft | SG $800-1800/ft
+- Kitchen cabinet (aluminium honeycomb/ACP): RM 400-900/ft | SG $600-1300/ft
+- Kitchen cabinet (solid nyatoh/rubber wood): RM 800-1800/ft | SG $1200-2500/ft
+- Wardrobe (laminated swing door): RM 250-550/ft | SG $400-800/ft
+- Wardrobe (laminated sliding): RM 350-650/ft | SG $500-950/ft
+- Wardrobe (solid plywood): RM 400-800/ft | SG $600-1200/ft
+- TV console/feature wall: RM 200-500/ft | SG $300-750/ft
+- Shoe cabinet: RM 250-550/ft | SG $400-800/ft
+- Vanity cabinet: RM 350-700/ft | SG $500-1000/ft
 
 === PLUMBING (per unit) ===
 - Basin + mixer tap install: RM 300-600/unit | SG $500-900/unit
@@ -147,7 +149,7 @@ RULES:
     COORDINATION: tiling without waterproofing → critical.
 11. paymentTerms: extract if present, else [].
 12. subcategory + materialMethod: classify each item per its trade (e.g. "Floor Tiles"+"600x600", "Kitchen Cabinet"+"Laminated").
-13. estMinPrice, estMaxPrice: estimate MY/SG market unit price range for EVERY item based on your knowledge. Consider supplyType (S&I vs labour only), material grade, unit type. These are critical for price scoring. Never leave as 0.
+13. estMinPrice, estMaxPrice: estimate MY/SG DESIGNER QUOTATION price range (what designers typically charge homeowners, NOT contractor cost/wholesale). Consider supplyType (S&I vs labour only), material grade, unit type. These are critical for price scoring. Never leave as 0.
 
 JSON structure:
 {"projectType":"landed_terrace","projectSqft":1200,"client":{"company":"","address":"","attention":"","tel":"","email":null,"projectRef":"","projectName":""},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"one-line summary","items":[{"no":"1","section":"Section","name":"Item name verbatim","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"supplyType":"supply_install","status":"ok","note":"","subcategory":"Floor Tiles","materialMethod":"600x600","estMinPrice":5.0,"estMaxPrice":12.0,"page":1}],"subtotals":[{"label":"Section Total","amount":1000}],"totalAmount":50000,"missing":["item1"],"alerts":[{"level":"critical","title":"Title","desc":"Short desc under 120 chars"}],"paymentTerms":[]}`;
