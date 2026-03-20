@@ -170,6 +170,77 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
   const [aiOptimizing, setAiOptimizing] = useState(false);
   const [aiNotes, setAiNotes] = useState<Record<string, string>>({});
 
+  // ── Export Gantt schedule to Excel ──
+  const handleExportExcel = useCallback(async () => {
+    if (tasks.length === 0) return;
+    const XLSX = await import('xlsx');
+
+    // Build rows with professional columns
+    const rows = tasks.map((t, i) => ({
+      'No': i + 1,
+      'Phase': t.phase_group === 'design' ? 'Design' : t.phase_group === 'preparation' ? 'Preparation' : 'Construction',
+      'Task': lang === 'ZH' && t.name_zh ? t.name_zh : t.name,
+      'Trade': t.trade,
+      'Start Date': t.start_date,
+      'End Date': t.end_date,
+      'Duration (days)': t.duration,
+      'Status': t.taskStatus === 'completed' ? 'Completed' : t.taskStatus === 'confirmed' ? 'Confirmed' : 'Pending',
+      'Critical Path': t.is_critical ? 'Yes' : '',
+      'Dependencies': t.dependencies?.join(', ') || '',
+      'Assigned Workers': (t.assigned_workers || []).join(', '),
+      'Progress (%)': t.progress || 0,
+    }));
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(rows);
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 4 },   // No
+      { wch: 14 },  // Phase
+      { wch: 36 },  // Task
+      { wch: 16 },  // Trade
+      { wch: 12 },  // Start
+      { wch: 12 },  // End
+      { wch: 14 },  // Duration
+      { wch: 12 },  // Status
+      { wch: 13 },  // Critical
+      { wch: 24 },  // Dependencies
+      { wch: 20 },  // Workers
+      { wch: 12 },  // Progress
+    ];
+
+    // Summary sheet
+    const projectEnd = tasks.length > 0 ? tasks[tasks.length - 1].end_date : '';
+    const calDays = tasks.length > 0
+      ? differenceInDays(parseISO(projectEnd), parseISO(tasks[0].start_date)) + 1
+      : 0;
+    const summaryRows = [
+      { 'Item': 'Project Start', 'Value': startDate },
+      { 'Item': 'Project End', 'Value': projectEnd },
+      { 'Item': 'Calendar Days', 'Value': calDays },
+      { 'Item': 'Calendar Weeks', 'Value': Math.ceil(calDays / 7) },
+      { 'Item': 'Total Tasks', 'Value': tasks.length },
+      { 'Item': 'Critical Tasks', 'Value': tasks.filter(t => t.is_critical).length },
+      { 'Item': 'Site Type', 'Value': siteType },
+      { 'Item': 'Work Saturday', 'Value': workSat ? 'Yes' : 'No' },
+      { 'Item': 'Work Sunday', 'Value': workSun ? 'Yes' : 'No' },
+      { 'Item': 'Generated', 'Value': format(new Date(), 'yyyy-MM-dd HH:mm') },
+    ];
+    const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+    wsSummary['!cols'] = [{ wch: 18 }, { wch: 30 }];
+
+    // Create workbook with two sheets
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Gantt Schedule');
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Project Summary');
+
+    // Generate filename
+    const dateStr = format(new Date(), 'yyyyMMdd');
+    const fileName = `RenoSmart_Gantt_${dateStr}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  }, [tasks, lang, startDate, siteType, workSat, workSun]);
+
   // AI schedule optimization: sends current schedule + quotation items to Haiku for professional review
   const handleAIOptimize = useCallback(async () => {
     if (aiOptimizing || tasks.length === 0) return;
@@ -544,9 +615,11 @@ Only include tasks where you changed the duration. Skip unchanged tasks.`;
           </button>
         )}
         <button
-          className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold text-rs-text2 border border-rs-border rounded-lg bg-white hover:border-[#4F8EF7] hover:text-[#2563EB] transition-all"
+          onClick={handleExportExcel}
+          disabled={tasks.length === 0}
+          className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold text-rs-text2 border border-rs-border rounded-lg bg-white hover:border-[#4F8EF7] hover:text-[#2563EB] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Export Excel Schedule
+          📊 {lang === 'ZH' ? '导出Excel排程' : 'Export Excel Schedule'}
         </button>
         <span className="ml-auto text-xs text-rs-text3">
           {lang === 'ZH' ? '排好进度后保存，即可在项目列表中分配工人' : 'Save schedule to assign workers in project view'}
