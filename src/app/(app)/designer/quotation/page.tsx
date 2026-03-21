@@ -98,6 +98,27 @@ function SupplyBadge({ type }: { type?: SupplyType }) {
   );
 }
 
+/* ─── Sanitize AI response ───────────────────────────────────────────────── */
+function sanitizeAnalysis(raw: QuotationAnalysis): QuotationAnalysis {
+  return {
+    ...raw,
+    totalAmount: Number(raw.totalAmount) || 0,
+    items: (raw.items ?? []).map(item => ({
+      ...item,
+      qty:       Number(item.qty)       || 0,
+      unitPrice: Number(item.unitPrice) || 0,
+      total:     Number(item.total)     || 0,
+    })),
+    subtotals: (raw.subtotals ?? []).map(s => ({
+      ...s,
+      amount: Number(s.amount) || 0,
+    })),
+    score: raw.score ?? { total: 0, completeness: 0, price: 0, logic: 0, risk: 0 },
+    missing: raw.missing ?? [],
+    alerts:  raw.alerts  ?? [],
+  };
+}
+
 /* ─── Main Page ─────────────────────────────────────────────────────────── */
 export default function QuotationPage() {
   const { lang, region } = useI18n();
@@ -271,7 +292,7 @@ export default function QuotationPage() {
       }
 
       setProgress(98);
-      setAnalysis(parsed);
+      setAnalysis(sanitizeAnalysis(parsed));
       setStep('done');
       setProgressLabel(lang === 'ZH' ? '分析完成' : lang === 'BM' ? 'Analisis selesai' : 'Analysis complete');
       toast({ title: '✅ 分析完成', description: parsed.summary?.slice(0, 80) });
@@ -1059,7 +1080,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                           <td className="px-4 py-3 text-right text-rs-text2 font-mono">{item.qty}</td>
                           <td className="px-4 py-3 text-right font-mono">
                             <span className={item.unitPriceDerived ? 'text-[#F97316] italic' : 'text-rs-text2'}>
-                              {item.unitPrice.toFixed(2)}{item.unitPriceDerived ? '*' : ''}
+                              {(item.unitPrice ?? 0).toFixed(2)}{item.unitPriceDerived ? '*' : ''}
                             </span>
                             {(() => {
                               const origIdx = analysis?.items.indexOf(item) ?? -1;
@@ -1075,7 +1096,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                             })()}
                           </td>
                           <td className="px-4 py-3 text-right font-mono font-semibold text-rs-text">
-                            RM {item.total.toLocaleString()}
+                            RM {(item.total ?? 0).toLocaleString()}
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex flex-col items-center gap-1">
@@ -1097,7 +1118,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                       <tr className="bg-[#F8F9FB]">
                         <td colSpan={6} className="px-4 py-2.5 text-right text-[13px] font-medium text-rs-text2">{sub.label}</td>
                         <td className="px-4 py-2.5 text-right font-semibold text-rs-text font-mono">
-                          RM {sub.amount.toLocaleString()}
+                          RM {(sub.amount ?? 0).toLocaleString()}
                         </td>
                         <td />
                       </tr>
@@ -1110,7 +1131,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                       <tr style={{ background: 'rgba(79,142,247,0.08)', borderTop: '2px solid #4F8EF7' }}>
                         <td colSpan={6} className="px-4 py-3 text-right font-bold text-rs-text text-[13px] tracking-wide">报价总额</td>
                         <td className="px-4 py-3 text-right font-bold text-[#4F8EF7] text-[16px] font-mono">
-                          RM {analysis.totalAmount.toLocaleString()}
+                          RM {(analysis.totalAmount ?? 0).toLocaleString()}
                         </td>
                         <td />
                       </tr>

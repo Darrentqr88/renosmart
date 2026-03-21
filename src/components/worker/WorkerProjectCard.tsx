@@ -402,7 +402,7 @@ export default function WorkerProjectCard({
                             <p className="text-xs font-medium text-gray-800 truncate">{item.description}</p>
                             <p className="text-[10px] text-gray-400">{item.qty} {item.unit} × RM{item.unit_cost}</p>
                           </div>
-                          <span className="text-xs font-bold text-gray-700 whitespace-nowrap">RM {item.total.toFixed(2)}</span>
+                          <span className="text-xs font-bold text-gray-700 whitespace-nowrap">RM {(item.total ?? 0).toFixed(2)}</span>
                         </div>
                       ))
                     )}
@@ -410,7 +410,7 @@ export default function WorkerProjectCard({
 
                   <div className="flex justify-between items-center bg-gray-50 rounded-xl px-4 py-3">
                     <span className="text-sm font-medium text-gray-600">Total</span>
-                    <span className="font-bold text-gray-900">RM {ocrResult.total_amount.toFixed(2)}</span>
+                    <span className="font-bold text-gray-900">RM {(ocrResult.total_amount ?? 0).toFixed(2)}</span>
                   </div>
 
                   {ocrError && <p className="text-xs text-red-500 text-center">{ocrError}</p>}

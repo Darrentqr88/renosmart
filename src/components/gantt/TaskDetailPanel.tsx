@@ -346,7 +346,7 @@ export function TaskDetailPanel({
                     <span className="flex-1 text-rs-text2 leading-snug">{item.name}</span>
                     {item.total > 0 && (
                       <span className="font-mono text-[11px] text-[#4F8EF7] whitespace-nowrap flex-shrink-0">
-                        {region === 'SG' ? 'SGD' : 'RM'} {item.total.toLocaleString()}
+                        {region === 'SG' ? 'SGD' : 'RM'} {(item.total ?? 0).toLocaleString()}
                       </span>
                     )}
                   </div>
