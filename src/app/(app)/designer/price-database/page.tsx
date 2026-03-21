@@ -69,16 +69,14 @@ const DISCLAIMER = {
   ZH: '价格仅供参考。受施工现场条件、物流运输、国际贸易价格波动及天气等因素影响，实际价格可能有所变动。',
 };
 
-function isSGPhone(phone?: string) {
-  return phone?.startsWith('+65') || phone?.startsWith('65');
-}
+// Region detection now uses i18n context (user selects MY/SG at login/landing)
+// Previously used phone prefix which was unreliable (MY users may have SG numbers)
 
 export default function PriceDatabasePage() {
   const supabase = createClient();
-  const { lang } = useI18n();
+  const { lang, region: i18nRegion } = useI18n();
   const [currentPlan, setCurrentPlan] = useState('free');
-  const [userPhone, setUserPhone] = useState<string | undefined>();
-  const [region, setRegion] = useState('MY_KL');
+  const [region, setRegion] = useState(i18nRegion === 'SG' ? 'SG' : 'MY_KL');
   const [activeCategory, setActiveCategory] = useState('All');
   const [supplyTypeFilter, setSupplyTypeFilter] = useState('all');
   const [propertyType, setPropertyType] = useState('landed');
@@ -93,19 +91,20 @@ export default function PriceDatabasePage() {
       if (session) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('plan, phone')
+          .select('plan')
           .eq('user_id', session.user.id)
           .single();
         if (profile) {
           setCurrentPlan(profile.plan || 'free');
-          setUserPhone(profile.phone || undefined);
-          if (isSGPhone(profile.phone)) {
-            setRegion('SG');
-          }
         }
       }
     })();
   }, []);
+
+  // Sync with i18n region when user switches MY/SG in navbar
+  useEffect(() => {
+    setRegion(i18nRegion === 'SG' ? 'SG' : 'MY_KL');
+  }, [i18nRegion]);
 
   useEffect(() => {
     fetchData();
@@ -174,11 +173,8 @@ export default function PriceDatabasePage() {
   const isLocked = currentPlan === 'free';
   const isSG = region === 'SG';
   const currency = isSG ? 'SGD' : 'RM';
-  const availableRegions = isSGPhone(userPhone)
-    ? SG_REGIONS
-    : userPhone
-      ? MY_REGIONS
-      : ALL_REGIONS;
+  // MY users see MY regions only; SG users (selected at login) see SG only
+  const availableRegions = i18nRegion === 'SG' ? SG_REGIONS : MY_REGIONS;
 
   const applyMultiplier = (price: number) => {
     const adjusted = price * multiplier;
