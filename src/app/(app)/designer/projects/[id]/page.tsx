@@ -822,9 +822,10 @@ export default function ProjectDetailPage() {
   const detectTrade = (text: string): string => {
     const t = (text || '').toLowerCase();
     if (/electr|wir|db board|switch|socket|mcb|conduit|breaker|fuse|cable/.test(t)) return 'electrical';
-    if (/plumb|pipe|sanit|wc|basin|tap|cistern|drainage|sewage|toilet/.test(t)) return 'plumbing';
+    if (/countertop|counter\s*top|table\s*top|tabletop|solid\s*surface|quartz\s*top|postform/.test(t)) return 'tabletop';
+    if (/plumb|pipe|sanit|wc|tap|cistern|drainage|sewage|toilet|inlet|outlet\s*pipe/.test(t)) return 'plumbing';
     if (/til|ceram|porcel|mosaic|grout|homogen/.test(t)) return 'tiling';
-    if (/carp|cabinet|wardrobe|joiner|kitchen|built.in|carpentry|cabinetry/.test(t)) return 'carpentry';
+    if (/carp|cabinet|wardrobe|joiner|built.in|carpentry|cabinetry|vanity|basin\s*cabinet/.test(t)) return 'carpentry';
     if (/paint|coat|primer|putty|skim|emulsion|finish/.test(t)) return 'painting';
     if (/ceil|partition|gypsum|plaster|false ceiling|cornice/.test(t)) return 'false ceiling';
     if (/water.?proof|membrane|tanking/.test(t)) return 'waterproofing';
@@ -833,7 +834,7 @@ export default function ProjectDetailPage() {
     if (/alum|window|door frame|sliding|casement/.test(t)) return 'aluminium';
     if (/glass|shower scr|mirror|temper/.test(t)) return 'glass';
     if (/air.?con|daikin|midea|aircon|hvac|split unit|fcn/.test(t)) return 'ac';
-    if (/stone|marble|quartz|granite|top/.test(t)) return 'stone';
+    if (/stone|marble|quartz|granite/.test(t)) return 'stone';
     if (/clean|polish|wash/.test(t)) return 'cleaning';
     if (/brick|cement|sand|concrete|mason|plaster|screed|render/.test(t)) return 'construction';
     return 'other';
