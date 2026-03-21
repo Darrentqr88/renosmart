@@ -551,9 +551,9 @@ function calculateDuration(phase: ConstructionPhase, sqft: number, typeMultiplie
   // Apply project type multiplier
   days = Math.max(1, Math.round(days * typeMultiplier));
 
-  // Carpentry manufacturing: minimum 21 days (factory lead time), no hard upper bound
+  // Carpentry manufacturing: minimum 7 days, no hard upper bound
   if (phase.id === 'carpentry_mfg') {
-    days = Math.max(21, days);
+    days = Math.max(7, days);
   }
 
   return days;
@@ -971,7 +971,7 @@ export function generateGanttFromAIParams(
   if (ts.carpentry?.estimatedDays) {
     // Scale manufacturing by cabinet count: base 21 days + 3 days per cabinet beyond 3
     const cabinetCount = (ts.carpentry.itemNames || []).length;
-    const minMfgDays = cabinetCount <= 3 ? 21 : 21 + (cabinetCount - 3) * 3;
+    const minMfgDays = cabinetCount <= 3 ? 7 : 7 + (cabinetCount - 3) * 3;
     overrides['carpentry_mfg'] = Math.max(minMfgDays, ts.carpentry.estimatedDays);
     overrides['carpentry_install'] = ts.carpentry.ft
       ? Math.max(4, Math.ceil(ts.carpentry.ft / 6))
@@ -1449,7 +1449,7 @@ export function generateGanttFromQuotation(
 // ─── Classify a single item into a trade key ───────────────────────────────
 // Exported so GanttAutoGenerator can enrich AI ganttParams with itemNames
 const TRADE_PATTERNS_SHARED: Record<string, RegExp[]> = {
-  demolition:     [/\bdemol/, /\bhack(?:ing)?\b/, /\bbreak/, /strip.?out/, /chipping/, /\bremov(?:e|al)\b/],
+  demolition:     [/\bdemol/, /\bhack(?:ing)?\b/, /\bbreak/, /strip.?out/, /chipping/, /\bremov(?:e|al)\b/, /\bdismantle/, /\btear\s*down/, /\bknock\s*down/, /\brip\s*out/, /\bcut\s*out/, /\b拆/, /\b打石/],
   masonry:        [/\bbrick/, /\bplaster(?!.*ceil)/, /\bscreed/, /\brender/, /\bnew\s*wall/, /\bbrickwork/, /\brc\s/, /reinforc/, /\bconstruct/, /\bextension/, /\braise\s*floor/, /\bmasonry/],
   waterproofing:  [/water.?proof/, /\bmembrane/, /\bponding/],
   aircon:         [/air.?con/, /\baircon/, /\bdaikin/, /\bmidea/, /split\s*unit/, /\bac\s/],

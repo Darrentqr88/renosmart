@@ -131,7 +131,67 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
   }, [analysis, projectId, startDate, workSat, workSun, siteType, customSiteType]);
 
   const handleTaskUpdate = (taskId: string, updates: Partial<GanttTask>) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+    setTasks(prev => {
+      // Apply direct update
+      let updated = prev.map(t => t.id === taskId ? { ...t, ...updates } : t);
+
+      // Cascade: auto-adjust all dependent tasks
+      const changedTask = updated.find(t => t.id === taskId);
+      if (!changedTask) return updated;
+
+      // Build dependency graph: taskId → list of tasks that depend on it
+      const dependents = new Map<string, string[]>();
+      for (const t of updated) {
+        for (const depId of (t.dependencies || [])) {
+          if (!dependents.has(depId)) dependents.set(depId, []);
+          dependents.get(depId)!.push(t.id);
+        }
+      }
+
+      // BFS cascade from the changed task
+      const queue = [taskId];
+      const visited = new Set<string>([taskId]);
+      while (queue.length > 0) {
+        const currentId = queue.shift()!;
+        const currentTask = updated.find(t => t.id === currentId)!;
+        const currentEnd = parseISO(currentTask.end_date);
+        const children = dependents.get(currentId) || [];
+
+        for (const childId of children) {
+          if (visited.has(childId)) continue;
+          visited.add(childId);
+          const child = updated.find(t => t.id === childId);
+          if (!child) continue;
+
+          // Child's start should be >= day after all its dependencies' end dates
+          const allDepEnds = (child.dependencies || [])
+            .map(dId => updated.find(t => t.id === dId))
+            .filter(Boolean)
+            .map(t => parseISO(t!.end_date));
+          if (allDepEnds.length === 0) continue;
+
+          const latestDepEnd = new Date(Math.max(...allDepEnds.map(d => d.getTime())));
+          const minStart = addDays(latestDepEnd, 1);
+          const childStart = parseISO(child.start_date);
+
+          // Only shift if child starts before its dependency allows
+          if (childStart < minStart) {
+            const childDuration = Math.max(1, Math.round(
+              (parseISO(child.end_date).getTime() - childStart.getTime()) / (86400000)
+            ));
+            const newStart = minStart;
+            const newEnd = addDays(newStart, childDuration);
+            updated = updated.map(t => t.id === childId ? {
+              ...t,
+              start_date: format(newStart, 'yyyy-MM-dd'),
+              end_date: format(newEnd, 'yyyy-MM-dd'),
+            } : t);
+          }
+          queue.push(childId);
+        }
+      }
+      return updated;
+    });
   };
 
   const handleTaskClick = (taskId: string) => {
