@@ -229,6 +229,7 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
               ...t,
               start_date: format(newStart, 'yyyy-MM-dd'),
               end_date: format(newEnd, 'yyyy-MM-dd'),
+              duration: childWorkdays,
             } : t);
           }
           queue.push(childId);
@@ -323,6 +324,7 @@ Only include tasks where you changed the duration. Skip unchanged tasks.`;
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 1500,
           messages: [{ role: 'user', content: prompt }],
+          skipQuota: true,
         }),
       });
 

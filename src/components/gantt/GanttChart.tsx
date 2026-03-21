@@ -5,7 +5,19 @@ import { GanttTask, GanttTaskStatus } from '@/types';
 import { useI18n } from '@/lib/i18n/context';
 import { getPhaseById } from '@/lib/utils/gantt-rules';
 import { format, differenceInDays, addDays, parseISO, startOfWeek } from 'date-fns';
-import { MY_HOLIDAY_NAMES, SG_HOLIDAY_NAMES } from '@/lib/utils/dates';
+import { MY_HOLIDAY_NAMES, SG_HOLIDAY_NAMES, MY_HOLIDAYS } from '@/lib/utils/dates';
+
+// Count workdays between two dates (inclusive)
+function countWorkdays(start: Date, end: Date): number {
+  let count = 0;
+  const d = new Date(start);
+  while (d <= end) {
+    const day = d.getDay();
+    if (day !== 0 && day !== 6 && !MY_HOLIDAYS.has(format(d, 'yyyy-MM-dd'))) count++;
+    d.setDate(d.getDate() + 1);
+  }
+  return Math.max(1, count);
+}
 
 export interface GanttWorkerInfo {
   id: string;           // designer_workers.id
@@ -241,13 +253,23 @@ export function GanttChart({
     const delta     = Math.round(deltaX * daysPerPx);
     if (delta === 0) return;
     if (dragging.type === 'move') {
+      const newStart = addDays(parseISO(dragging.origStart), delta);
+      const newEnd = addDays(parseISO(dragging.origEnd), delta);
       onTaskUpdate(dragging.taskId, {
-        start_date: format(addDays(parseISO(dragging.origStart), delta), 'yyyy-MM-dd'),
-        end_date:   format(addDays(parseISO(dragging.origEnd),   delta), 'yyyy-MM-dd'),
+        start_date: format(newStart, 'yyyy-MM-dd'),
+        end_date:   format(newEnd, 'yyyy-MM-dd'),
+        duration:   countWorkdays(newStart, newEnd),
       });
     } else {
-      const newEnd = format(addDays(parseISO(dragging.origEnd), delta), 'yyyy-MM-dd');
-      if (newEnd > dragging.origStart) onTaskUpdate(dragging.taskId, { end_date: newEnd });
+      const newEndDate = addDays(parseISO(dragging.origEnd), delta);
+      const newEnd = format(newEndDate, 'yyyy-MM-dd');
+      if (newEnd > dragging.origStart) {
+        const startDate = parseISO(dragging.origStart);
+        onTaskUpdate(dragging.taskId, {
+          end_date: newEnd,
+          duration: countWorkdays(startDate, newEndDate),
+        });
+      }
     }
   }, [dragging, onTaskUpdate, totalDays]);
 
