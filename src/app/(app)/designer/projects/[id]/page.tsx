@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { GanttChart, GanttWorkerInfo } from '@/components/gantt/GanttChart';
 import { TaskDetailPanel } from '@/components/gantt/TaskDetailPanel';
-import { generateGanttTasks, generateGanttFromQuotation, generateGanttFromAIParams, appendVOTask, addWorkdays } from '@/lib/utils/gantt-rules';
+import { generateGanttTasks, generateGanttFromQuotation, generateGanttFromAIParams, appendVOTask, addWorkdays, detectTradeForVO } from '@/lib/utils/gantt-rules';
 import { isWorkday, preloadHolidays } from '@/lib/utils/dates';
 import { Project, PaymentPhase, GanttTask, GanttTaskStatus, VariationOrder, GanttParams } from '@/types';
 import {
@@ -818,27 +818,9 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // ─── Helper: detect trade from text keywords (normalized lowercase output) ──
-  const detectTrade = (text: string): string => {
-    const t = (text || '').toLowerCase();
-    if (/electr|wir|db board|switch|socket|mcb|conduit|breaker|fuse|cable/.test(t)) return 'electrical';
-    if (/countertop|counter\s*top|table\s*top|tabletop|solid\s*surface|quartz\s*top|postform|sintered|dekton|neolith/.test(t)) return 'tabletop';
-    if (/plumb|pipe|sanit|wc|tap|cistern|drainage|sewage|toilet|inlet|outlet\s*pipe/.test(t)) return 'plumbing';
-    if (/til|ceram|porcel|mosaic|grout|homogen/.test(t)) return 'tiling';
-    if (/carp|cabinet|wardrobe|joiner|built.in|carpentry|cabinetry|vanity|basin\s*cabinet/.test(t)) return 'carpentry';
-    if (/paint|coat|primer|putty|skim|emulsion|finish/.test(t)) return 'painting';
-    if (/ceil|partition|gypsum|plaster|false ceiling|cornice/.test(t)) return 'false ceiling';
-    if (/water.?proof|membrane|tanking/.test(t)) return 'waterproofing';
-    if (/demol|hack|break|knock|removal|hacking/.test(t)) return 'demolition';
-    if (/floor|timber|vinyl|laminate|parquet|spc/.test(t)) return 'flooring';
-    if (/alum|window|door frame|sliding|casement/.test(t)) return 'aluminium';
-    if (/glass|shower scr|mirror|temper/.test(t)) return 'glass';
-    if (/air.?con|daikin|midea|aircon|hvac|split unit|fcn/.test(t)) return 'ac';
-    if (/stone|marble|quartz|granite/.test(t)) return 'stone';
-    if (/clean|polish|wash/.test(t)) return 'cleaning';
-    if (/brick|cement|sand|concrete|mason|plaster|screed|render/.test(t)) return 'construction';
-    return 'other';
-  };
+  // ─── Helper: detect trade from text keywords ──
+  // Uses shared classifyItemTrade from gantt-rules.ts for consistency
+  const detectTrade = (text: string): string => detectTradeForVO(text).toLowerCase();
 
   // ─── Helper: parse items JSONB ────────────────────────────────────────────
   const parseReceiptItems = (r: CostRecordLocal) => {
