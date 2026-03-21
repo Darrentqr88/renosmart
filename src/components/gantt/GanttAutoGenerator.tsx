@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { QuotationAnalysis, GanttTask, GanttParams, SiteType } from '@/types';
 import { generateGanttTasks, generateGanttFromAIParams, getPhaseChecklist, getPhaseById, CONSTRUCTION_PHASES, classifyItemTrade } from '@/lib/utils/gantt-rules';
 import { GanttChart } from './GanttChart';
@@ -10,6 +10,33 @@ import { format, parseISO, addDays } from 'date-fns';
 import { exportGanttToExcel } from '@/lib/utils/excel-export';
 import { MY_HOLIDAYS, SG_HOLIDAYS } from '@/lib/utils/dates';
 import { useI18n } from '@/lib/i18n/context';
+
+// Simple workday check for BFS cascade (skips weekends + MY holidays)
+function isWorkday_simple(d: Date): boolean {
+  const day = d.getDay();
+  if (day === 0 || day === 6) return false;
+  return !MY_HOLIDAYS.has(format(d, 'yyyy-MM-dd'));
+}
+
+// Add workdays (skipping weekends + holidays) — for BFS cascade
+function addWorkdays_simple(start: Date, workdays: number): Date {
+  let d = new Date(start);
+  let count = 0;
+  while (count < workdays) {
+    d = addDays(d, 1);
+    if (isWorkday_simple(d)) count++;
+  }
+  return d;
+}
+
+// Find next workday on or after given date
+function nextWorkday_simple(d: Date): Date {
+  let cursor = new Date(d);
+  while (!isWorkday_simple(cursor)) {
+    cursor = addDays(cursor, 1);
+  }
+  return cursor;
+}
 
 const SITE_TYPE_OPTIONS: { value: SiteType; label: string; label_zh: string }[] = [
   { value: 'condo', label: 'Condo', label_zh: '公寓 Condo' },
@@ -65,6 +92,23 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
   const [workSun, setWorkSun] = useState(false);
   const [siteType, setSiteType] = useState<SiteType>(() => detectSiteType(analysis));
   const [customSiteType, setCustomSiteType] = useState('');
+  const [pendingSave, setPendingSave] = useState(false);
+  const tasksRef = useRef<GanttTask[]>([]);
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Keep tasksRef in sync
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+
+  // Auto-save with 1.5s debounce after task edits (Apply / drag)
+  useEffect(() => {
+    if (!pendingSave || !onSave || tasksRef.current.length === 0) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      onSave(tasksRef.current);
+      setPendingSave(false);
+    }, 1500);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [pendingSave, onSave]);
 
   useEffect(() => {
     generateTasks();
@@ -148,13 +192,11 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
         }
       }
 
-      // BFS cascade from the changed task
+      // BFS cascade from the changed task (uses workdays — skips weekends & holidays)
       const queue = [taskId];
       const visited = new Set<string>([taskId]);
       while (queue.length > 0) {
         const currentId = queue.shift()!;
-        const currentTask = updated.find(t => t.id === currentId)!;
-        const currentEnd = parseISO(currentTask.end_date);
         const children = dependents.get(currentId) || [];
 
         for (const childId of children) {
@@ -163,7 +205,7 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
           const child = updated.find(t => t.id === childId);
           if (!child) continue;
 
-          // Child's start should be >= day after all its dependencies' end dates
+          // Child's start should be >= next workday after all its dependencies' end dates
           const allDepEnds = (child.dependencies || [])
             .map(dId => updated.find(t => t.id === dId))
             .filter(Boolean)
@@ -171,16 +213,18 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
           if (allDepEnds.length === 0) continue;
 
           const latestDepEnd = new Date(Math.max(...allDepEnds.map(d => d.getTime())));
-          const minStart = addDays(latestDepEnd, 1);
+          const minStart = nextWorkday_simple(addDays(latestDepEnd, 1));
           const childStart = parseISO(child.start_date);
 
           // Only shift if child starts before its dependency allows
           if (childStart < minStart) {
-            const childDuration = Math.max(1, Math.round(
+            const childWorkdays = child.duration || Math.max(1, Math.round(
               (parseISO(child.end_date).getTime() - childStart.getTime()) / (86400000)
             ));
             const newStart = minStart;
-            const newEnd = addDays(newStart, childDuration);
+            const newEnd = childWorkdays > 1
+              ? addWorkdays_simple(newStart, childWorkdays - 1)
+              : newStart;
             updated = updated.map(t => t.id === childId ? {
               ...t,
               start_date: format(newStart, 'yyyy-MM-dd'),
@@ -192,6 +236,8 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
       }
       return updated;
     });
+    // Trigger debounced auto-save
+    setPendingSave(true);
   };
 
   const handleTaskClick = (taskId: string) => {

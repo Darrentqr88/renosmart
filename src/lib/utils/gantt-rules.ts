@@ -127,8 +127,8 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     hint_MY: '48-hour ponding test is mandatory before tiling. Do NOT proceed with tiling if any leakage detected. Use min 2 coats of membrane.',
     hint_SG: 'Waterproofing warranty min 5 years per SS 212. 48-hr ponding test required, witnessed by supervisor. Document with photos.',
     hint_zh: '防水层必须做2道，待第一道干透后再做第二道。做完防水后必须进行48小时蓄水试验，确认无渗漏才能铺砖。',
-    trade: 'Waterproofing', baseDays: 4, deps: ['plumbing1'],
-    scaleBy: 'sqft', scaleFactor: 1 / 150,
+    trade: 'Waterproofing', baseDays: 3, deps: ['plumbing1'],
+    scaleBy: 'sqft', scaleFactor: 1 / 300,
     prepChecklist: [
       { icon: '💧', text: 'Waterproofing membrane ordered', text_zh: '防水膜已订购', type: 'order' },
       { icon: '⏰', text: '48-hour ponding test required', text_zh: '需进行48小时蓄水试验', type: 'warn' },
@@ -551,9 +551,10 @@ function calculateDuration(phase: ConstructionPhase, sqft: number, typeMultiplie
   // Apply project type multiplier
   days = Math.max(1, Math.round(days * typeMultiplier));
 
-  // Carpentry manufacturing: minimum 7 days, no hard upper bound
+  // Carpentry manufacturing: factory production not affected by project type
+  // Min 7 days, max 42 days (6 weeks)
   if (phase.id === 'carpentry_mfg') {
-    days = Math.max(7, days);
+    return Math.max(7, Math.min(42, phase.baseDays));
   }
 
   return days;
@@ -972,7 +973,7 @@ export function generateGanttFromAIParams(
     // Scale manufacturing by cabinet count: base 21 days + 3 days per cabinet beyond 3
     const cabinetCount = (ts.carpentry.itemNames || []).length;
     const minMfgDays = cabinetCount <= 3 ? 7 : 7 + (cabinetCount - 3) * 3;
-    overrides['carpentry_mfg'] = Math.max(minMfgDays, ts.carpentry.estimatedDays);
+    overrides['carpentry_mfg'] = Math.min(42, Math.max(minMfgDays, ts.carpentry.estimatedDays));
     overrides['carpentry_install'] = ts.carpentry.ft
       ? Math.max(4, Math.ceil(ts.carpentry.ft / 6))
       : 7;
