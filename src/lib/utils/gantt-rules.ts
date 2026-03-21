@@ -551,9 +551,9 @@ function calculateDuration(phase: ConstructionPhase, sqft: number, typeMultiplie
   // Apply project type multiplier
   days = Math.max(1, Math.round(days * typeMultiplier));
 
-  // Carpentry manufacturing has special bounds
+  // Carpentry manufacturing: minimum 21 days (factory lead time), no hard upper bound
   if (phase.id === 'carpentry_mfg') {
-    days = Math.max(21, Math.min(42, days));
+    days = Math.max(21, days);
   }
 
   return days;
@@ -969,7 +969,10 @@ export function generateGanttFromAIParams(
     overrides['painting2'] = Math.max(2, Math.ceil(p * 0.45));
   }
   if (ts.carpentry?.estimatedDays) {
-    overrides['carpentry_mfg'] = Math.max(21, Math.min(42, ts.carpentry.estimatedDays));
+    // Scale manufacturing by cabinet count: base 21 days + 3 days per cabinet beyond 3
+    const cabinetCount = (ts.carpentry.itemNames || []).length;
+    const minMfgDays = cabinetCount <= 3 ? 21 : 21 + (cabinetCount - 3) * 3;
+    overrides['carpentry_mfg'] = Math.max(minMfgDays, ts.carpentry.estimatedDays);
     overrides['carpentry_install'] = ts.carpentry.ft
       ? Math.max(4, Math.ceil(ts.carpentry.ft / 6))
       : 7;
@@ -1079,13 +1082,36 @@ export function generateGanttFromAIParams(
 
   // ── Append customPhases from AI (non-standard trades: CCTV, smart home, etc.) ──
   // NOTE: glass, landscape, metalwork, stonework are now standard phases — skip them here
-  const STANDARD_CUSTOM_TRADES = new Set(['glass', 'glass work', 'landscape', 'landscaping', 'metal work', 'metalwork', 'ironwork', 'stone', 'stonework', 'marble', 'stone work']);
+  const STANDARD_CUSTOM_TRADES = new Set([
+    'glass', 'glass work', 'landscape', 'landscaping',
+    'metal work', 'metalwork', 'ironwork', 'stone', 'stonework', 'marble', 'stone work',
+    // Construction/masonry items belong to the standard masonry phase
+    'construction', 'masonry', 'brickwork', 'structural', 'plastering', 'plaster', 'screed',
+  ]);
+  // Patterns to detect construction-related customPhase names (broader than exact Set match)
+  const CONSTRUCTION_NAME_PATTERNS = /\b(construct|masonry|brickwork|rc\s|reinforc|structural|plaster(?!.*ceil)|screed|slab)\b/i;
   const customPhaseTradesSeen = new Set<string>();
   if (params.customPhases?.length) {
     for (const cp of params.customPhases) {
       if (!cp.name) continue;
       const tradeLower = (cp.trade || '').toLowerCase();
       // Skip trades now handled by standard CONSTRUCTION_PHASES
+      const isConstructionRelated = STANDARD_CUSTOM_TRADES.has(tradeLower)
+        || CONSTRUCTION_NAME_PATTERNS.test(cp.name)
+        || CONSTRUCTION_NAME_PATTERNS.test(cp.trade || '');
+      if (isConstructionRelated) {
+        // Merge phase name into masonry tradeScope so it appears in Construction Works source_items
+        const itemName = cp.name;
+        if (ts.masonry) {
+          const existing = ts.masonry.itemNames || [];
+          if (!existing.includes(itemName)) {
+            ts.masonry = { ...ts.masonry, itemNames: [...existing, itemName] };
+          }
+        } else {
+          Object.assign(ts, { masonry: { itemNames: [itemName] } });
+        }
+        continue;
+      }
       if (STANDARD_CUSTOM_TRADES.has(tradeLower)) continue;
       customPhaseTradesSeen.add(tradeLower);
 
