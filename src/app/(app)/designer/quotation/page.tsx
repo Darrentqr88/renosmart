@@ -8,7 +8,7 @@ import { extractTextFromFile } from '@/lib/pdf/extractor';
 import { buildQuotationPrompt, buildGanttParamsPrompt, fetchDbPriceReference } from '@/lib/ai/quotation-prompt';
 import { generateGanttFromAIParams, generateGanttFromQuotation } from '@/lib/utils/gantt-rules';
 import { QuotationAnalysis, QuotationItem, AIItemStatus, SupplyType, GanttParams, ScoreBreakdown, DimensionBreakdown } from '@/types';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, getCurrencySymbol } from '@/lib/utils';
 import { calculateHybridScores } from '@/lib/utils/score-calculator';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
@@ -98,6 +98,17 @@ function SupplyBadge({ type }: { type?: SupplyType }) {
   );
 }
 
+/* ─── Detect MY sub-region from address ──────────────────────────────────── */
+function detectMYRegion(address?: string, textForAI?: string): string {
+  const haystack = `${address || ''} ${textForAI || ''}`.toLowerCase();
+  // Johor patterns
+  if (/\bjohor\b|\bjb\b|\biskandar\b|\bnusajaya\b|\bgelang\s*patah\b|\bskudai\b|\bkulai\b|\bsenai\b|\bmasai\b|\bpasir\s*gudang\b|\bpermas\b|\btebrau\b|\bmount\s*austin\b|\bsetia\s*tropika\b/.test(haystack)) return 'MY_JB';
+  // Penang patterns
+  if (/\bpenang\b|\bpulau\s*pinang\b|\bgeorgetown\b|\bgeorge\s*town\b|\bbayan\s*lepas\b|\btanjung\s*bungah\b|\bbukit\s*mertajam\b|\bbutterwort?h\b|\bnibong\s*tebal\b|\bseberang\s*(perai|prai)\b|\bjelutong\b|\bairs?\s*itam\b/.test(haystack)) return 'MY_PG';
+  // Default: KL/Selangor (largest market)
+  return 'MY_KL';
+}
+
 /* ─── Sanitize AI response ───────────────────────────────────────────────── */
 function sanitizeAnalysis(raw: QuotationAnalysis): QuotationAnalysis {
   const items = (raw.items ?? []).map(item => ({
@@ -134,6 +145,8 @@ function sanitizeAnalysis(raw: QuotationAnalysis): QuotationAnalysis {
 /* ─── Main Page ─────────────────────────────────────────────────────────── */
 export default function QuotationPage() {
   const { lang, region } = useI18n();
+  const currency = getCurrencySymbol(region);
+  const fmtCurrency = (amount: number) => formatCurrency(amount, currency);
   const router = useRouter();
   const supabase = createClient();
 
@@ -350,8 +363,11 @@ export default function QuotationPage() {
         }).catch(() => {});
       }
 
+      // ── Detect effective region for price scoring + DB update ──
+      const effectiveRegion = region === 'SG' ? 'SG' : detectMYRegion(parsed.client?.address, text);
+
       // ── Background: hybrid scoring ──
-      calculateHybridScores(parsed, 'MY_KL').then(breakdown => {
+      calculateHybridScores(parsed, effectiveRegion).then(breakdown => {
         setScoreBreakdown(breakdown);
         setAnalysis(prev => prev ? {
           ...prev,
@@ -368,7 +384,7 @@ export default function QuotationPage() {
             const newStatus: AIItemStatus =
               (comp.verdict === 'flag_high' || comp.verdict === 'flag_low') ? 'flag' :
               comp.verdict === 'warn_high' ? 'warn' : item.status;
-            const rangeLabel = comp.source === 'database' && comp.dbMin != null && comp.dbMax != null
+            const rangeLabel = (comp.source === 'database' || comp.source === 'known_range') && comp.dbMin != null && comp.dbMax != null
               ? `市场${comp.dbMin.toFixed(0)}-${comp.dbMax.toFixed(0)}`
               : comp.source === 'ai_estimate' && comp.aiEstMin != null && comp.aiEstMax != null
                 ? `AI估${comp.aiEstMin.toFixed(0)}-${comp.aiEstMax.toFixed(0)}`
@@ -387,7 +403,7 @@ export default function QuotationPage() {
         fetch('/api/price-db', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeaders },
-          body: JSON.stringify({ items: parsed.items, region: region === 'SG' ? 'SG' : 'MY_KL' }),
+          body: JSON.stringify({ items: parsed.items, region: effectiveRegion }),
         }).catch(() => {});
       }
     } catch (error: unknown) {
@@ -683,10 +699,10 @@ export default function QuotationPage() {
 <h2>报价工程项目 (${analysis.items.length} 项)</h2>
 <table><thead><tr><th>#</th><th>工程描述</th><th>单位</th><th style="text-align:right">数量</th><th style="text-align:right">单价</th><th style="text-align:right">金额</th><th>状态</th></tr></thead>
 <tbody>
-${analysis.items.map(item => `<tr><td>${item.no}</td><td><div style="font-size:10px;color:#6B7A94">${item.section||''}</div>${item.name}</td><td>${item.unit}</td><td style="text-align:right">${item.qty}</td><td style="text-align:right">${item.unitPrice.toFixed(2)}${item.unitPriceDerived ? '*' : ''}</td><td style="text-align:right;font-weight:600">${formatCurrency(item.total)}</td><td>${STATUS_CONFIG[item.status].label}${item.note ? '<br><span style="font-size:10px;color:#6B7A94">'+item.note+'</span>' : ''}</td></tr>`).join('')}
+${analysis.items.map(item => `<tr><td>${item.no}</td><td><div style="font-size:10px;color:#6B7A94">${item.section||''}</div>${item.name}</td><td>${item.unit}</td><td style="text-align:right">${item.qty}</td><td style="text-align:right">${item.unitPrice.toFixed(2)}${item.unitPriceDerived ? '*' : ''}</td><td style="text-align:right;font-weight:600">${fmtCurrency(item.total)}</td><td>${STATUS_CONFIG[item.status].label}${item.note ? '<br><span style="font-size:10px;color:#6B7A94">'+item.note+'</span>' : ''}</td></tr>`).join('')}
 </tbody>
-${analysis.subtotals.map(s => `<tfoot><tr><td colspan="5" style="text-align:right;font-weight:600">${s.label}</td><td style="text-align:right;font-weight:700">${formatCurrency(s.amount)}</td><td></td></tr></tfoot>`).join('')}
-<tfoot><tr class="total-row"><td colspan="5" style="text-align:right">报价总额</td><td style="text-align:right;color:#4F8EF7">${formatCurrency(analysis.totalAmount)}</td><td></td></tr></tfoot></table>
+${analysis.subtotals.map(s => `<tfoot><tr><td colspan="5" style="text-align:right;font-weight:600">${s.label}</td><td style="text-align:right;font-weight:700">${fmtCurrency(s.amount)}</td><td></td></tr></tfoot>`).join('')}
+<tfoot><tr class="total-row"><td colspan="5" style="text-align:right">报价总额</td><td style="text-align:right;color:#4F8EF7">${fmtCurrency(analysis.totalAmount)}</td><td></td></tr></tfoot></table>
 
 ${analysis.missing.length > 0 ? `<h2>可能漏算项目 (${analysis.missing.length} 项)</h2>${analysis.missing.map(m => `<div class="missing-item">✗ ${m}</div>`).join('')}` : ''}
 
@@ -859,7 +875,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                 <p className="font-semibold text-rs-text text-[14px] truncate">{fileName}</p>
                 <p className="text-[12px] text-rs-text3">
                   已识别 <span className="text-rs-text font-semibold">{analysis.items.length}</span> 填工程 &nbsp;·&nbsp;
-                  <span className="text-[#4F8EF7] font-semibold">{formatCurrency(analysis.totalAmount)}</span>
+                  <span className="text-[#4F8EF7] font-semibold">{fmtCurrency(analysis.totalAmount)}</span>
                 </p>
               </div>
               {savedProjectId && (
@@ -1098,7 +1114,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                               const origIdx = analysis?.items.indexOf(item) ?? -1;
                               const comp = scoreBreakdown?.priceComparisons.find(c => c.itemIndex === origIdx);
                               if (!comp) return null;
-                              if (comp.source === 'database' && comp.dbMin != null && comp.dbMax != null) {
+                              if ((comp.source === 'database' || comp.source === 'known_range') && comp.dbMin != null && comp.dbMax != null) {
                                 return <div className="text-[9px] text-green-600 mt-0.5">市场 {comp.dbMin.toFixed(0)}-{comp.dbMax.toFixed(0)}</div>;
                               }
                               if (comp.source === 'ai_estimate' && comp.aiEstMin != null && comp.aiEstMax != null) {
@@ -1318,7 +1334,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <div>
                 <h3 className="font-bold text-gray-900">AI 完整审核报告</h3>
-                <p className="text-[12px] text-gray-500 mt-0.5">{fileName} · {analysis.items.length} 项工程 · {formatCurrency(analysis.totalAmount)}</p>
+                <p className="text-[12px] text-gray-500 mt-0.5">{fileName} · {analysis.items.length} 项工程 · {fmtCurrency(analysis.totalAmount)}</p>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={handleExportPDF}
@@ -1476,7 +1492,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                   </div>
                   <div className="bg-amber-50 rounded-xl p-3 text-[12px] text-amber-700">
                     <strong>状态：Pending 待谈</strong><br />
-                    合同金额：{formatCurrency(analysis?.totalAmount || 0)}<br />
+                    合同金额：{fmtCurrency(analysis?.totalAmount || 0)}<br />
                     客户：{clientInfo?.company || clientInfo?.attention || '—'}
                   </div>
                 </div>

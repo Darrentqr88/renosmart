@@ -6,7 +6,13 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(amount: number, currency = 'RM'): string {
-  return `${currency} ${amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const locale = currency === 'S$' ? 'en-SG' : 'en-MY';
+  return `${currency} ${amount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/** Returns 'S$' for Singapore, 'RM' for Malaysia */
+export function getCurrencySymbol(region: 'MY' | 'SG'): string {
+  return region === 'SG' ? 'S$' : 'RM';
 }
 
 export function formatDate(date: string | Date): string {

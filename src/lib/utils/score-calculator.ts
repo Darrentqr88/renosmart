@@ -21,6 +21,30 @@ function normalizeUnit(unit: string): string {
 }
 
 // ============================================
+// Built-in reliable price ranges (MY RM)
+// Used when no DB data and AI estimates are unreliable for the category/unit.
+// Key: "Category|Subcategory|normalizedUnit"  (empty subcategory = wildcard)
+// ============================================
+const KNOWN_PRICE_RANGES: Record<string, { min: number; max: number }> = {
+  // Carpentry cabinets per ft-run — AI often confuses ft-run with per-sqft pricing
+  'Carpentry|Kitchen Cabinet|ft':    { min: 400, max: 1200 },
+  'Carpentry|Kitchen Cabinet|ftrun': { min: 400, max: 1200 },
+  'Carpentry|Wardrobe|ft':           { min: 700, max: 1600 },
+  'Carpentry|Wardrobe|ftrun':        { min: 700, max: 1600 },
+  'Carpentry|TV Console/Feature|ft': { min: 200, max: 550 },
+  'Carpentry|Shoe Cabinet|ft':       { min: 250, max: 600 },
+  'Carpentry|Vanity Cabinet|ft':     { min: 350, max: 750 },
+  'Carpentry||ft':                   { min: 300, max: 1600 }, // any carpentry in ft
+  'Carpentry||ftrun':                { min: 300, max: 1600 },
+};
+
+function getKnownRange(category: string, subcategory: string, unit: string): { min: number; max: number } | null {
+  return KNOWN_PRICE_RANGES[`${category}|${subcategory}|${unit}`]
+    ?? KNOWN_PRICE_RANGES[`${category}||${unit}`]
+    ?? null;
+}
+
+// ============================================
 // Price score calculation for a single item
 // ============================================
 interface PriceDbEntry {
@@ -174,24 +198,40 @@ export async function calculateHybridScores(
       weightedSum += result.contribution * weight;
       totalWeight += weight;
       dbMatchCount++;
-    } else if (item.estMinPrice && item.estMaxPrice && item.estMinPrice > 0) {
-      // Priority 2: AI estimated range
-      comp.source = 'ai_estimate';
-      const aiAvg = (item.estMinPrice + item.estMaxPrice) / 2;
-      comp.deviation = aiAvg > 0 ? (item.unitPrice - aiAvg) / aiAvg : null;
-
-      const result = scoreItemAgainstRange(item.unitPrice, item.estMinPrice, item.estMaxPrice, true);
-      comp.verdict = result.verdict;
-      weightedSum += result.contribution * weight;
-      totalWeight += weight;
-      aiEstimateCount++;
     } else {
-      // Priority 3: Use AI item status as proxy
-      comp.source = 'ai_status';
-      const statusScore = item.status === 'ok' ? 1.0 : item.status === 'warn' ? 0.6 : item.status === 'flag' ? 0.2 : 0.5;
-      comp.verdict = item.status === 'flag' ? 'flag_high' : item.status === 'warn' ? 'warn_high' : 'ok';
-      weightedSum += statusScore * weight;
-      totalWeight += weight;
+      const known = getKnownRange(classification.category, classification.subcategory, unit);
+      if (known) {
+        // Priority 2: Built-in known range (more reliable than AI estimate for this category/unit)
+        comp.source = 'known_range';
+        comp.dbMin = known.min;
+        comp.dbMax = known.max;
+        const knownAvg = (known.min + known.max) / 2;
+        comp.deviation = knownAvg > 0 ? (item.unitPrice - knownAvg) / knownAvg : null;
+
+        const result = scoreItemAgainstRange(item.unitPrice, known.min, known.max, false);
+        comp.verdict = result.verdict;
+        weightedSum += result.contribution * weight;
+        totalWeight += weight;
+        dbMatchCount++;
+      } else if (item.estMinPrice && item.estMaxPrice && item.estMinPrice > 0) {
+        // Priority 3: AI estimated range
+        comp.source = 'ai_estimate';
+        const aiAvg = (item.estMinPrice + item.estMaxPrice) / 2;
+        comp.deviation = aiAvg > 0 ? (item.unitPrice - aiAvg) / aiAvg : null;
+
+        const result = scoreItemAgainstRange(item.unitPrice, item.estMinPrice, item.estMaxPrice, true);
+        comp.verdict = result.verdict;
+        weightedSum += result.contribution * weight;
+        totalWeight += weight;
+        aiEstimateCount++;
+      } else {
+        // Priority 4: Use AI item status as proxy
+        comp.source = 'ai_status';
+        const statusScore = item.status === 'ok' ? 1.0 : item.status === 'warn' ? 0.6 : item.status === 'flag' ? 0.2 : 0.5;
+        comp.verdict = item.status === 'flag' ? 'flag_high' : item.status === 'warn' ? 'warn_high' : 'ok';
+        weightedSum += statusScore * weight;
+        totalWeight += weight;
+      }
     }
 
     priceComparisons.push(comp);

@@ -14,7 +14,11 @@ const PLAN_LIMITS: Record<string, number> = {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { model, max_tokens, messages, system, skipQuota } = body;
+    const { model, max_tokens, messages, system } = body;
+
+    // Server-side quota skip: secondary AI calls (gantt params, task details) use haiku
+    // with small token limits. These should not count against the user's quota.
+    const isSecondaryCall = model === 'claude-haiku-4-5-20251001' && (max_tokens || 16000) <= 4000;
 
     const authHeader = req.headers.get('Authorization');
     let userId: string | null = null;
@@ -36,8 +40,8 @@ export async function POST(req: NextRequest) {
       userId = session?.user?.id || null;
     }
 
-    // Quota check (skip for gantt params call)
-    if (userId && !skipQuota) {
+    // Quota check
+    if (userId && !isSecondaryCall) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('plan')
@@ -95,7 +99,7 @@ export async function POST(req: NextRequest) {
           }
 
           // Increment usage after successful completion (only for main analysis, not gantt)
-          if (userId && !skipQuota) {
+          if (userId && !isSecondaryCall) {
             const yearMonth = new Date().toISOString().slice(0, 7);
             await supabase.rpc('increment_ai_usage', { p_user_id: userId, p_year_month: yearMonth });
           }

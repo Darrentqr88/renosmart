@@ -127,7 +127,9 @@ function RegisterPageContent() {
       if (!session) {
         localStorage.setItem('pending_profile', JSON.stringify({
           user_id: userId, email: userEmail, role,
-          phone: `${phonePrefix}${phone}`, name,
+          phone: `${phonePrefix}${phone}`,
+          region: phonePrefix === '+65' ? 'SG' : 'MY',
+          name,
           company: role === 'designer' ? company : null,
           company_address: role === 'designer' ? companyAddress : null,
           trades: role === 'worker' ? trades : null,
@@ -140,7 +142,9 @@ function RegisterPageContent() {
 
       const profileData = {
         user_id: userId, email: userEmail, role,
-        phone: `${phonePrefix}${phone}`, name,
+        phone: `${phonePrefix}${phone}`,
+        region: phonePrefix === '+65' ? 'SG' : 'MY',  // ← auto-detect from phone prefix
+        name,
         company: role === 'designer' ? company : null,
         company_address: role === 'designer' ? companyAddress : null,
         trades: role === 'worker' ? trades : null,

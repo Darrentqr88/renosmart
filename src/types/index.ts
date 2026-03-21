@@ -16,6 +16,7 @@ export interface Profile {
   name: string;
   email: string;
   phone?: string;
+  region?: Region;   // 'MY' | 'SG' — derived from phone prefix on registration
   company?: string;
   company_address?: string;
   trades?: string[];
@@ -348,7 +349,7 @@ export interface PriceComparison {
   aiEstMax: number | null;
   deviation: number | null;
   verdict: 'ok' | 'warn_high' | 'flag_high' | 'flag_low' | 'ai_estimated';
-  source: 'database' | 'ai_estimate' | 'ai_status';
+  source: 'database' | 'known_range' | 'ai_estimate' | 'ai_status';
   sampleCount: number;
   category: string;
   subcategory: string;

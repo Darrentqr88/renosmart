@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, getCurrencySymbol } from '@/lib/utils';
 import { GanttChart, GanttWorkerInfo } from '@/components/gantt/GanttChart';
 import { TaskDetailPanel } from '@/components/gantt/TaskDetailPanel';
 import { generateGanttTasks, generateGanttFromQuotation, generateGanttFromAIParams, appendVOTask, addWorkdays, detectTradeForVO } from '@/lib/utils/gantt-rules';
@@ -81,7 +81,10 @@ export default function ProjectDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const supabase = createClient();
-  const { t } = useI18n();
+  const { t, region } = useI18n();
+  const currency = getCurrencySymbol(region);
+  // Region-aware currency formatter (S$ for SG, RM for MY)
+  const fmtCurrency = (amount: number) => formatCurrency(amount, currency);
 
   const [project, setProject] = useState<Project | null>(null);
   const [ganttTasks, setGanttTasks] = useState<GanttTask[]>([]);
@@ -779,7 +782,7 @@ export default function ProjectDetailPage() {
       await supabase.from('projects').update({ contract_amount: newContractAmount }).eq('id', id);
       setProject(prev => prev ? { ...prev, contract_amount: newContractAmount } : prev);
       setContractDirty(true);
-      toast({ title: 'VO Approved', description: `Contract updated to ${formatCurrency(newContractAmount)}` });
+      toast({ title: 'VO Approved', description: `Contract updated to ${fmtCurrency(newContractAmount)}` });
 
       // Append VO task to Gantt (auto insert before handover)
       const region: 'MY' | 'SG' = (() => {
@@ -1175,9 +1178,9 @@ export default function ProjectDetailPage() {
       <div className="bg-white border-b border-gray-100 px-6 py-3">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: t.proj.contractTotal, value: formatCurrency(revenue), sub: t.proj.fromQuotation, color: '#3B82F6', bg: 'rgba(59,130,246,0.06)', borderColor: 'rgba(59,130,246,0.12)' },
-            { label: t.proj.recordedCost, value: formatCurrency(totalCost), sub: t.proj.fromReceipts, color: '#F97316', bg: 'rgba(249,115,22,0.06)', borderColor: 'rgba(249,115,22,0.12)' },
-            { label: t.proj.grossProfit, value: formatCurrency(grossProfit), sub: t.proj.revenueCost, color: grossProfit >= 0 ? '#22C55E' : '#EF4444', bg: grossProfit >= 0 ? 'rgba(34,197,94,0.06)' : 'rgba(239,68,68,0.06)', borderColor: grossProfit >= 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)' },
+            { label: t.proj.contractTotal, value: fmtCurrency(revenue), sub: t.proj.fromQuotation, color: '#3B82F6', bg: 'rgba(59,130,246,0.06)', borderColor: 'rgba(59,130,246,0.12)' },
+            { label: t.proj.recordedCost, value: fmtCurrency(totalCost), sub: t.proj.fromReceipts, color: '#F97316', bg: 'rgba(249,115,22,0.06)', borderColor: 'rgba(249,115,22,0.12)' },
+            { label: t.proj.grossProfit, value: fmtCurrency(grossProfit), sub: t.proj.revenueCost, color: grossProfit >= 0 ? '#22C55E' : '#EF4444', bg: grossProfit >= 0 ? 'rgba(34,197,94,0.06)' : 'rgba(239,68,68,0.06)', borderColor: grossProfit >= 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)' },
             { label: t.proj.profitMargin, value: `${margin.toFixed(1)}%`, sub: margin >= 20 ? t.proj.healthy : margin >= 10 ? '一般' : revenue === 0 ? '—' : '偏低', color: revenue === 0 ? '#9CA3AF' : margin >= 20 ? '#22C55E' : margin >= 10 ? '#4F8EF7' : '#EF4444', bg: 'rgba(139,92,246,0.06)', borderColor: 'rgba(139,92,246,0.12)' },
           ].map(({ label, value, sub, color, bg, borderColor }) => (
             <div key={label} className="rounded-xl p-3 text-center" style={{ background: bg, border: `1px solid ${borderColor}` }}>
@@ -1746,7 +1749,7 @@ export default function ProjectDetailPage() {
                   if (insErr) throw insErr;
                   // Refresh state with DB-generated ids
                   if (saved) setPayments(saved as PaymentPhase[]);
-                  toast({ title: '✅ 付款计划已保存', description: `共 ${rows.length} 期，合计 ${formatCurrency(phasesTotal)}` });
+                  toast({ title: '✅ 付款计划已保存', description: `共 ${rows.length} 期，合计 ${fmtCurrency(phasesTotal)}` });
                 } catch (err) {
                   console.error('Payment save error:', err);
                   toast({ title: '保存失败，请重试', variant: 'destructive' });
@@ -1784,18 +1787,18 @@ export default function ProjectDetailPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                     <div className="bg-white rounded-xl border border-gray-100 p-4">
                       <div className="text-xs text-gray-500 mb-1">合同总额（含VO）</div>
-                      <div className="text-lg font-bold text-gray-900">{formatCurrency(totalContract)}</div>
+                      <div className="text-lg font-bold text-gray-900">{fmtCurrency(totalContract)}</div>
                       {approvedVOTotal > 0 && (
-                        <div className="text-[10px] text-amber-600 mt-0.5">含 VO {formatCurrency(approvedVOTotal)}</div>
+                        <div className="text-[10px] text-amber-600 mt-0.5">含 VO {fmtCurrency(approvedVOTotal)}</div>
                       )}
                     </div>
                     <div className="bg-green-50 rounded-xl border border-green-100 p-4">
                       <div className="text-xs text-green-600 mb-1">已收款</div>
-                      <div className="text-lg font-bold text-green-700">{formatCurrency(totalCollected)}</div>
+                      <div className="text-lg font-bold text-green-700">{fmtCurrency(totalCollected)}</div>
                     </div>
                     <div className="bg-amber-50 rounded-xl border border-amber-100 p-4">
                       <div className="text-xs text-amber-600 mb-1">未收款</div>
-                      <div className="text-lg font-bold text-amber-700">{formatCurrency(totalOutstanding)}</div>
+                      <div className="text-lg font-bold text-amber-700">{fmtCurrency(totalOutstanding)}</div>
                     </div>
                   </div>
 
@@ -1803,9 +1806,9 @@ export default function ProjectDetailPage() {
                   <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl mb-4 ${isBalanced ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
                     <div className="flex items-center gap-2">
                       <span className={`text-sm font-semibold ${isBalanced ? 'text-green-700' : 'text-red-600'}`}>
-                        {isBalanced ? '✅ 付款计划与合同金额匹配' : `⚠️ 差额 ${formatCurrency(Math.abs(diff))} ${diff > 0 ? '（未分配）' : '（超出合同）'}`}
+                        {isBalanced ? '✅ 付款计划与合同金额匹配' : `⚠️ 差额 ${fmtCurrency(Math.abs(diff))} ${diff > 0 ? '（未分配）' : '（超出合同）'}`}
                       </span>
-                      <span className="text-xs text-gray-500">各期合计：{formatCurrency(phasesTotal)}</span>
+                      <span className="text-xs text-gray-500">各期合计：{fmtCurrency(phasesTotal)}</span>
                     </div>
                     <button
                       onClick={savePayments}
@@ -2049,7 +2052,7 @@ export default function ProjectDetailPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 text-sm truncate">{aq.file_name || 'Quotation'}</p>
-                        <p className="text-xs text-gray-400">{formatDate(aq.created_at)} · {(aq.parsed_items || []).length} items · Total: <span className="font-semibold text-gray-700">{formatCurrency(aq.total_amount)}</span></p>
+                        <p className="text-xs text-gray-400">{formatDate(aq.created_at)} · {(aq.parsed_items || []).length} items · Total: <span className="font-semibold text-gray-700">{fmtCurrency(aq.total_amount)}</span></p>
                       </div>
                       {score !== null && (
                         <div className="flex items-center gap-2 flex-shrink-0">
@@ -2194,7 +2197,7 @@ export default function ProjectDetailPage() {
                             )}
                           </div>
                           <div className="text-xs text-gray-400 mt-0.5">
-                            {formatDate(qv.created_at)} · Total: {formatCurrency(qv.total_amount)}
+                            {formatDate(qv.created_at)} · Total: {fmtCurrency(qv.total_amount)}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -2273,9 +2276,9 @@ export default function ProjectDetailPage() {
                         return (
                           <tr key={qv.id} className={`border-t border-gray-50 ${qv.is_active ? 'bg-[#4F8EF7]/5' : ''}`}>
                             <td className="px-3 py-2">{qv.file_name || 'Quotation'}{qv.is_active && <span className="ml-2 text-xs text-[#4F8EF7]">(Active)</span>}</td>
-                            <td className="px-3 py-2 text-right font-medium">{formatCurrency(qv.total_amount)}</td>
+                            <td className="px-3 py-2 text-right font-medium">{fmtCurrency(qv.total_amount)}</td>
                             <td className={`px-3 py-2 text-right font-medium ${diff > 0 ? 'text-red-500' : diff < 0 ? 'text-green-600' : 'text-gray-400'}`}>
-                              {qv.is_active ? '—' : diff > 0 ? `+${formatCurrency(diff)}` : diff < 0 ? formatCurrency(diff) : '—'}
+                              {qv.is_active ? '—' : diff > 0 ? `+${fmtCurrency(diff)}` : diff < 0 ? fmtCurrency(diff) : '—'}
                             </td>
                           </tr>
                         );
@@ -2293,7 +2296,7 @@ export default function ProjectDetailPage() {
                       <GitBranch className="w-4 h-4 text-[#4F8EF7]" /> {t.proj.voTitle}
                     </h2>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {variationOrders.filter(v => v.status === 'approved').length} {t.proj.approved} · {formatCurrency(variationOrders.filter(v => v.status === 'approved').reduce((s, v) => s + v.amount, 0))}
+                      {variationOrders.filter(v => v.status === 'approved').length} {t.proj.approved} · {fmtCurrency(variationOrders.filter(v => v.status === 'approved').reduce((s, v) => s + v.amount, 0))}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -2384,7 +2387,7 @@ export default function ProjectDetailPage() {
                             </div>
                             <div className="text-right flex-shrink-0">
                               <div className={`text-base font-bold ${vo.status === 'rejected' ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
-                                {vo.amount > 0 ? '+' : ''}{formatCurrency(vo.amount)}
+                                {vo.amount > 0 ? '+' : ''}{fmtCurrency(vo.amount)}
                               </div>
                               {vo.status === 'pending' && (
                                 <div className="flex gap-1.5 mt-1.5">
@@ -2407,17 +2410,17 @@ export default function ProjectDetailPage() {
                   <div className="mt-4 bg-white rounded-xl border border-gray-100 p-4 text-sm">
                     <div className="flex justify-between text-gray-500 mb-2">
                       <span>原合同金额</span>
-                      <span className="font-medium text-gray-800">{formatCurrency((project?.contract_amount || 0) - variationOrders.filter(v => v.status === 'approved').reduce((s, v) => s + v.amount, 0))}</span>
+                      <span className="font-medium text-gray-800">{fmtCurrency((project?.contract_amount || 0) - variationOrders.filter(v => v.status === 'approved').reduce((s, v) => s + v.amount, 0))}</span>
                     </div>
                     {variationOrders.filter(v => v.status === 'approved').map(vo => (
                       <div key={vo.id} className="flex justify-between text-gray-500 mb-1.5">
                         <span>{vo.vo_number}: {vo.description}</span>
-                        <span className="font-medium text-green-700">+{formatCurrency(vo.amount)}</span>
+                        <span className="font-medium text-green-700">+{fmtCurrency(vo.amount)}</span>
                       </div>
                     ))}
                     <div className="flex justify-between mt-3 pt-3 border-t border-gray-100 font-semibold">
                       <span className="text-gray-900">合同修订总额</span>
-                      <span className="text-[#4F8EF7] text-base">{formatCurrency(project?.contract_amount || 0)}</span>
+                      <span className="text-[#4F8EF7] text-base">{fmtCurrency(project?.contract_amount || 0)}</span>
                     </div>
                   </div>
                 )}
@@ -2444,7 +2447,7 @@ export default function ProjectDetailPage() {
                       <div>
                         <h3 className="font-bold text-gray-900">📄 {viewingQuotation.file_name || '报价单'}</h3>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          {formatDate(viewingQuotation.created_at)} · 合计 {formatCurrency(viewingQuotation.total_amount)}
+                          {formatDate(viewingQuotation.created_at)} · 合计 {fmtCurrency(viewingQuotation.total_amount)}
                           {score !== null && <span className="ml-2 text-[#4F8EF7] font-semibold">· AI 评分 {score}/100</span>}
                         </p>
                       </div>
@@ -2634,19 +2637,19 @@ export default function ProjectDetailPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white rounded-xl border border-gray-100 p-4">
                   <p className="text-xs text-gray-500 mb-1">{t.proj.contractTotal}</p>
-                  <p className="text-lg font-bold text-gray-900">{formatCurrency(revenue)}</p>
+                  <p className="text-lg font-bold text-gray-900">{fmtCurrency(revenue)}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{t.proj.fromQuotation}</p>
                 </div>
                 <div className="bg-white rounded-xl border border-gray-100 p-4">
                   <p className="text-xs text-gray-500 mb-1">{t.proj.recordedCost}</p>
-                  <p className="text-lg font-bold text-gray-900">{formatCurrency(totalCost)}</p>
+                  <p className="text-lg font-bold text-gray-900">{fmtCurrency(totalCost)}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{t.proj.fromReceipts}</p>
                 </div>
                 <div className={`rounded-xl border p-4 ${grossProfit >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
                   <p className="text-xs text-gray-500 mb-1">{t.proj.grossProfit}</p>
                   <p className={`text-lg font-bold flex items-center gap-1 ${grossProfit >= 0 ? 'text-green-700' : 'text-red-600'}`}>
                     {grossProfit >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                    {formatCurrency(Math.abs(grossProfit))}
+                    {fmtCurrency(Math.abs(grossProfit))}
                   </p>
                 </div>
                 <div className="bg-white rounded-xl border border-gray-100 p-4">
@@ -2705,15 +2708,15 @@ export default function ProjectDetailPage() {
                                   </div>
                                 </td>
                                 <td className="px-4 py-3 text-right text-gray-600">
-                                  {quoted > 0 ? formatCurrency(quoted) : <span className="text-gray-300">—</span>}
+                                  {quoted > 0 ? fmtCurrency(quoted) : <span className="text-gray-300">—</span>}
                                 </td>
                                 <td className="px-4 py-3 text-right font-medium text-gray-900">
-                                  {cost > 0 ? formatCurrency(cost) : <span className="text-gray-300">—</span>}
+                                  {cost > 0 ? fmtCurrency(cost) : <span className="text-gray-300">—</span>}
                                 </td>
                                 <td className="px-4 py-3 text-right">
                                   {quoted > 0 ? (
                                     <span className={`font-medium ${diff >= 0 ? 'text-blue-600' : 'text-red-500'}`}>
-                                      {diff >= 0 ? '+' : ''}{formatCurrency(diff)}
+                                      {diff >= 0 ? '+' : ''}{fmtCurrency(diff)}
                                     </span>
                                   ) : <span className="text-gray-300">—</span>}
                                 </td>
@@ -2724,13 +2727,13 @@ export default function ProjectDetailPage() {
                           <tr className="bg-gray-50 font-semibold">
                             <td className="px-5 py-3 text-gray-900">合计</td>
                             <td className="px-4 py-3 text-right text-gray-700">
-                              {Object.values(quotedByTrade).length > 0 ? formatCurrency(Object.values(quotedByTrade).reduce((a, b) => a + b, 0)) : <span className="text-gray-300">—</span>}
+                              {Object.values(quotedByTrade).length > 0 ? fmtCurrency(Object.values(quotedByTrade).reduce((a, b) => a + b, 0)) : <span className="text-gray-300">—</span>}
                             </td>
-                            <td className="px-4 py-3 text-right text-gray-900">{formatCurrency(totalCost)}</td>
+                            <td className="px-4 py-3 text-right text-gray-900">{fmtCurrency(totalCost)}</td>
                             <td className="px-4 py-3 text-right">
                               {Object.values(quotedByTrade).length > 0 ? (
                                 <span className={grossProfit >= 0 ? 'text-blue-600' : 'text-red-500'}>
-                                  {grossProfit >= 0 ? '+' : ''}{formatCurrency(grossProfit)}
+                                  {grossProfit >= 0 ? '+' : ''}{fmtCurrency(grossProfit)}
                                 </span>
                               ) : <span className="text-gray-300">—</span>}
                             </td>
@@ -2788,7 +2791,7 @@ export default function ProjectDetailPage() {
                                 </div>
                               </td>
                               <td className="px-4 py-2.5 text-right font-medium text-gray-900 whitespace-nowrap">
-                                {formatCurrency(r.total_amount)}
+                                {fmtCurrency(r.total_amount)}
                               </td>
                               <td className="px-3 py-2.5 text-center">
                                 <button
