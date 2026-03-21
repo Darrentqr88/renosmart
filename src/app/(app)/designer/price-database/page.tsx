@@ -26,7 +26,7 @@ interface PriceEntry {
 
 const CATEGORIES = [
   'All', 'Construction', 'Demolition', 'Tiling', 'Electrical', 'Plumbing', 'Painting',
-  'False Ceiling', 'Carpentry', 'Waterproofing', 'Roofing', 'Aluminium', 'Glass',
+  'False Ceiling', 'Carpentry', 'Tabletop', 'Waterproofing', 'Roofing', 'Aluminium', 'Glass',
   'Flooring', 'Air Conditioning', 'Metal Work', 'Landscape', 'Cleaning',
 ];
 
