@@ -822,7 +822,7 @@ export default function ProjectDetailPage() {
   const detectTrade = (text: string): string => {
     const t = (text || '').toLowerCase();
     if (/electr|wir|db board|switch|socket|mcb|conduit|breaker|fuse|cable/.test(t)) return 'electrical';
-    if (/countertop|counter\s*top|table\s*top|tabletop|solid\s*surface|quartz\s*top|postform/.test(t)) return 'tabletop';
+    if (/countertop|counter\s*top|table\s*top|tabletop|solid\s*surface|quartz\s*top|postform|sintered|dekton|neolith/.test(t)) return 'tabletop';
     if (/plumb|pipe|sanit|wc|tap|cistern|drainage|sewage|toilet|inlet|outlet\s*pipe/.test(t)) return 'plumbing';
     if (/til|ceram|porcel|mosaic|grout|homogen/.test(t)) return 'tiling';
     if (/carp|cabinet|wardrobe|joiner|built.in|carpentry|cabinetry|vanity|basin\s*cabinet/.test(t)) return 'carpentry';

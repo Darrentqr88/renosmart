@@ -152,7 +152,12 @@ RULES:
     CALC ERRORS: if qty×unitPrice≠total by >1%, flag.
     COORDINATION: tiling without waterproofing → critical.
 11. paymentTerms: extract if present, else [].
-12. subcategory + materialMethod: classify each item per its trade (e.g. "Floor Tiles"+"600x600", "Kitchen Cabinet"+"Laminated").
+12. subcategory + materialMethod: classify each item per its trade. Examples:
+    Tiling: "Floor Tiles"+"600x600", "Wall Tiles"+"300x600"
+    Carpentry: "Kitchen Cabinet"+"Laminated", "Vanity Cabinet"+"Laminated", "Wardrobe"+"Sliding Door"
+    Tabletop: "Kitchen Countertop"+"Quartz Surface", "Bathroom Countertop"+"Solid Surface", "Bar Countertop"+"Sintered Stone"
+    NOTE: Vanity cabinet / basin cabinet = CARPENTRY (not Plumbing). Table top / countertop = TABLETOP (not Carpentry).
+    Tabletop materials: Solid Surface | Quartz Surface | Marble & Granite | Wooden Postform | Compressed | Sintered Stone | Stainless Steel
 13. estMinPrice, estMaxPrice: estimate MY/SG DESIGNER QUOTATION price range (what designers typically charge homeowners, NOT contractor cost/wholesale). Consider supplyType (S&I vs labour only), material grade, unit type. These are critical for price scoring. Never leave as 0.
 
 JSON structure:

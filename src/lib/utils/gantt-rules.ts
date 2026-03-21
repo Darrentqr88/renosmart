@@ -1434,7 +1434,7 @@ const TRADE_PATTERNS_SHARED: Record<string, RegExp[]> = {
   flooring:       [/\bvinyl/, /timber\s*floor/, /\bparquet/, /laminate\s*floor/, /\bspc\b/, /\blvt\b/],
   painting:       [/\bpaint(?:ing)?\b/, /\bprimer/, /skim.?coat/, /\bputty/, /\bemulsion/, /\bsealer/],
   carpentry:      [/\bcabinet/, /\bcarpent/, /\bwardrobe/, /\bjoiner/, /\bshelf\b|\bshelv/, /\bvanity/, /\bbasin\s*cabinet/, /\bcupboard/, /\bsolid\s*plywood/],
-  tabletop:       [/\bcountertop/, /\bcounter\s*top/, /table\s*top/, /\btabletop/, /\bsolid\s*surface/, /\bquartz\s*top/, /\bpostform/],
+  tabletop:       [/\bcountertop/, /\bcounter\s*top/, /table\s*top/, /\btabletop/, /\bsolid\s*surface/, /\bquartz\s*top/, /\bpostform/, /\bsintered/, /\bdekton/, /\bneolith/],
   aluminium:      [/\balumi?n/, /\bwindow\b/, /sliding\s*door/, /door\s*frame/, /\bgrille/, /\bcasement/],
   glass:          [/\bglass\b/, /shower\s*screen/, /\bmirror\b/, /\btempered/, /\bfolding\s*door.*glass|glass.*folding\s*door/],
   stonework:      [/\bmarble/, /\bgranite/, /\bquartz(?!\s*top)/, /\bstone\b/],
