@@ -48,20 +48,25 @@ function scoreItemAgainstRange(
   }
 
   if (unitPrice > max) {
+    // Above market max — warn (not flag) since higher price may reflect premium material/scope
+    // Only flag if > 80% above max (extreme outlier)
     const overPct = (unitPrice - max) / max;
-    if (overPct <= 0.2) {
+    if (overPct <= 0.3) {
       return { contribution: (isAiEstimate ? 0.6 : 0.7) * dampening, verdict: isAiEstimate ? 'ai_estimated' : 'warn_high' };
-    } else if (overPct <= 0.5) {
-      return { contribution: (isAiEstimate ? 0.35 : 0.4) * dampening, verdict: isAiEstimate ? 'ai_estimated' : 'flag_high' };
+    } else if (overPct <= 0.8) {
+      return { contribution: (isAiEstimate ? 0.4 : 0.5) * dampening, verdict: isAiEstimate ? 'ai_estimated' : 'warn_high' };
     } else {
-      return { contribution: 0.1, verdict: isAiEstimate ? 'ai_estimated' : 'flag_high' };
+      return { contribution: 0.2, verdict: isAiEstimate ? 'ai_estimated' : 'flag_high' };
     }
   }
 
-  // Below min
+  // Below min — more concerning (may indicate missing scope or quality issues)
   const underPct = (min - unitPrice) / min;
+  if (underPct > 0.5) {
+    return { contribution: (isAiEstimate ? 0.15 : 0.2) * dampening, verdict: isAiEstimate ? 'ai_estimated' : 'flag_low' };
+  }
   if (underPct > 0.3) {
-    return { contribution: (isAiEstimate ? 0.25 : 0.3) * dampening, verdict: isAiEstimate ? 'ai_estimated' : 'flag_low' };
+    return { contribution: (isAiEstimate ? 0.3 : 0.4) * dampening, verdict: isAiEstimate ? 'ai_estimated' : 'warn_high' };
   }
   return { contribution: (isAiEstimate ? 0.7 : 0.8) * dampening, verdict: isAiEstimate ? 'ai_estimated' : 'ok' };
 }

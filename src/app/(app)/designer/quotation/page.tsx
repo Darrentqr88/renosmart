@@ -100,19 +100,31 @@ function SupplyBadge({ type }: { type?: SupplyType }) {
 
 /* ─── Sanitize AI response ───────────────────────────────────────────────── */
 function sanitizeAnalysis(raw: QuotationAnalysis): QuotationAnalysis {
+  const items = (raw.items ?? []).map(item => ({
+    ...item,
+    qty:       Number(item.qty)       || 0,
+    unitPrice: Number(item.unitPrice) || 0,
+    total:     Number(item.total)     || 0,
+  }));
+  const subtotals = (raw.subtotals ?? []).map(s => ({
+    ...s,
+    amount: Number(s.amount) || 0,
+  }));
+
+  // totalAmount: use AI value, or fallback to sum of subtotals, or sum of items
+  let totalAmount = Number(raw.totalAmount) || 0;
+  if (totalAmount === 0 && subtotals.length > 0) {
+    totalAmount = subtotals.reduce((sum, s) => sum + s.amount, 0);
+  }
+  if (totalAmount === 0 && items.length > 0) {
+    totalAmount = items.reduce((sum, item) => sum + item.total, 0);
+  }
+
   return {
     ...raw,
-    totalAmount: Number(raw.totalAmount) || 0,
-    items: (raw.items ?? []).map(item => ({
-      ...item,
-      qty:       Number(item.qty)       || 0,
-      unitPrice: Number(item.unitPrice) || 0,
-      total:     Number(item.total)     || 0,
-    })),
-    subtotals: (raw.subtotals ?? []).map(s => ({
-      ...s,
-      amount: Number(s.amount) || 0,
-    })),
+    totalAmount,
+    items,
+    subtotals,
     score: raw.score ?? { total: 0, completeness: 0, price: 0, logic: 0, risk: 0 },
     missing: raw.missing ?? [],
     alerts:  raw.alerts  ?? [],

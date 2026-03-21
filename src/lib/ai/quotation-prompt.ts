@@ -22,7 +22,7 @@ IMPORTANT: These are DESIGNER-TO-HOMEOWNER prices (retail quotation prices), NOT
 - Tiling S&I (rubber tiles): RM 25-40/sqft | SG $35-55/sqft
 
 === CONSTRUCTION (per sqft) ===
-- Build-up brick wall c/w plastering: RM 20-35/sqft | SG $30-50/sqft
+- Build-up brick wall c/w plastering: RM 20-40/sqft | SG $30-55/sqft
 - Build-up brick wall (labour only): RM 12-20/sqft | SG $18-30/sqft
 - RC floor slab 150mm G25: RM 35-55/sqft | SG $50-75/sqft
 - RC floor slab 150mm G30: RM 38-60/sqft | SG $55-80/sqft
@@ -98,9 +98,11 @@ IMPORTANT: These are DESIGNER-TO-HOMEOWNER prices (retail quotation prices), NOT
 - Polycarbonate roof (twinwall): RM 18-30/sqft | SG $25-42/sqft
 - Glass roofing (tempered): RM 55-90/sqft | SG $75-125/sqft
 
-=== ALUMINIUM & GLASS ===
+=== ALUMINIUM & GLASS (per sqft) ===
 - Aluminium casement window: RM 100-250/sqft | SG $150-350/sqft
-- Aluminium sliding door: RM 120-300/sqft | SG $180-400/sqft
+- Aluminium sliding door (standard): RM 120-300/sqft | SG $180-400/sqft
+- Aluminium sliding glass door (powder coated): RM 80-120/sqft | SG $120-180/sqft
+- Aluminium folding/bi-fold glass door (powder coated): RM 120-170/sqft | SG $180-250/sqft
 - Glass shower screen (10mm): RM 45-90/sqft | SG $65-130/sqft
 - Tempered glass fix panel: RM 55-100/sqft | SG $75-140/sqft
 - Mirror (standard): RM 22-40/sqft | SG $30-55/sqft
