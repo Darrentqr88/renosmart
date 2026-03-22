@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { GanttTask, QuotationItem, TradeHint } from '@/types';
 import { getPhaseChecklist, getPhaseById, classifyItemTrade, tradeMatches } from '@/lib/utils/gantt-rules';
-import { buildTradeHintPrompt } from '@/lib/ai/quotation-prompt';
 import { useI18n } from '@/lib/i18n/context';
 import { format, parseISO, differenceInDays } from 'date-fns';
 
@@ -34,7 +33,7 @@ export function TaskDetailPanel({
   classificationOverrides = {},
 }: TaskDetailPanelProps) {
   const { lang } = useI18n();
-  const [editDuration, setEditDuration] = useState(task.duration);
+  const [editDuration, setEditDuration] = useState<string>(String(task.duration));
   const [prepChecks, setPrepChecks] = useState<Record<number, boolean>>({});
   const [aiPrepChecks, setAiPrepChecks] = useState<Record<number, boolean>>({});
   const [aiHint, setAiHint] = useState<TradeHint | null>(null);
@@ -59,54 +58,16 @@ export function TaskDetailPanel({
     });
   })();
 
-  // Use cached hint from batch generation (preferred), fallback to per-panel API call
+  // Use persisted hint (from DB) or batch-cached hint (from GanttAutoGenerator).
+  // No per-panel API calls — hints are generated once during Gantt generation and saved.
   useEffect(() => {
-    if (cachedHint) {
-      setAiHint(cachedHint);
-      setHintLoading(false);
-      return;
+    const hint = task.ai_hint ?? cachedHint ?? null;
+    if (hint) {
+      setAiHint(hint);
     }
-    // Don't trigger per-panel call while batch generation is in progress — wait for it
-    if (parentHintsLoading) return;
-    // Fallback: generate per-panel if no cached hint and items exist
-    if (relatedItems.length === 0) return;
-    setHintLoading(true);
-    const prompt = buildTradeHintPrompt(
-      task.trade,
-      relatedItems.slice(0, 12).map(i => ({
-        name: i.name,
-        qty: i.qty,
-        unit: i.unit,
-        unitPrice: i.unitPrice,
-        total: i.total,
-      })),
-      region,
-    );
-    fetch('/api/claude', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1200,
-        messages: [{ role: 'user', content: prompt }],
-        skipQuota: true,
-      }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        const text = data.content?.[0]?.text || '';
-        const match = text.match(/\{[\s\S]*\}/);
-        if (match) {
-          try {
-            const hint: TradeHint = JSON.parse(match[0]);
-            setAiHint(hint);
-          } catch { /* ignore parse error */ }
-        }
-      })
-      .catch(() => { /* ignore network error */ })
-      .finally(() => setHintLoading(false));
+    setHintLoading(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cachedHint, parentHintsLoading]);
+  }, [task.ai_hint, cachedHint]);
 
   const togglePrepCheck = (idx: number) => setPrepChecks(prev => ({ ...prev, [idx]: !prev[idx] }));
   const toggleAiPrepCheck = (idx: number) => setAiPrepChecks(prev => ({ ...prev, [idx]: !prev[idx] }));
@@ -195,11 +156,11 @@ export function TaskDetailPanel({
             </div>
             <input
               type="number" min={1} max={200} value={editDuration}
-              onChange={(e) => setEditDuration(Math.max(1, parseInt(e.target.value) || 1))}
+              onChange={(e) => setEditDuration(e.target.value)}
               className="w-16 bg-white border border-rs-border rounded-lg px-2 py-1.5 text-center text-[13px] font-mono text-rs-text focus:outline-none focus:border-[#4F8EF7]"
             />
             <button
-              onClick={() => onDurationChange(editDuration)}
+              onClick={() => { const v = Math.max(1, Math.min(200, parseInt(editDuration) || 1)); setEditDuration(String(v)); onDurationChange(v); }}
               className="px-3 py-1.5 text-[11px] font-semibold bg-[#4F8EF7] text-white rounded-lg hover:bg-[#3B7BE8] transition-all whitespace-nowrap"
             >
               {lang === 'ZH' ? '应用' : 'Apply'}
@@ -207,101 +168,90 @@ export function TaskDetailPanel({
           </div>
 
           {/* ── Prep Reminders & Notes section ── */}
-          {(relatedItems.length > 0 || staticChecklist.length > 0) && (
+          {(relatedItems.length > 0 || staticChecklist.length > 0 || task.trade) && (
             <>
-              <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-rs-text3 mb-2 flex items-center gap-2">
+              <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-rs-text3 mb-3 flex items-center gap-2">
                 ✦ {lang === 'ZH' ? '事前准备 & 注意事项' : 'PREP REMINDERS & NOTES'}
-                {relatedItems.length > 0 && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(79,142,247,0.1)] text-[#4F8EF7] border border-[rgba(79,142,247,0.2)] normal-case font-normal">
-                    {lang === 'ZH' ? '基于报价单内容' : 'From quotation AI'}
-                  </span>
-                )}
               </div>
 
-              {/* AI hints — only when quotation items exist */}
-              {relatedItems.length > 0 && (
-                <>
-                  {/* Loading state */}
-                  {(hintLoading || (parentHintsLoading && !aiHint)) && (
-                    <div className="flex items-center gap-2 px-3 py-3 rounded-xl bg-[rgba(79,142,247,0.05)] border border-[rgba(79,142,247,0.15)] mb-3">
-                      <span className="text-[13px] animate-spin">⟳</span>
-                      <p className="text-[11px] text-amber-700">
-                        {lang === 'ZH' ? 'AI正在分析报价单内容...' : 'AI analyzing quotation content...'}
-                      </p>
-                    </div>
+              {/* AI hints section — always rendered, shows status inline */}
+              <div className="mb-3">
+                <div className="text-[10px] font-semibold tracking-[1px] uppercase text-rs-text3 mb-1.5 flex items-center gap-2">
+                  🤖 {lang === 'ZH' ? 'AI建议（基于报价单）' : 'AI HINTS (FROM QUOTATION)'}
+                  {(parentHintsLoading && !aiHint) && (
+                    <span className="text-[9px] animate-pulse text-[#4F8EF7] normal-case font-normal">
+                      {lang === 'ZH' ? '生成中...' : 'generating...'}
+                    </span>
                   )}
+                </div>
 
-                  {/* AI quotation summary */}
-                  {aiHint?.quotationNotes && (
+                {/* AI content */}
+                {aiHint && (
+                  <>
+                    {aiHint.quotationNotes && (
+                      <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl mb-2 border"
+                        style={{ background: 'rgba(79,142,247,0.05)', borderColor: 'rgba(79,142,247,0.2)' }}>
+                        <span className="text-[13px] flex-shrink-0">📋</span>
+                        <p className="text-[11px] text-amber-800 leading-relaxed">{aiHint.quotationNotes}</p>
+                      </div>
+                    )}
+                    {aiHint.warnings && aiHint.warnings.length > 0 && (
+                      <div className="mb-2 space-y-1.5">
+                        {aiHint.warnings.map((w, idx) => (
+                          <div key={idx} className="flex items-start gap-2 px-3 py-2 rounded-xl border"
+                            style={{ background: 'rgba(239,68,68,0.04)', borderColor: 'rgba(239,68,68,0.18)' }}>
+                            <span className="text-[13px] flex-shrink-0">⚠️</span>
+                            <p className="text-[11px] text-red-800 leading-relaxed">{w}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {aiHint.prepItems && aiHint.prepItems.length > 0 && (
+                      <div className="space-y-1.5">
+                        {aiHint.prepItems.slice(0, 5).map((item, idx) => {
+                          const checked = aiPrepChecks[idx] || false;
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => toggleAiPrepCheck(idx)}
+                              className={`w-full flex items-start gap-2 px-3 py-2 rounded-lg border text-[12px] text-left transition-all cursor-pointer ${
+                                checked
+                                  ? 'bg-[rgba(22,163,74,0.07)] border-[rgba(22,163,74,0.25)]'
+                                  : 'bg-[rgba(96,165,250,0.05)] border-[rgba(96,165,250,0.18)] hover:bg-[rgba(96,165,250,0.09)]'
+                              }`}
+                            >
+                              <span className="flex-shrink-0 text-[14px] mt-0.5">{checked ? '✅' : '🛒'}</span>
+                              <span className={`text-rs-text2 leading-snug ${checked ? 'line-through opacity-60' : ''}`}>{item}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* No hints yet — subtle placeholder */}
+                {!aiHint && !parentHintsLoading && (
+                  staticHint ? (
                     <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl mb-2 border"
-                      style={{ background: 'rgba(79,142,247,0.05)', borderColor: 'rgba(79,142,247,0.2)' }}>
-                      <span className="text-[13px] flex-shrink-0">📋</span>
-                      <p className="text-[11px] text-amber-800 leading-relaxed">{aiHint.quotationNotes}</p>
-                    </div>
-                  )}
-
-                  {/* AI warnings */}
-                  {aiHint?.warnings && aiHint.warnings.length > 0 && (
-                    <div className="mb-2 space-y-1.5">
-                      {aiHint.warnings.map((w, idx) => (
-                        <div key={idx} className="flex items-start gap-2 px-3 py-2 rounded-xl border"
-                          style={{ background: 'rgba(239,68,68,0.04)', borderColor: 'rgba(239,68,68,0.18)' }}>
-                          <span className="text-[13px] flex-shrink-0">⚠️</span>
-                          <p className="text-[11px] text-red-800 leading-relaxed">{w}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* AI prep checklist — max 5 items */}
-                  {aiHint?.prepItems && aiHint.prepItems.length > 0 && (
-                    <div className="space-y-1.5 mb-3">
-                      {aiHint.prepItems.slice(0, 5).map((item, idx) => {
-                        const checked = aiPrepChecks[idx] || false;
-                        return (
-                          <button
-                            key={idx}
-                            onClick={() => toggleAiPrepCheck(idx)}
-                            className={`w-full flex items-start gap-2 px-3 py-2 rounded-lg border text-[12px] text-left transition-all cursor-pointer ${
-                              checked
-                                ? 'bg-[rgba(22,163,74,0.07)] border-[rgba(22,163,74,0.25)]'
-                                : 'bg-[rgba(96,165,250,0.05)] border-[rgba(96,165,250,0.18)] hover:bg-[rgba(96,165,250,0.09)]'
-                            }`}
-                          >
-                            <span className="flex-shrink-0 text-[14px] mt-0.5">{checked ? '✅' : '🛒'}</span>
-                            <span className={`text-rs-text2 leading-snug ${checked ? 'line-through opacity-60' : ''}`}>
-                              {item}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Fallback: static hint while AI loads and no AI result yet */}
-                  {!hintLoading && !aiHint && staticHint && (
-                    <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl mb-3 border"
                       style={{ background: 'rgba(79,142,247,0.06)', borderColor: 'rgba(79,142,247,0.2)' }}>
                       <span className="text-[13px] flex-shrink-0">💡</span>
                       <p className="text-[11px] text-amber-800 leading-relaxed">{staticHint}</p>
                     </div>
-                  )}
-                </>
-              )}
+                  ) : (
+                    <div className="text-[11px] text-rs-text3 px-3 py-2 rounded-lg border border-dashed border-rs-border">
+                      {lang === 'ZH' ? '暂无AI建议（无匹配报价单条目）' : 'No AI hints — no matching quotation items'}
+                    </div>
+                  )
+                )}
+              </div>
 
-              {/* Static checklist — ALWAYS shown (below AI hints) */}
+              {/* Static checklist — ALWAYS shown with consistent label */}
               {staticChecklist.length > 0 && (
                 <>
-                  {relatedItems.length > 0 && (
-                    <div className="text-[10px] font-semibold tracking-[1px] uppercase text-rs-text3 mb-1.5 mt-1">
-                      🛠 {lang === 'ZH' ? '通用施工准备' : 'GENERAL PREP CHECKLIST'}
-                    </div>
-                  )}
-                  {relatedItems.length === 0 && (
-                    <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-rs-text3 mb-2">
-                      🛠 {lang === 'ZH' ? '开工前准备事项' : 'PREP CHECKLIST'}
-                    </div>
-                  )}
+                  <div className="text-[10px] font-semibold tracking-[1px] uppercase text-rs-text3 mb-1.5">
+                    🛠 {lang === 'ZH' ? '通用施工准备' : 'PREP CHECKLIST'}
+                  </div>
                   <div className="space-y-1.5 mb-4">
                     {staticChecklist.map((item, idx) => {
                       const checked = prepChecks[idx] || false;

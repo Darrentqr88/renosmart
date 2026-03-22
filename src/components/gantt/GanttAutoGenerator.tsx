@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { QuotationAnalysis, GanttTask, GanttParams, SiteType, TradeHint } from '@/types';
-import { generateGanttTasks, generateGanttFromAIParams, getPhaseChecklist, getPhaseById, CONSTRUCTION_PHASES, classifyItemTrade, tradeMatches } from '@/lib/utils/gantt-rules';
+import { generateGanttTasks, generateGanttFromAIParams, getPhaseChecklist, getPhaseById, CONSTRUCTION_PHASES, classifyItemTrade, tradeMatches, isWorkday_simple, addWorkdays_simple, nextWorkday_simple, fullReschedule, forwardReschedule } from '@/lib/utils/gantt-rules';
 import { buildBatchTradeHintPrompt } from '@/lib/ai/quotation-prompt';
 import { GanttChart } from './GanttChart';
 import { TaskDetailPanel } from './TaskDetailPanel';
@@ -12,182 +12,10 @@ import { exportGanttToExcel } from '@/lib/utils/excel-export';
 import { MY_HOLIDAYS } from '@/lib/utils/dates';
 import { useI18n } from '@/lib/i18n/context';
 
-// Workday helpers for cascade reschedule (skips weekends + MY holidays)
-function isWorkday_simple(d: Date, workSat = false, workSun = false): boolean {
-  const day = d.getDay();
-  if (day === 6 && !workSat) return false;
-  if (day === 0 && !workSun) return false;
-  return !MY_HOLIDAYS.has(format(d, 'yyyy-MM-dd'));
-}
+// isWorkday_simple, addWorkdays_simple, nextWorkday_simple imported from gantt-rules
 
-function addWorkdays_simple(start: Date, workdays: number, workSat = false, workSun = false): Date {
-  let d = new Date(start);
-  let count = 0;
-  while (count < workdays) {
-    d = addDays(d, 1);
-    if (isWorkday_simple(d, workSat, workSun)) count++;
-  }
-  return d;
-}
-
-function nextWorkday_simple(d: Date, workSat = false, workSun = false): Date {
-  let cursor = new Date(d);
-  while (!isWorkday_simple(cursor, workSat, workSun)) {
-    cursor = addDays(cursor, 1);
-  }
-  return cursor;
-}
-
-/**
- * Full reschedule: recalculate ALL task dates based on duration + workday rules.
- * Root tasks keep their start_date, dependents derive start from deps.
- * Used when workSat/workSun changes — compresses or expands the calendar.
- */
-function fullReschedule(tasks: GanttTask[], workSat = false, workSun = false): GanttTask[] {
-  // Topological sort (same as forwardReschedule)
-  const inDegree = new Map<string, number>();
-  const adj = new Map<string, string[]>();
-  for (const t of tasks) {
-    if (!inDegree.has(t.id)) inDegree.set(t.id, 0);
-    for (const depId of t.dependencies || []) {
-      if (!adj.has(depId)) adj.set(depId, []);
-      adj.get(depId)!.push(t.id);
-      inDegree.set(t.id, (inDegree.get(t.id) || 0) + 1);
-    }
-  }
-  const queue = tasks.filter(t => (inDegree.get(t.id) || 0) === 0).map(t => t.id);
-  const order: string[] = [];
-  let qi = 0;
-  while (qi < queue.length) {
-    const id = queue[qi++];
-    order.push(id);
-    for (const childId of adj.get(id) || []) {
-      const newDeg = (inDegree.get(childId) || 0) - 1;
-      inDegree.set(childId, newDeg);
-      if (newDeg === 0) queue.push(childId);
-    }
-  }
-  const orderSet = new Set(order);
-  for (const t of tasks) {
-    if (!orderSet.has(t.id)) order.push(t.id);
-  }
-
-  const updMap = new Map<string, GanttTask>(tasks.map(t => [t.id, t]));
-
-  for (const taskId of order) {
-    const task = updMap.get(taskId)!;
-    const deps = task.dependencies || [];
-    const dur = task.duration || 1;
-
-    let taskStart: Date;
-    if (deps.length === 0) {
-      // Root task: keep start_date, ensure it's a workday
-      taskStart = nextWorkday_simple(parseISO(task.start_date), workSat, workSun);
-    } else {
-      // Dependent: start = next workday after latest dep end
-      let latestDepEndStr = '';
-      for (const dId of deps) {
-        const depTask = updMap.get(dId);
-        if (depTask && depTask.end_date > latestDepEndStr) latestDepEndStr = depTask.end_date;
-      }
-      if (latestDepEndStr) {
-        taskStart = nextWorkday_simple(addDays(parseISO(latestDepEndStr), 1), workSat, workSun);
-      } else {
-        taskStart = nextWorkday_simple(parseISO(task.start_date), workSat, workSun);
-      }
-    }
-
-    const taskEnd = dur > 1
-      ? addWorkdays_simple(taskStart, dur - 1, workSat, workSun)
-      : taskStart;
-
-    updMap.set(taskId, {
-      ...task,
-      start_date: format(taskStart, 'yyyy-MM-dd'),
-      end_date: format(taskEnd, 'yyyy-MM-dd'),
-    });
-  }
-
-  return tasks.map(t => updMap.get(t.id)!);
-}
-
-/**
- * Full forward reschedule: topological sort → shift any task that starts
- * before the latest end of its dependencies. Only moves tasks FORWARD —
- * never pulls tasks backward when a dep is shortened.
- */
-function forwardReschedule(tasks: GanttTask[], workSat = false, workSun = false): GanttTask[] {
-  // Build adjacency: depId → list of task IDs that depend on it
-  const inDegree = new Map<string, number>();
-  const adj = new Map<string, string[]>();
-  for (const t of tasks) {
-    if (!inDegree.has(t.id)) inDegree.set(t.id, 0);
-    for (const depId of t.dependencies || []) {
-      if (!adj.has(depId)) adj.set(depId, []);
-      adj.get(depId)!.push(t.id);
-      inDegree.set(t.id, (inDegree.get(t.id) || 0) + 1);
-    }
-  }
-
-  // Kahn's topological sort — use index pointer (O(1)) instead of shift() (O(n))
-  const queue = tasks.filter(t => (inDegree.get(t.id) || 0) === 0).map(t => t.id);
-  const order: string[] = [];
-  let qi = 0;
-  while (qi < queue.length) {
-    const id = queue[qi++];
-    order.push(id);
-    for (const childId of adj.get(id) || []) {
-      const newDeg = (inDegree.get(childId) || 0) - 1;
-      inDegree.set(childId, newDeg);
-      if (newDeg === 0) queue.push(childId);
-    }
-  }
-  // Any tasks not reached (cycles or disconnected) appended at end
-  // Use Set for O(1) lookup instead of order.includes() which is O(n)
-  const orderSet = new Set(order);
-  for (const t of tasks) {
-    if (!orderSet.has(t.id)) order.push(t.id);
-  }
-
-  // Process in topo order — shift forward if task starts before its deps allow.
-  // Store only modified tasks; untouched tasks keep their original reference.
-  const updMap = new Map<string, GanttTask>(tasks.map(t => [t.id, t]));
-  let hasChanges = false;
-
-  for (const taskId of order) {
-    const task = updMap.get(taskId)!;
-    const deps = task.dependencies || [];
-    if (deps.length === 0) continue; // root — keep anchor date as-is
-
-    // Compare ISO strings directly (lexicographic = chronological for yyyy-MM-dd)
-    // Only parse the latest end date once, avoiding N parseISO calls per task
-    let latestDepEndStr = '';
-    for (const dId of deps) {
-      const depTask = updMap.get(dId);
-      if (depTask && depTask.end_date > latestDepEndStr) latestDepEndStr = depTask.end_date;
-    }
-    if (!latestDepEndStr) continue;
-
-    const minStart = nextWorkday_simple(addDays(parseISO(latestDepEndStr), 1), workSat, workSun);
-    const minStartStr = format(minStart, 'yyyy-MM-dd');
-
-    if (task.start_date < minStartStr) {
-      const newEnd = (task.duration || 1) > 1
-        ? addWorkdays_simple(minStart, (task.duration || 1) - 1, workSat, workSun)
-        : minStart;
-      updMap.set(taskId, {
-        ...task,
-        start_date: minStartStr,
-        end_date: format(newEnd, 'yyyy-MM-dd'),
-      });
-      hasChanges = true;
-    }
-  }
-
-  // Return original array reference if nothing shifted (avoids spurious re-renders)
-  if (!hasChanges) return tasks;
-  return tasks.map(t => updMap.get(t.id)!);
-}
+// fullReschedule, forwardReschedule, isWorkday_simple, addWorkdays_simple, nextWorkday_simple
+// are imported from gantt-rules.ts above
 
 const SITE_TYPE_OPTIONS: { value: SiteType; label: string; label_zh: string }[] = [
   { value: 'condo', label: 'Condo', label_zh: '公寓 Condo' },
@@ -324,7 +152,17 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
         if (match) {
           try {
             const parsed = JSON.parse(match[0]);
-            if (parsed.trades && typeof parsed.trades === 'object') setTradeHints(parsed.trades);
+            if (parsed.trades && typeof parsed.trades === 'object') {
+              const hintsMap = parsed.trades as Record<string, TradeHint>;
+              setTradeHints(hintsMap);
+              // Merge ai_hint into tasks state so it can be persisted to DB
+              setTasks(prev => prev.map(t => ({
+                ...t,
+                ai_hint: hintsMap[t.trade] ?? t.ai_hint ?? null,
+              })));
+              // Trigger auto-save so hints persist to DB
+              setPendingSave(true);
+            }
             if (parsed.unmatchedClassifications && typeof parsed.unmatchedClassifications === 'object') {
               const overrides: Record<string, string> = {};
               for (const [n, t] of Object.entries(parsed.unmatchedClassifications)) overrides[n] = t as string;
@@ -419,7 +257,7 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
     setTasks(prev => {
       // Apply direct update to the changed task, then full topological forward reschedule
       const withUpdate = prev.map(t => t.id === taskId ? { ...t, ...updates } : t);
-      return forwardReschedule(withUpdate, workSat, workSun);
+      return forwardReschedule(withUpdate, workSat, workSun, taskId);
     });
     // Trigger debounced auto-save
     setPendingSave(true);

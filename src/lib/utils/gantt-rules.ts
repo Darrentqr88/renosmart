@@ -1,6 +1,6 @@
 import { GanttTask, GanttSubtask, GanttParams, PhaseGroup, SiteType } from '@/types';
-import { addDays, format } from 'date-fns';
-import { isWorkday } from './dates';
+import { addDays, format, parseISO } from 'date-fns';
+import { isWorkday, MY_HOLIDAYS } from './dates';
 
 export interface ConstructionPhase {
   id: string;
@@ -1592,4 +1592,151 @@ export function appendVOTask(
     result.push(voTask);
   }
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Shared scheduling helpers (used by GanttAutoGenerator AND project detail page)
+// ---------------------------------------------------------------------------
+
+export function isWorkday_simple(d: Date, workSat = false, workSun = false): boolean {
+  const day = d.getDay();
+  if (day === 6 && !workSat) return false;
+  if (day === 0 && !workSun) return false;
+  return !MY_HOLIDAYS.has(format(d, 'yyyy-MM-dd'));
+}
+
+export function addWorkdays_simple(start: Date, workdays: number, workSat = false, workSun = false): Date {
+  let d = new Date(start);
+  let count = 0;
+  while (count < workdays) {
+    d = addDays(d, 1);
+    if (isWorkday_simple(d, workSat, workSun)) count++;
+  }
+  return d;
+}
+
+export function nextWorkday_simple(d: Date, workSat = false, workSun = false): Date {
+  let cursor = new Date(d);
+  while (!isWorkday_simple(cursor, workSat, workSun)) {
+    cursor = addDays(cursor, 1);
+  }
+  return cursor;
+}
+
+/**
+ * Full reschedule: recalculate ALL task dates based on duration + workday rules.
+ * Root tasks keep their start_date; dependents derive start from deps.
+ * Used when workSat/workSun changes — compresses or expands the calendar.
+ */
+export function fullReschedule(tasks: GanttTask[], workSat = false, workSun = false): GanttTask[] {
+  const inDegree = new Map<string, number>();
+  const adj = new Map<string, string[]>();
+  for (const t of tasks) {
+    if (!inDegree.has(t.id)) inDegree.set(t.id, 0);
+    for (const depId of t.dependencies || []) {
+      if (!adj.has(depId)) adj.set(depId, []);
+      adj.get(depId)!.push(t.id);
+      inDegree.set(t.id, (inDegree.get(t.id) || 0) + 1);
+    }
+  }
+  const queue = tasks.filter(t => (inDegree.get(t.id) || 0) === 0).map(t => t.id);
+  const order: string[] = [];
+  let qi = 0;
+  while (qi < queue.length) {
+    const id = queue[qi++];
+    order.push(id);
+    for (const childId of adj.get(id) || []) {
+      const newDeg = (inDegree.get(childId) || 0) - 1;
+      inDegree.set(childId, newDeg);
+      if (newDeg === 0) queue.push(childId);
+    }
+  }
+  const orderSet = new Set(order);
+  for (const t of tasks) { if (!orderSet.has(t.id)) order.push(t.id); }
+
+  const updMap = new Map<string, GanttTask>(tasks.map(t => [t.id, t]));
+  for (const taskId of order) {
+    const task = updMap.get(taskId)!;
+    const deps = task.dependencies || [];
+    const dur = task.duration || 1;
+    let taskStart: Date;
+    if (deps.length === 0) {
+      taskStart = nextWorkday_simple(parseISO(task.start_date), workSat, workSun);
+    } else {
+      let latestDepEndStr = '';
+      for (const dId of deps) {
+        const depTask = updMap.get(dId);
+        if (depTask && depTask.end_date > latestDepEndStr) latestDepEndStr = depTask.end_date;
+      }
+      taskStart = latestDepEndStr
+        ? nextWorkday_simple(addDays(parseISO(latestDepEndStr), 1), workSat, workSun)
+        : nextWorkday_simple(parseISO(task.start_date), workSat, workSun);
+    }
+    const taskEnd = dur > 1 ? addWorkdays_simple(taskStart, dur - 1, workSat, workSun) : taskStart;
+    updMap.set(taskId, { ...task, start_date: format(taskStart, 'yyyy-MM-dd'), end_date: format(taskEnd, 'yyyy-MM-dd') });
+  }
+  return tasks.map(t => updMap.get(t.id)!);
+}
+
+/**
+ * Forward reschedule (BFS/topological): shift tasks FORWARD when a dependency
+ * ends later than a dependent's start. Never pulls tasks backward.
+ * Used after drag/resize so downstream tasks cascade correctly.
+ */
+export function forwardReschedule(tasks: GanttTask[], workSat = false, workSun = false, movedTaskId?: string): GanttTask[] {
+  const inDegree = new Map<string, number>();
+  const adj = new Map<string, string[]>();
+  for (const t of tasks) {
+    if (!inDegree.has(t.id)) inDegree.set(t.id, 0);
+    for (const depId of t.dependencies || []) {
+      if (!adj.has(depId)) adj.set(depId, []);
+      adj.get(depId)!.push(t.id);
+      inDegree.set(t.id, (inDegree.get(t.id) || 0) + 1);
+    }
+  }
+  const queue = tasks.filter(t => (inDegree.get(t.id) || 0) === 0).map(t => t.id);
+  const order: string[] = [];
+  let qi = 0;
+  while (qi < queue.length) {
+    const id = queue[qi++];
+    order.push(id);
+    for (const childId of adj.get(id) || []) {
+      const newDeg = (inDegree.get(childId) || 0) - 1;
+      inDegree.set(childId, newDeg);
+      if (newDeg === 0) queue.push(childId);
+    }
+  }
+  const orderSet = new Set(order);
+  for (const t of tasks) { if (!orderSet.has(t.id)) order.push(t.id); }
+
+  const updMap = new Map<string, GanttTask>(tasks.map(t => [t.id, t]));
+  const shifted = new Set<string>(); // track which tasks moved
+  // Seed with the explicitly moved task so both forward AND backward cascade works
+  if (movedTaskId) shifted.add(movedTaskId);
+  for (const taskId of order) {
+    const task = updMap.get(taskId)!;
+    const deps = task.dependencies || [];
+    if (deps.length === 0) continue;
+    // Check if any dependency was shifted (cascade trigger)
+    const anyDepShifted = deps.some(dId => shifted.has(dId));
+    let latestDepEndStr = '';
+    for (const dId of deps) {
+      const depTask = updMap.get(dId);
+      if (depTask && depTask.end_date > latestDepEndStr) latestDepEndStr = depTask.end_date;
+    }
+    if (!latestDepEndStr) continue;
+    const minStart = nextWorkday_simple(addDays(parseISO(latestDepEndStr), 1), workSat, workSun);
+    const minStartStr = format(minStart, 'yyyy-MM-dd');
+    // Shift if: overlap detected OR any ancestor was shifted (full cascade)
+    if (task.start_date < minStartStr || anyDepShifted) {
+      const newStart = task.start_date < minStartStr ? minStart : minStart;
+      const newEnd = (task.duration || 1) > 1
+        ? addWorkdays_simple(newStart, (task.duration || 1) - 1, workSat, workSun)
+        : newStart;
+      updMap.set(taskId, { ...task, start_date: format(newStart, 'yyyy-MM-dd'), end_date: format(newEnd, 'yyyy-MM-dd') });
+      shifted.add(taskId);
+    }
+  }
+  if (shifted.size === 0) return tasks;
+  return tasks.map(t => updMap.get(t.id)!);
 }

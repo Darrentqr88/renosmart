@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { formatCurrency, formatDate, getCurrencySymbol } from '@/lib/utils';
 import { GanttChart, GanttWorkerInfo } from '@/components/gantt/GanttChart';
 import { TaskDetailPanel } from '@/components/gantt/TaskDetailPanel';
-import { generateGanttTasks, generateGanttFromQuotation, generateGanttFromAIParams, appendVOTask, addWorkdays, detectTradeForVO } from '@/lib/utils/gantt-rules';
+import { generateGanttTasks, generateGanttFromQuotation, generateGanttFromAIParams, appendVOTask, addWorkdays, detectTradeForVO, forwardReschedule, fullReschedule } from '@/lib/utils/gantt-rules';
 import { isWorkday, preloadHolidays } from '@/lib/utils/dates';
 import { Project, PaymentPhase, GanttTask, GanttTaskStatus, VariationOrder, GanttParams } from '@/types';
 import {
@@ -317,7 +317,10 @@ export default function ProjectDetailPage() {
   };
 
   const handleTaskUpdate = (taskId: string, updates: Partial<GanttTask>) => {
-    setGanttTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+    setGanttTasks(prev => {
+      const withUpdate = prev.map(t => t.id === taskId ? { ...t, ...updates } : t);
+      return forwardReschedule(withUpdate, workOnSaturday, workOnSunday, taskId);
+    });
     setIsDirty(true);
   };
 
@@ -358,13 +361,16 @@ export default function ProjectDetailPage() {
   };
 
   const handleDurationChange = (taskId: string, newDuration: number) => {
-    setGanttTasks(prev => prev.map(t => {
-      if (t.id !== taskId) return t;
-      const start = new Date(t.start_date + 'T00:00:00');
-      const newEnd = addWorkdays(start, newDuration - 1, projectRegion, workOnSaturday, workOnSunday);
-      const newEndStr = newEnd.toISOString().split('T')[0];
-      return { ...t, duration: newDuration, end_date: newEndStr };
-    }));
+    setGanttTasks(prev => {
+      const updated = prev.map(t => {
+        if (t.id !== taskId) return t;
+        const start = new Date(t.start_date + 'T00:00:00');
+        const newEnd = addWorkdays(start, newDuration - 1, projectRegion, workOnSaturday, workOnSunday);
+        const newEndStr = newEnd.toISOString().split('T')[0];
+        return { ...t, duration: newDuration, end_date: newEndStr };
+      });
+      return forwardReschedule(updated, workOnSaturday, workOnSunday, taskId);
+    });
     setIsDirty(true);
   };
 
@@ -465,25 +471,16 @@ export default function ProjectDetailPage() {
     toast({ title: `🎯 AI 智能压缩完成`, description: `已压缩 ${savedDays} 工作日，截止日期：${ganttDeadline}` });
   };
 
-  // ── Auto-regenerate when workday settings change ───────────────────────────
+  // ── Recalculate dates when workday settings change (preserve existing tasks) ──
+  const prevWorkSatRef = useRef(workOnSaturday);
+  const prevWorkSunRef = useRef(workOnSunday);
   useEffect(() => {
-    if (!ganttStartDate || ganttTasks.length === 0) return;
-    const activeQ = quotationVersions.find(q => q.is_active);
-    const startDate = new Date(ganttStartDate + 'T00:00:00');
-    if (activeQ?.parsed_items && activeQ.parsed_items.length > 0) {
-      const newTasks = generateGanttFromQuotation(
-        id as string,
-        activeQ.parsed_items.map(pi => ({ ...pi, unit: '' })),
-        startDate,
-        projectRegion,
-        workOnSaturday,
-        workOnSunday
-      );
-      setGanttTasks(newTasks);
-    } else {
-      const newTasks = generateGanttTasks(id as string, startDate, 1000, true, 'residential', projectRegion, workOnSaturday, workOnSunday);
-      setGanttTasks(newTasks);
-    }
+    if (prevWorkSatRef.current === workOnSaturday && prevWorkSunRef.current === workOnSunday) return;
+    prevWorkSatRef.current = workOnSaturday;
+    prevWorkSunRef.current = workOnSunday;
+    if (ganttTasks.length === 0) return;
+    // Only recalculate dates — keep existing task structure, durations, order, ai_hints
+    setGanttTasks(prev => fullReschedule(prev, workOnSaturday, workOnSunday));
     setIsDirty(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workOnSaturday, workOnSunday]);
@@ -507,6 +504,10 @@ export default function ProjectDetailPage() {
         is_critical: t.is_critical,
         subtasks: t.subtasks,
         assigned_workers: t.assigned_workers,
+        sort_order: t.sort_order ?? 0,
+        phase_group: t.phase_group ?? 'construction',
+        source_items: t.source_items ?? [],
+        ai_hint: t.ai_hint ?? null,
       }));
       const { error } = await supabase.from('gantt_tasks').upsert(upsertData, { onConflict: 'id' });
       if (error) throw error;
@@ -650,6 +651,10 @@ export default function ProjectDetailPage() {
         is_critical: t.is_critical,
         subtasks: t.subtasks,
         assigned_workers: t.assigned_workers,
+        sort_order: t.sort_order ?? 0,
+        phase_group: t.phase_group ?? 'construction',
+        source_items: t.source_items ?? [],
+        ai_hint: t.ai_hint ?? null,
       }));
       await supabase.from('gantt_tasks').upsert(upsertData, { onConflict: 'id' });
       setIsDirty(false);

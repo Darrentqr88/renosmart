@@ -195,6 +195,12 @@ export interface QuotationAnalysis {
   projectSqft?: number;
   paymentTerms?: QuotationPaymentTerm[];
   ganttParams?: GanttParams;
+  missingCritical?: {
+    item: string;
+    reason: string;
+    estimatedCost: string;
+    urgency: 'critical' | 'warning';
+  }[];
 }
 
 export type GanttTaskStatus = 'pending' | 'confirmed' | 'completed';
@@ -220,6 +226,7 @@ export interface GanttTask {
   sort_order?: number;
   phase_group?: PhaseGroup;
   source_items?: string[];  // quotation item names linked to this task
+  ai_hint?: TradeHint | null; // batch-generated AI trade hint (persisted in DB)
 }
 
 export interface GanttSubtask {

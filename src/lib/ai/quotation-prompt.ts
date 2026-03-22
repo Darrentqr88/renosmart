@@ -125,9 +125,13 @@ IMPORTANT: These are DESIGNER-TO-HOMEOWNER prices (retail quotation prices), NOT
 `;
 
 export function buildQuotationPrompt(textForAI: string, outputLang: string, dbPriceRef?: string): string {
-  const priceSection = dbPriceRef
-    ? `\nDesigner-to-homeowner quotation price reference (from our database):\n${dbPriceRef}\n`
-    : '';
+  // Always include the hardcoded PRICE_REFERENCE baseline.
+  // If live price_database data is available (≥10 samples), append it as higher-confidence supplement.
+  const priceSection = `
+Market price reference — MY/SG designer quotation prices 2025-2026 (retail to homeowner):
+${PRICE_REFERENCE}
+${dbPriceRef ? `\nLive market data (from price_database — higher confidence, use these over above when available):\n${dbPriceRef}` : ''}
+`;
 
   return `You are a senior Quantity Surveyor (QS) AI for Malaysia and Singapore renovation projects.
 Audit the quotation below — parse ALL items AND catch problems. Return ONLY valid JSON. No markdown.
@@ -148,11 +152,22 @@ RULES:
 7. supplyType per item: "supply_install"|"labour_only"|"supply_only"
 8. projectType: detect from address/content/amount. Values: "condo"|"apartment"|"landed_terrace"|"landed_semid"|"landed_bungalow"|"shop_lot"|"commercial"|"mall"|"factory". Default "landed_terrace".
 9. projectSqft: estimate from context.
-10. QS AUDIT alerts (max 4 critical + 4 warnings + 2 tips, each desc under 120 chars):
-    MISSING: waterproofing for wet areas, DB upgrade, painting primer, door hardware, water heater; gate/fence (landed); fire suppression (commercial).
-    PRICE: flag >50% above market; warn 20-50% above or >30% below. Cite: "Market RM X-Y, Quoted RM Z".
-    CALC ERRORS: if qty×unitPrice≠total by >1%, flag.
-    COORDINATION: tiling without waterproofing → critical.
+10. QS AUDIT alerts (max 8 critical + 6 warnings + 4 tips, each desc under 150 chars):
+    MISSING: waterproofing for wet areas, DB upgrade, painting primer, door hardware, water heater; gate/fence (landed); fire suppression (commercial); M&E first fix, false ceiling, cleaning, site management preliminaries.
+    WATERPROOFING RULES (IMPORTANT):
+      - Landed property Ground Floor (GF): waterproofing is NOT required for ground-level wet areas (bathroom/kitchen) — ground slabs sit on soil with natural drainage. Do NOT flag missing waterproofing for GF wet areas in landed houses.
+      - Landed property Upper Floors (1F, 2F, etc.): waterproofing IS required for bathrooms/wet areas above ground level.
+      - Condo / Apartment (ALL floors): waterproofing IS required — concrete slab over occupied unit below.
+      - Balcony / Roof terrace / RC slab extension: waterproofing IS required regardless of property type.
+    PRICE: flag >50% above market; warn 20-50% above or >30% below. Cite exactly: "Market RM X-Y/unit, Quoted RM Z/unit".
+    PRICE COMPARISON RULES (IMPORTANT):
+      - Match unit types: compare sqft prices with sqft references, per-point with per-point, per-unit with per-unit. Never compare different unit types.
+      - Consider supplyType: "supply_install" prices include material — compare with S&I reference. "labour_only" is cheaper — compare with labour-only reference.
+      - Consider material grade: basic tiles vs premium tiles have very different ranges. Use subcategory/materialMethod to pick the right reference range.
+      - RC slab / structural concrete items are specialty pricing — use Construction reference (RM 35-65/sqft for RC slab), not general construction rates.
+      - If unit is "lot" or "set" (lump sum), derive per-sqft or per-unit price from qty before comparing.
+    CALC ERRORS: qty×unitPrice≠total by >1% → flag as critical.
+    COORDINATION: tiling without waterproofing on upper floors or condo → critical. GF landed is exempt.
 11. paymentTerms: extract if present, else [].
 12. subcategory + materialMethod: classify each item per its trade. Examples:
     Tiling: "Floor Tiles"+"600x600", "Wall Tiles"+"300x600"
@@ -160,10 +175,17 @@ RULES:
     Tabletop: "Kitchen Countertop"+"Quartz Surface", "Bathroom Countertop"+"Solid Surface", "Bar Countertop"+"Sintered Stone"
     NOTE: Vanity cabinet / basin cabinet = CARPENTRY (not Plumbing). Table top / countertop = TABLETOP (not Carpentry).
     Tabletop materials: Solid Surface | Quartz Surface | Marble & Granite | Wooden Postform | Compressed | Sintered Stone | Stainless Steel
-13. estMinPrice, estMaxPrice: estimate MY/SG DESIGNER QUOTATION price range (what designers typically charge homeowners, NOT contractor cost/wholesale). Consider supplyType (S&I vs labour only), material grade, unit type. These are critical for price scoring. Never leave as 0.
+13. estMinPrice, estMaxPrice: estimate MY/SG DESIGNER QUOTATION price range per the SAME unit as the quoted item (what designers typically charge homeowners, NOT contractor cost/wholesale).
+    - MUST match the item's unit type (sqft, point, unit, ft, lot, set, etc.)
+    - Consider supplyType: S&I includes material cost; labour_only is significantly cheaper
+    - Consider material grade and specifications from the item name/description
+    - For lump-sum items (lot/set), estimate the per-unit equivalent if possible, or give a reasonable range for the whole lot
+    - Reference the PRICE_REFERENCE data above — pick the closest matching category, size, and supply type
+    - These are critical for price scoring. Never leave as 0.
+14. missingCritical: array of up to 6 critical missing items. Each MUST have an estimated cost range based on PRICE_REFERENCE and projectSqft. Only include items truly absent from the quotation.
 
 JSON structure:
-{"projectType":"landed_terrace","projectSqft":1200,"client":{"company":"","address":"","attention":"","tel":"","email":null,"projectRef":"","projectName":""},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"one-line summary","items":[{"no":"1","section":"Section","name":"Item name verbatim","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"supplyType":"supply_install","status":"ok","note":"","subcategory":"Floor Tiles","materialMethod":"600x600","estMinPrice":5.0,"estMaxPrice":12.0,"page":1}],"subtotals":[{"label":"Section Total","amount":1000}],"totalAmount":50000,"missing":["item1"],"alerts":[{"level":"critical","title":"Title","desc":"Short desc under 120 chars"}],"paymentTerms":[]}`;
+{"projectType":"landed_terrace","projectSqft":1200,"client":{"company":"","address":"","attention":"","tel":"","email":null,"projectRef":"","projectName":""},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"one-line summary","items":[{"no":"1","section":"Section","name":"Item name verbatim","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"supplyType":"supply_install","status":"ok","note":"","subcategory":"Floor Tiles","materialMethod":"600x600","estMinPrice":5.0,"estMaxPrice":12.0,"page":1}],"subtotals":[{"label":"Section Total","amount":1000}],"totalAmount":50000,"missing":["item1"],"missingCritical":[{"item":"Waterproofing (3 bathrooms)","reason":"Wet areas present but no waterproofing in quotation","estimatedCost":"RM 3,500–6,000","urgency":"critical"}],"alerts":[{"level":"critical","title":"Title","desc":"Short desc under 150 chars"}],"paymentTerms":[]}`;
 }
 
 /**
@@ -342,7 +364,8 @@ export async function fetchDbPriceReference(
       .eq('region', region)
       .order('category');
 
-    if (!data || data.length === 0) return PRICE_REFERENCE;
+    // Return '' when DB has no data — PRICE_REFERENCE is always included in buildQuotationPrompt
+    if (!data || data.length === 0) return '';
 
     // Group by category for compact output
     const groups = new Map<string, string[]>();
@@ -372,8 +395,8 @@ export async function fetchDbPriceReference(
 
     return lines.join('\n');
   } catch {
-    // If DB fetch fails, fall back to hardcoded PRICE_REFERENCE
-    return PRICE_REFERENCE;
+    // On error, return '' — PRICE_REFERENCE baseline is already included in buildQuotationPrompt
+    return '';
   }
 }
 
