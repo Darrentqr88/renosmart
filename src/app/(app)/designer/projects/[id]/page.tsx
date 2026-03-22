@@ -505,7 +505,6 @@ export default function ProjectDetailPage() {
         dependencies: t.dependencies,
         color: t.color,
         is_critical: t.is_critical,
-        taskStatus: t.taskStatus,
         subtasks: t.subtasks,
         assigned_workers: t.assigned_workers,
       }));
@@ -649,7 +648,6 @@ export default function ProjectDetailPage() {
         dependencies: t.dependencies,
         color: t.color,
         is_critical: t.is_critical,
-        taskStatus: t.taskStatus,
         subtasks: t.subtasks,
         assigned_workers: t.assigned_workers,
       }));
