@@ -39,6 +39,79 @@ function nextWorkday_simple(d: Date, workSat = false, workSun = false): Date {
 }
 
 /**
+ * Full reschedule: recalculate ALL task dates based on duration + workday rules.
+ * Root tasks keep their start_date, dependents derive start from deps.
+ * Used when workSat/workSun changes — compresses or expands the calendar.
+ */
+function fullReschedule(tasks: GanttTask[], workSat = false, workSun = false): GanttTask[] {
+  // Topological sort (same as forwardReschedule)
+  const inDegree = new Map<string, number>();
+  const adj = new Map<string, string[]>();
+  for (const t of tasks) {
+    if (!inDegree.has(t.id)) inDegree.set(t.id, 0);
+    for (const depId of t.dependencies || []) {
+      if (!adj.has(depId)) adj.set(depId, []);
+      adj.get(depId)!.push(t.id);
+      inDegree.set(t.id, (inDegree.get(t.id) || 0) + 1);
+    }
+  }
+  const queue = tasks.filter(t => (inDegree.get(t.id) || 0) === 0).map(t => t.id);
+  const order: string[] = [];
+  let qi = 0;
+  while (qi < queue.length) {
+    const id = queue[qi++];
+    order.push(id);
+    for (const childId of adj.get(id) || []) {
+      const newDeg = (inDegree.get(childId) || 0) - 1;
+      inDegree.set(childId, newDeg);
+      if (newDeg === 0) queue.push(childId);
+    }
+  }
+  const orderSet = new Set(order);
+  for (const t of tasks) {
+    if (!orderSet.has(t.id)) order.push(t.id);
+  }
+
+  const updMap = new Map<string, GanttTask>(tasks.map(t => [t.id, t]));
+
+  for (const taskId of order) {
+    const task = updMap.get(taskId)!;
+    const deps = task.dependencies || [];
+    const dur = task.duration || 1;
+
+    let taskStart: Date;
+    if (deps.length === 0) {
+      // Root task: keep start_date, ensure it's a workday
+      taskStart = nextWorkday_simple(parseISO(task.start_date), workSat, workSun);
+    } else {
+      // Dependent: start = next workday after latest dep end
+      let latestDepEndStr = '';
+      for (const dId of deps) {
+        const depTask = updMap.get(dId);
+        if (depTask && depTask.end_date > latestDepEndStr) latestDepEndStr = depTask.end_date;
+      }
+      if (latestDepEndStr) {
+        taskStart = nextWorkday_simple(addDays(parseISO(latestDepEndStr), 1), workSat, workSun);
+      } else {
+        taskStart = nextWorkday_simple(parseISO(task.start_date), workSat, workSun);
+      }
+    }
+
+    const taskEnd = dur > 1
+      ? addWorkdays_simple(taskStart, dur - 1, workSat, workSun)
+      : taskStart;
+
+    updMap.set(taskId, {
+      ...task,
+      start_date: format(taskStart, 'yyyy-MM-dd'),
+      end_date: format(taskEnd, 'yyyy-MM-dd'),
+    });
+  }
+
+  return tasks.map(t => updMap.get(t.id)!);
+}
+
+/**
  * Full forward reschedule: topological sort → shift any task that starts
  * before the latest end of its dependencies. Only moves tasks FORWARD —
  * never pulls tasks backward when a dep is shortened.
@@ -268,7 +341,17 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
   useEffect(() => {
     generateTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analysis, siteType, startDate, workSat, workSun, customSiteType]);
+  }, [analysis, siteType, startDate, customSiteType]);
+
+  // When workSat/workSun toggles: keep existing tasks, recalculate dates only
+  const prevWorkSat = useRef(workSat);
+  const prevWorkSun = useRef(workSun);
+  useEffect(() => {
+    if (prevWorkSat.current === workSat && prevWorkSun.current === workSun) return;
+    prevWorkSat.current = workSat;
+    prevWorkSun.current = workSun;
+    setTasks(prev => prev.length > 0 ? fullReschedule(prev, workSat, workSun) : prev);
+  }, [workSat, workSun]);
 
   const generateTasks = useCallback(() => {
     setGenerating(true);
