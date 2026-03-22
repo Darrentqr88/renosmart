@@ -705,6 +705,8 @@ Only include tasks where you changed the duration. Skip unchanged tasks.`;
             onTaskAdd={() => setShowAddModal(true)}
             deadline={deadline}
             projectId={projectId}
+            workOnSaturday={workSat}
+            workOnSunday={workSun}
           />
         </div>
 
