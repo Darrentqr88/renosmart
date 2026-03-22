@@ -1717,6 +1717,8 @@ export function forwardReschedule(tasks: GanttTask[], workSat = false, workSun =
     const task = updMap.get(taskId)!;
     const deps = task.dependencies || [];
     if (deps.length === 0) continue;
+    // Skip the explicitly moved task — user's choice takes priority (allows overlap/parallel work)
+    if (taskId === movedTaskId) continue;
     // Check if any dependency was shifted (cascade trigger)
     const anyDepShifted = deps.some(dId => shifted.has(dId));
     let latestDepEndStr = '';
@@ -1729,11 +1731,10 @@ export function forwardReschedule(tasks: GanttTask[], workSat = false, workSun =
     const minStartStr = format(minStart, 'yyyy-MM-dd');
     // Shift if: overlap detected OR any ancestor was shifted (full cascade)
     if (task.start_date < minStartStr || anyDepShifted) {
-      const newStart = task.start_date < minStartStr ? minStart : minStart;
       const newEnd = (task.duration || 1) > 1
-        ? addWorkdays_simple(newStart, (task.duration || 1) - 1, workSat, workSun)
-        : newStart;
-      updMap.set(taskId, { ...task, start_date: format(newStart, 'yyyy-MM-dd'), end_date: format(newEnd, 'yyyy-MM-dd') });
+        ? addWorkdays_simple(minStart, (task.duration || 1) - 1, workSat, workSun)
+        : minStart;
+      updMap.set(taskId, { ...task, start_date: minStartStr, end_date: format(newEnd, 'yyyy-MM-dd') });
       shifted.add(taskId);
     }
   }
