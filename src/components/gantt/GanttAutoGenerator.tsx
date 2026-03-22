@@ -13,25 +13,26 @@ import { MY_HOLIDAYS } from '@/lib/utils/dates';
 import { useI18n } from '@/lib/i18n/context';
 
 // Workday helpers for cascade reschedule (skips weekends + MY holidays)
-function isWorkday_simple(d: Date): boolean {
+function isWorkday_simple(d: Date, workSat = false, workSun = false): boolean {
   const day = d.getDay();
-  if (day === 0 || day === 6) return false;
+  if (day === 6 && !workSat) return false;
+  if (day === 0 && !workSun) return false;
   return !MY_HOLIDAYS.has(format(d, 'yyyy-MM-dd'));
 }
 
-function addWorkdays_simple(start: Date, workdays: number): Date {
+function addWorkdays_simple(start: Date, workdays: number, workSat = false, workSun = false): Date {
   let d = new Date(start);
   let count = 0;
   while (count < workdays) {
     d = addDays(d, 1);
-    if (isWorkday_simple(d)) count++;
+    if (isWorkday_simple(d, workSat, workSun)) count++;
   }
   return d;
 }
 
-function nextWorkday_simple(d: Date): Date {
+function nextWorkday_simple(d: Date, workSat = false, workSun = false): Date {
   let cursor = new Date(d);
-  while (!isWorkday_simple(cursor)) {
+  while (!isWorkday_simple(cursor, workSat, workSun)) {
     cursor = addDays(cursor, 1);
   }
   return cursor;
@@ -42,7 +43,7 @@ function nextWorkday_simple(d: Date): Date {
  * before the latest end of its dependencies. Only moves tasks FORWARD —
  * never pulls tasks backward when a dep is shortened.
  */
-function forwardReschedule(tasks: GanttTask[]): GanttTask[] {
+function forwardReschedule(tasks: GanttTask[], workSat = false, workSun = false): GanttTask[] {
   // Build adjacency: depId → list of task IDs that depend on it
   const inDegree = new Map<string, number>();
   const adj = new Map<string, string[]>();
@@ -94,12 +95,12 @@ function forwardReschedule(tasks: GanttTask[]): GanttTask[] {
     }
     if (!latestDepEndStr) continue;
 
-    const minStart = nextWorkday_simple(addDays(parseISO(latestDepEndStr), 1));
+    const minStart = nextWorkday_simple(addDays(parseISO(latestDepEndStr), 1), workSat, workSun);
     const minStartStr = format(minStart, 'yyyy-MM-dd');
 
     if (task.start_date < minStartStr) {
       const newEnd = (task.duration || 1) > 1
-        ? addWorkdays_simple(minStart, (task.duration || 1) - 1)
+        ? addWorkdays_simple(minStart, (task.duration || 1) - 1, workSat, workSun)
         : minStart;
       updMap.set(taskId, {
         ...task,
@@ -335,7 +336,7 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
     setTasks(prev => {
       // Apply direct update to the changed task, then full topological forward reschedule
       const withUpdate = prev.map(t => t.id === taskId ? { ...t, ...updates } : t);
-      return forwardReschedule(withUpdate);
+      return forwardReschedule(withUpdate, workSat, workSun);
     });
     // Trigger debounced auto-save
     setPendingSave(true);
@@ -494,9 +495,7 @@ Only include tasks where you changed the duration. Skip unchanged tasks.`;
     let count = 0;
     while (count < newDuration - 1) {
       d = new Date(d.getTime() + 86400000);
-      const day = d.getDay();
-      const dateStr = format(d, 'yyyy-MM-dd');
-      if (day !== 0 && day !== 6 && !MY_HOLIDAYS.has(dateStr)) {
+      if (isWorkday_simple(d, workSat, workSun)) {
         count++;
       }
     }

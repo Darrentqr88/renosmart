@@ -8,12 +8,13 @@ import { format, differenceInDays, addDays, parseISO, startOfWeek } from 'date-f
 import { MY_HOLIDAY_NAMES, SG_HOLIDAY_NAMES, MY_HOLIDAYS } from '@/lib/utils/dates';
 
 // Count workdays between two dates (inclusive)
-function countWorkdays(start: Date, end: Date): number {
+function countWorkdays(start: Date, end: Date, workSat = false, workSun = false): number {
   let count = 0;
   const d = new Date(start);
   while (d <= end) {
     const day = d.getDay();
-    if (day !== 0 && day !== 6 && !MY_HOLIDAYS.has(format(d, 'yyyy-MM-dd'))) count++;
+    const isWeekend = (day === 6 && !workSat) || (day === 0 && !workSun);
+    if (!isWeekend && !MY_HOLIDAYS.has(format(d, 'yyyy-MM-dd'))) count++;
     d.setDate(d.getDate() + 1);
   }
   return Math.max(1, count);
@@ -272,7 +273,7 @@ export function GanttChart({
         taskId: dragging.taskId,
         start_date: format(newStart, 'yyyy-MM-dd'),
         end_date:   format(newEnd, 'yyyy-MM-dd'),
-        duration:   countWorkdays(newStart, newEnd),
+        duration:   countWorkdays(newStart, newEnd, workOnSaturday, workOnSunday),
       });
     } else {
       const newEndDate = addDays(parseISO(dragging.origEnd), delta);
@@ -282,7 +283,7 @@ export function GanttChart({
           taskId: dragging.taskId,
           start_date: dragging.origStart,
           end_date:   newEnd,
-          duration:   countWorkdays(parseISO(dragging.origStart), newEndDate),
+          duration:   countWorkdays(parseISO(dragging.origStart), newEndDate, workOnSaturday, workOnSunday),
         });
       }
     }
