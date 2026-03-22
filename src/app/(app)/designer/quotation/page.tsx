@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { GanttAutoGenerator } from '@/components/gantt/GanttAutoGenerator';
 import {
-  FileText, CheckCircle2, AlertTriangle, AlertCircle, XCircle,
+  FileText, CheckCircle2, XCircle,
   Loader2, X, RefreshCw, Printer,
   ChevronRight, User, Save, Calendar, ArrowRight, Send,
 } from 'lucide-react';
@@ -25,11 +25,11 @@ import {
 type UploadStep = 'idle' | 'extracting' | 'analyzing' | 'done' | 'error';
 
 /* ─── Status configs ─────────────────────────────────────────────────────── */
-const STATUS_CONFIG: Record<AIItemStatus, { label: string; color: string; bg: string; dot: string }> = {
-  ok:     { label: '✓ 正常',   color: 'text-green-700', bg: 'bg-green-50',  dot: '#16A34A' },
-  warn:   { label: '⚠ 注意',   color: 'text-amber-700', bg: 'bg-amber-50',  dot: '#F59E0B' },
-  flag:   { label: '✗ 异常',   color: 'text-red-700',   bg: 'bg-red-50',    dot: '#E53935' },
-  nodata: { label: '— 待确认', color: 'text-gray-500',  bg: 'bg-gray-100',  dot: '#9CA3AF' },
+const STATUS_CONFIG: Record<AIItemStatus, { label: string; color: string; bg: string; dot: string; cls: string }> = {
+  ok:     { label: '✓ 正常',   color: 'text-green-700', bg: 'bg-green-50',  dot: '#16A34A', cls: '#16A34A' },
+  warn:   { label: '⚠ 注意',   color: 'text-amber-600', bg: 'bg-amber-50',  dot: '#F59E0B', cls: '#F97316' },
+  flag:   { label: '✗ 异常',   color: 'text-red-600',   bg: 'bg-red-50',    dot: '#E53935', cls: '#E53935' },
+  nodata: { label: '– 待确认', color: 'text-gray-500',  bg: 'bg-gray-100',  dot: '#9CA3AF', cls: '#9CA3AF' },
 };
 
 const SUPPLY_BADGE: Record<SupplyType, { label: string; bg: string; color: string }> = {
@@ -40,32 +40,23 @@ const SUPPLY_BADGE: Record<SupplyType, { label: string; bg: string; color: strin
 
 /* ─── Sub-components ─────────────────────────────────────────────────────── */
 function ScoreCircle({ score }: { score: number }) {
-  const r = 36, c = 2 * Math.PI * r;
-  const dash = (score / 100) * c;
+  const color = score >= 80 ? '#16A34A' : score >= 60 ? '#F0B90B' : '#E53935';
   return (
-    <div className="relative w-20 h-20 flex-shrink-0">
-      <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
-        <circle cx="40" cy="40" r={r} fill="rgba(79,142,247,0.08)" stroke="rgba(79,142,247,0.2)" strokeWidth="3" />
-        <circle cx="40" cy="40" r={r} fill="none" stroke="#4F8EF7" strokeWidth="3"
-          strokeDasharray={`${dash} ${c}`} strokeLinecap="round" />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold text-[#4F8EF7] leading-none">{score}</span>
-        <span className="text-[9px] text-rs-text3 mt-0.5">/ 100</span>
-      </div>
+    <div style={{ width: 80, height: 80, borderRadius: '50%', border: `3px solid #F0B90B`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(240,185,11,0.08)', flexShrink: 0 }}>
+      <span style={{ fontSize: 24, fontWeight: 700, color, lineHeight: 1 }}>{score}</span>
+      <span style={{ fontSize: 9, color: '#9CA3AF', letterSpacing: 1 }}>/ 100</span>
     </div>
   );
 }
 
-function ScoreBar({ label, value, breakdown }: { label: string; value: number; breakdown?: DimensionBreakdown }) {
-  const color = value >= 75 ? '#16A34A' : value >= 50 ? '#4F8EF7' : '#E53935';
+function ScoreBar({ label, value, color, breakdown }: { label: string; value: number; color: string; breakdown?: DimensionBreakdown }) {
   return (
-    <div className="group relative flex items-center gap-3">
-      <span className="text-[12px] text-rs-text2 w-20 shrink-0">{label}</span>
-      <div className="flex-1 h-1.5 bg-rs-surface3 rounded-full overflow-hidden">
-        <div className="h-full rounded-full" style={{ width: `${value}%`, background: color }} />
+    <div className="group relative flex items-center gap-2.5">
+      <span style={{ fontSize: 12, color: '#6B7A94', width: 100, flexShrink: 0 }}>{label}</span>
+      <div style={{ flex: 1, height: 6, background: '#E4E7F0', borderRadius: 3, overflow: 'hidden', border: '1px solid #E4E7F0' }}>
+        <div style={{ height: '100%', borderRadius: 3, width: `${value}%`, background: color, transition: 'width 1s ease' }} />
       </div>
-      <span className="text-[12px] font-semibold text-rs-text w-7 text-right">{value}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, color: '#1B2336', width: 30, textAlign: 'right' }}>{value}</span>
       {breakdown && (
         <div className="hidden group-hover:block absolute left-0 top-full mt-1 z-50
                         bg-white border border-rs-surface3 rounded-lg shadow-lg p-3 w-72 text-[11px]">
@@ -79,7 +70,7 @@ function ScoreBar({ label, value, breakdown }: { label: string; value: number; b
           </div>
           <div className="flex justify-between mb-2">
             <span className="text-rs-text3">Blended (40/60):</span>
-            <span className="font-bold text-[#4F8EF7]">{breakdown.blendedScore}</span>
+            <span className="font-bold text-[#F0B90B]">{breakdown.blendedScore}</span>
           </div>
           <div className="text-rs-text2 border-t border-rs-surface3 pt-1.5">{breakdown.detail}</div>
         </div>
@@ -487,7 +478,14 @@ export default function QuotationPage() {
       if (!newTasks || newTasks.length === 0) return;
       await supabase.from('gantt_tasks').delete().eq('project_id', projectId);
       await supabase.from('gantt_tasks').insert(
-        newTasks.map(t => ({ ...t, user_id: userId, assigned_workers: t.assigned_workers || [] }))
+        newTasks.map(t => ({
+          id: t.id, project_id: t.project_id, user_id: userId,
+          name: t.name, name_zh: t.name_zh, trade: t.trade,
+          start_date: t.start_date, end_date: t.end_date, duration: t.duration,
+          progress: t.progress, dependencies: t.dependencies, color: t.color,
+          is_critical: t.is_critical, subtasks: t.subtasks,
+          assigned_workers: t.assigned_workers || [],
+        }))
       );
     } catch { /* non-blocking */ }
   };
@@ -986,11 +984,11 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
               <div className="p-5">
                 <div className="flex items-start gap-6 mb-4">
                   <ScoreCircle score={analysis.score.total} />
-                  <div className="flex-1 space-y-2.5 pt-1">
-                    <ScoreBar label="项目完整性" value={analysis.score.completeness} breakdown={scoreBreakdown?.completeness} />
-                    <ScoreBar label="单价合理性" value={analysis.score.price} breakdown={scoreBreakdown?.price} />
-                    <ScoreBar label="工序逻辑性" value={analysis.score.logic} breakdown={scoreBreakdown?.logic} />
-                    <ScoreBar label="遗项风险" value={analysis.score.risk} breakdown={scoreBreakdown?.risk} />
+                  <div className="flex-1 space-y-2 pt-1">
+                    <ScoreBar label="项目完整性" value={analysis.score.completeness} color="#F97316" breakdown={scoreBreakdown?.completeness} />
+                    <ScoreBar label="单价合理性" value={analysis.score.price} color="#16A34A" breakdown={scoreBreakdown?.price} />
+                    <ScoreBar label="工序逻辑性" value={analysis.score.logic} color="#16A34A" breakdown={scoreBreakdown?.logic} />
+                    <ScoreBar label="漏项风险" value={analysis.score.risk} color="#E53935" breakdown={scoreBreakdown?.risk} />
                   </div>
                 </div>
                 {scoreBreakdown && (
@@ -1030,28 +1028,30 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                   <div className="flex items-center gap-3 mb-2">
                     <div className="flex bg-gray-100 rounded-lg p-0.5">
                       <button onClick={() => { setFilterMode('section'); setActivePage('all'); }}
-                        className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${filterMode === 'section' ? 'bg-white text-[#4F8EF7] shadow-sm' : 'text-gray-500'}`}>
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${filterMode === 'section' ? 'bg-white text-[#F0B90B] shadow-sm' : 'text-gray-500'}`}>
                         {lang === 'ZH' ? '按分类' : lang === 'BM' ? 'Kategori' : 'By Section'}
                       </button>
                       {pages.length > 1 && (
                         <button onClick={() => { setFilterMode('page'); setActiveSection('all'); }}
-                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${filterMode === 'page' ? 'bg-white text-[#4F8EF7] shadow-sm' : 'text-gray-500'}`}>
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${filterMode === 'page' ? 'bg-white text-[#F0B90B] shadow-sm' : 'text-gray-500'}`}>
                           {lang === 'ZH' ? '按页码' : lang === 'BM' ? 'Halaman' : 'By Page'}
                         </button>
                       )}
                     </div>
                   </div>
-                  {/* Section pills */}
+                  {/* Section pills — reference q-page-tab style */}
                   {filterMode === 'section' && (
                     <div className="flex gap-1.5 flex-wrap">
                       <button onClick={() => setActiveSection('all')}
-                        className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors ${activeSection === 'all' ? 'bg-[#4F8EF7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                        {lang === 'ZH' ? '全部' : 'All'} {analysis.items.length}
+                        style={activeSection === 'all' ? { background: 'rgba(240,185,11,.15)', borderColor: '#F0B90B', color: '#F0B90B' } : {}}
+                        className={`px-3.5 py-1 rounded-full text-[11px] font-semibold border transition-all whitespace-nowrap ${activeSection === 'all' ? 'border-[#F0B90B]' : 'border-[#E4E7F0] bg-[#F7F8FA] text-[#6B7A94] hover:border-[#F0B90B] hover:text-[#F0B90B]'}`}>
+                        全部 <span style={{ opacity: .6, fontWeight: 400, marginLeft: 4 }}>{analysis.items.length}</span>
                       </button>
                       {sections.map(({ name, count }) => (
                         <button key={name} onClick={() => setActiveSection(name)}
-                          className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors whitespace-nowrap ${activeSection === name ? 'bg-[#4F8EF7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                          {name} {count}
+                          style={activeSection === name ? { background: 'rgba(240,185,11,.15)', borderColor: '#F0B90B', color: '#F0B90B' } : {}}
+                          className={`px-3.5 py-1 rounded-full text-[11px] font-semibold border transition-all whitespace-nowrap ${activeSection === name ? 'border-[#F0B90B]' : 'border-[#E4E7F0] bg-[#F7F8FA] text-[#6B7A94] hover:border-[#F0B90B] hover:text-[#F0B90B]'}`}>
+                          {name} <span style={{ opacity: .6, fontWeight: 400, marginLeft: 4 }}>{count}</span>
                         </button>
                       ))}
                     </div>
@@ -1060,13 +1060,15 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                   {filterMode === 'page' && (
                     <div className="flex gap-1.5 flex-wrap">
                       <button onClick={() => setActivePage('all')}
-                        className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors ${activePage === 'all' ? 'bg-[#4F8EF7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                        {lang === 'ZH' ? '全部' : 'All'} {analysis.items.length}
+                        style={activePage === 'all' ? { background: 'rgba(240,185,11,.15)', borderColor: '#F0B90B', color: '#F0B90B' } : {}}
+                        className={`px-3.5 py-1 rounded-full text-[11px] font-semibold border transition-all ${activePage === 'all' ? 'border-[#F0B90B]' : 'border-[#E4E7F0] bg-[#F7F8FA] text-[#6B7A94] hover:border-[#F0B90B] hover:text-[#F0B90B]'}`}>
+                        全部 <span style={{ opacity: .6, fontWeight: 400, marginLeft: 4 }}>{analysis.items.length}</span>
                       </button>
                       {pages.map(({ page, count }) => (
                         <button key={page} onClick={() => setActivePage(page)}
-                          className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors ${activePage === page ? 'bg-[#4F8EF7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                          Pg {page} <span className="text-[10px] opacity-70">({count})</span>
+                          style={activePage === page ? { background: 'rgba(240,185,11,.15)', borderColor: '#F0B90B', color: '#F0B90B' } : {}}
+                          className={`px-3.5 py-1 rounded-full text-[11px] font-semibold border transition-all ${activePage === page ? 'border-[#F0B90B]' : 'border-[#E4E7F0] bg-[#F7F8FA] text-[#6B7A94] hover:border-[#F0B90B] hover:text-[#F0B90B]'}`}>
+                          Pg {page} <span style={{ opacity: .6, fontWeight: 400, marginLeft: 4 }}>({count})</span>
                         </button>
                       ))}
                     </div>
@@ -1076,99 +1078,101 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
 
               {/* Table */}
               <div className="overflow-x-auto">
-                <table className="w-full text-[13px]">
+                <table className="w-full" style={{ fontSize: 13, borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr className="border-b border-rs-surface3">
-                      <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-rs-text3 uppercase tracking-wide w-10">#</th>
-                      <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-rs-text3 uppercase tracking-wide">DESCRIPTION</th>
-                      <th className="text-center px-3 py-2.5 text-[11px] font-semibold text-rs-text3 uppercase tracking-wide w-20">TYPE</th>
-                      <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-rs-text3 uppercase tracking-wide w-16">UNIT</th>
-                      <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-rs-text3 uppercase tracking-wide w-16">QTY</th>
-                      <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-rs-text3 uppercase tracking-wide w-28">UNIT PRICE</th>
-                      <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-rs-text3 uppercase tracking-wide w-28">SUBTOTAL</th>
-                      <th className="text-center px-4 py-2.5 text-[11px] font-semibold text-rs-text3 uppercase tracking-wide w-36">AI STATUS</th>
+                    <tr style={{ borderBottom: '1px solid #E4E7F0' }}>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, letterSpacing: 1.5, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase' }}>#</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, letterSpacing: 1.5, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase' }}>工程项目</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, letterSpacing: 1.5, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase' }}>类型</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, letterSpacing: 1.5, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase' }}>单位</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right', fontSize: 11, letterSpacing: 1.5, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase' }}>数量</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right', fontSize: 11, letterSpacing: 1.5, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase' }}>单价</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right', fontSize: 11, letterSpacing: 1.5, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase' }}>小计</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, letterSpacing: 1.5, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase' }}>AI 状态</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {displayedItems.map((item, i) => {
-                      const cfg = STATUS_CONFIG[item.status];
-                      const prevPage = i > 0 ? (displayedItems[i - 1].page || 1) : 0;
-                      const curPage = item.page || 1;
-                      const showPageHeader = pages.length > 1 && curPage !== prevPage;
-                      return (
-                        <React.Fragment key={i}>
-                          {showPageHeader && (
-                            <tr>
-                              <td colSpan={8} className="px-4 py-2 bg-gradient-to-r from-[rgba(79,142,247,0.06)] to-transparent">
-                                <span className="text-[11px] font-bold text-[#4F8EF7] tracking-wide">📄 Pg {curPage}</span>
+                    {(() => {
+                      let lastSection: string | null = null;
+                      const rows: React.ReactNode[] = [];
+                      displayedItems.forEach((item, i) => {
+                        const cfg = STATUS_CONFIG[item.status];
+                        // Section header row
+                        const curSection = item.section || null;
+                        if (curSection && curSection !== lastSection) {
+                          lastSection = curSection;
+                          rows.push(
+                            <tr key={`sec-${i}`}>
+                              <td colSpan={8} style={{ padding: '12px 14px 5px', fontSize: 11, fontWeight: 700, color: '#F0B90B', letterSpacing: .8, textTransform: 'uppercase', borderTop: '1px solid #E4E7F0', background: 'rgba(240,185,11,0.04)' }}>
+                                📁 {curSection}
                               </td>
                             </tr>
-                          )}
-                        <tr className={`border-b border-[#F0F2F7] hover:bg-[#FAFBFC] transition-colors ${item.status === 'flag' ? 'bg-[rgba(229,57,53,0.02)]' : ''}`}>
-                          <td className="px-4 py-3 text-[#9CA3AF] font-mono text-[11px]">{item.no}</td>
-                          <td className="px-4 py-3">
-                            {item.section && <div className="text-[10px] text-[#9CA3AF] mb-0.5">{item.section}</div>}
-                            <div className="text-rs-text font-medium">{item.name}</div>
-                          </td>
-                          <td className="px-3 py-3 text-center"><SupplyBadge type={item.supplyType} /></td>
-                          <td className="px-4 py-3 text-rs-text3">{item.unit}</td>
-                          <td className="px-4 py-3 text-right text-rs-text2 font-mono">{item.qty}</td>
-                          <td className="px-4 py-3 text-right font-mono">
-                            <span className={item.unitPriceDerived ? 'text-[#F97316] italic' : 'text-rs-text2'}>
-                              {(item.unitPrice ?? 0).toFixed(2)}{item.unitPriceDerived ? '*' : ''}
-                            </span>
-                            {(() => {
-                              const origIdx = analysis?.items.indexOf(item) ?? -1;
-                              const comp = scoreBreakdown?.priceComparisons.find(c => c.itemIndex === origIdx);
-                              if (!comp) return null;
-                              // Only show range for warn/flag items — normal range items don't need it
-                              if (comp.verdict === 'ok' || comp.verdict === 'ai_estimated') return null;
-                              if ((comp.source === 'database' || comp.source === 'known_range') && comp.dbMin != null && comp.dbMax != null) {
-                                return <div className="text-[9px] text-orange-500 mt-0.5">市场 {comp.dbMin.toFixed(0)}-{comp.dbMax.toFixed(0)}</div>;
-                              }
-                              if (comp.source === 'ai_estimate' && comp.aiEstMin != null && comp.aiEstMax != null) {
-                                return <div className="text-[9px] text-orange-500 mt-0.5">AI估 {comp.aiEstMin.toFixed(0)}-{comp.aiEstMax.toFixed(0)}</div>;
-                              }
-                              return null;
-                            })()}
-                          </td>
-                          <td className="px-4 py-3 text-right font-mono font-semibold text-rs-text">
-                            RM {(item.total ?? 0).toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-col items-center gap-1">
-                              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium ${cfg.color} ${cfg.bg}`}>
-                                {cfg.label}
+                          );
+                        }
+                        // Page badge (ALL mode, multi-page)
+                        const pageBadge = pages.length > 1 && filterMode === 'section' && item.page
+                          ? <div style={{ fontSize: 9, color: '#9CA3AF', marginTop: 2, letterSpacing: .3 }}>P{item.page}</div>
+                          : null;
+                        rows.push(
+                          <tr key={i} style={{ borderBottom: '1px solid #F0F2F7' }} className="hover:bg-[#FAFBFC] transition-colors">
+                            <td style={{ padding: '11px 12px', color: '#9CA3AF', fontSize: 11, fontFamily: 'monospace', verticalAlign: 'top', paddingTop: 13 }}>
+                              {item.no || i + 1}{pageBadge}
+                            </td>
+                            <td style={{ padding: '11px 12px', fontWeight: 500, color: '#1B2336', lineHeight: 1.5, minWidth: 200 }}>{item.name}</td>
+                            <td style={{ padding: '11px 12px', textAlign: 'center' }}><SupplyBadge type={item.supplyType} /></td>
+                            <td style={{ padding: '11px 12px', color: '#6B7A94', textAlign: 'center' }}>{item.unit}</td>
+                            <td style={{ padding: '11px 12px', fontFamily: 'monospace', textAlign: 'right', color: '#6B7A94' }}>{item.qty}</td>
+                            <td style={{ padding: '11px 12px', fontFamily: 'monospace', textAlign: 'right' }}>
+                              <span style={{ color: item.unitPriceDerived ? '#F97316' : '#6B7A94' }}>
+                                {(item.unitPrice ?? 0).toFixed(2)}{item.unitPriceDerived ? <sup style={{ fontSize: 9, color: '#9CA3AF' }}>*</sup> : ''}
                               </span>
-                              {item.note && <span className="text-[10px] text-rs-text3 text-center leading-tight">{item.note}</span>}
-                            </div>
-                          </td>
-                        </tr>
-                        </React.Fragment>
-                      );
-                    })}
+                              {(() => {
+                                const origIdx = analysis?.items.indexOf(item) ?? -1;
+                                const comp = scoreBreakdown?.priceComparisons.find(c => c.itemIndex === origIdx);
+                                if (!comp || comp.verdict === 'ok' || comp.verdict === 'ai_estimated') return null;
+                                if ((comp.source === 'database' || comp.source === 'known_range') && comp.dbMin != null && comp.dbMax != null) {
+                                  return <div style={{ fontSize: 9, color: '#F97316', marginTop: 2 }}>市场 {comp.dbMin.toFixed(0)}-{comp.dbMax.toFixed(0)}</div>;
+                                }
+                                if (comp.source === 'ai_estimate' && comp.aiEstMin != null && comp.aiEstMax != null) {
+                                  return <div style={{ fontSize: 9, color: '#F97316', marginTop: 2 }}>AI估 {comp.aiEstMin.toFixed(0)}-{comp.aiEstMax.toFixed(0)}</div>;
+                                }
+                                return null;
+                              })()}
+                            </td>
+                            <td style={{ padding: '11px 12px', fontFamily: 'monospace', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              {currency} {(item.total ?? 0).toLocaleString()}
+                            </td>
+                            <td style={{ padding: '11px 12px', whiteSpace: 'nowrap', verticalAlign: 'top' }}>
+                              <span style={{ color: cfg.cls, fontSize: 12 }}>{cfg.label}</span>
+                              {item.note && <div style={{ fontSize: 10, color: '#6B7A94', marginTop: 2, whiteSpace: 'normal', minWidth: 90 }}>{item.note}</div>}
+                            </td>
+                          </tr>
+                        );
+                      });
+                      return rows;
+                    })()}
                   </tbody>
 
                   {/* Subtotals */}
-                  {activeSection === 'all' && analysis.subtotals.map((sub, i) => (
+                  {(activeSection === 'all' || filterMode === 'page') && analysis.subtotals.map((sub, i) => (
                     <tfoot key={i}>
-                      <tr className="bg-[#F8F9FB]">
-                        <td colSpan={6} className="px-4 py-2.5 text-right text-[13px] font-medium text-rs-text2">{sub.label}</td>
-                        <td className="px-4 py-2.5 text-right font-semibold text-rs-text font-mono">
-                          RM {(sub.amount ?? 0).toLocaleString()}
+                      <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
+                        <td colSpan={6} style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#6B7A94', fontSize: 12 }}>{sub.label}</td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#F0B90B', fontFamily: 'monospace' }}>
+                          {currency} {(sub.amount ?? 0).toLocaleString()}
                         </td>
                         <td />
                       </tr>
                     </tfoot>
                   ))}
 
-                  {/* Total row */}
-                  {activeSection === 'all' && (
+                  {/* Total row — gold like reference */}
+                  {(activeSection === 'all' || filterMode === 'page') && (
                     <tfoot>
-                      <tr style={{ background: 'rgba(79,142,247,0.08)', borderTop: '2px solid #4F8EF7' }}>
-                        <td colSpan={6} className="px-4 py-3 text-right font-bold text-rs-text text-[13px] tracking-wide">报价总额</td>
-                        <td className="px-4 py-3 text-right font-bold text-[#4F8EF7] text-[16px] font-mono">
-                          RM {(analysis.totalAmount ?? 0).toLocaleString()}
+                      <tr style={{ background: 'rgba(240,185,11,0.07)', borderTop: '2px solid #F0B90B' }}>
+                        <td colSpan={6} style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#1B2336', fontSize: 13 }}>报价总额</td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 800, color: '#F0B90B', fontFamily: 'monospace', fontSize: 15 }}>
+                          {currency} {(analysis.totalAmount ?? 0).toLocaleString()}
                         </td>
                         <td />
                       </tr>
@@ -1178,95 +1182,51 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
               </div>
 
               {/* Legend */}
-              <div className="px-5 py-3 border-t border-[#F0F2F7] flex flex-wrap gap-x-5 gap-y-1">
-                <div className="flex items-center gap-3 text-[11px] text-rs-text3">
-                  {(['ok', 'warn', 'flag', 'nodata'] as AIItemStatus[]).map(s => (
-                    <span key={s} className={`${STATUS_CONFIG[s].color} flex items-center gap-1`}>
-                      {STATUS_CONFIG[s].label}
-                    </span>
-                  ))}
-                </div>
-                <span className="text-[10px] text-[#9CA3AF] ml-auto">* 单价标 * 表示由「总价 ÷ 数量」计算得出，非原始报价直接提供</span>
+              <div className="px-5 py-3 border-t border-[#F0F2F7]" style={{ fontSize: 11, color: '#9CA3AF', lineHeight: 2 }}>
+                <span style={{ color: '#16A34A' }}>✓ 正常</span>
+                <span style={{ margin: '0 8px', color: '#9CA3AF' }}>│</span>
+                <span style={{ color: '#F97316' }}>⚠ 注意</span>
+                <span style={{ margin: '0 8px', color: '#9CA3AF' }}>│</span>
+                <span style={{ color: '#E53935' }}>✗ 异常</span>
+                <span style={{ margin: '0 8px', color: '#9CA3AF' }}>│</span>
+                <span>– 待确认 = 原始报价未提供数据</span>
+                <br />
+                <span>* 单价标 * 表示由「总价 ÷ 数量」计算得出，非原始报价直接提供</span>
               </div>
             </div>
 
-            {/* Missing Items + Alerts */}
-            {(analysis.missing.length > 0 || analysis.alerts.length > 0) && (
-              <div className="bg-white border border-rs-surface3 rounded-xl overflow-hidden">
-                {/* Missing items */}
-                {analysis.missing.length > 0 && (
-                  <div className="px-5 py-4 border-b border-[#F0F2F7] bg-[rgba(229,57,53,0.03)]">
-                    <div className="flex items-center gap-2 mb-3">
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                      <span className="font-semibold text-red-600 text-[13px]">发现 {analysis.missing.length} 项可能漏算</span>
-                    </div>
-                    <div className="space-y-1.5">
-                      {analysis.missing.map((m, i) => (
-                        <div key={i} className="flex items-start gap-2 text-[13px] text-rs-text2">
-                          <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
-                          <span>{m}</span>
-                        </div>
-                      ))}
-                    </div>
+            {/* Missing Items */}
+            {analysis.missing.length > 0 && (
+              <div style={{ background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 10, padding: '16px 18px' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#E53935', marginBottom: 10 }}>⚠️ 发现 {analysis.missing.length} 项可能漏算</div>
+                {analysis.missing.map((m, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', fontSize: 12, color: '#6B7A94', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <span style={{ color: '#E53935', fontSize: 14 }}>✗</span>{m}
                   </div>
-                )}
+                ))}
+              </div>
+            )}
 
-                {/* Alerts */}
-                {analysis.alerts.length > 0 && (
-                  <div className="p-5 space-y-3">
-                    {/* Critical */}
-                    {analysis.alerts.filter(a => a.level === 'critical').length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-2">
-                          <span className="text-[11px] font-bold text-red-600 uppercase tracking-wide">严重问题（需立即处理）</span>
-                        </div>
-                        {analysis.alerts.filter(a => a.level === 'critical').map((alert, i) => (
-                          <div key={i} className="flex gap-3 p-3.5 rounded-xl mb-2 bg-[rgba(229,57,53,0.06)] border border-[rgba(229,57,53,0.2)]">
-                            <span className="flex-shrink-0 text-base">🔴</span>
-                            <div>
-                              <div className="text-[13px] font-semibold text-red-600 mb-1">{alert.title}</div>
-                              <div className="text-[12px] text-rs-text2 leading-relaxed">{alert.desc}</div>
-                            </div>
-                          </div>
-                        ))}
+            {/* Alerts — flat reference style */}
+            {analysis.alerts.length > 0 && (
+              <div className="space-y-2.5">
+                {analysis.alerts.map((alert, i) => {
+                  const isCrit = alert.level === 'critical';
+                  const isWarn = alert.level === 'warning';
+                  return (
+                    <div key={i} style={{
+                      display: 'flex', gap: 12, padding: '12px 16px', borderRadius: 8, alignItems: 'flex-start',
+                      background: isCrit ? 'rgba(248,113,113,0.1)' : isWarn ? 'rgba(251,146,60,0.1)' : 'rgba(96,165,250,0.1)',
+                      border: `1px solid ${isCrit ? 'rgba(248,113,113,0.25)' : isWarn ? 'rgba(251,146,60,0.25)' : 'rgba(96,165,250,0.25)'}`,
+                    }}>
+                      <span style={{ fontSize: 16, marginTop: 1, flexShrink: 0 }}>{isCrit ? '🚨' : isWarn ? '⚠️' : '💡'}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 3, color: isCrit ? '#E53935' : isWarn ? '#F97316' : '#3B82F6' }}>{alert.title}</div>
+                        <div style={{ fontSize: 12, color: '#6B7A94', lineHeight: 1.5 }}>{alert.desc}</div>
                       </div>
-                    )}
-                    {/* Warning */}
-                    {analysis.alerts.filter(a => a.level === 'warning').length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-2">
-                          <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wide">警告（建议确认）</span>
-                        </div>
-                        {analysis.alerts.filter(a => a.level === 'warning').map((alert, i) => (
-                          <div key={i} className="flex gap-3 p-3.5 rounded-xl mb-2 bg-[rgba(251,191,36,0.08)] border border-[rgba(251,191,36,0.25)]">
-                            <span className="flex-shrink-0 text-base">🟡</span>
-                            <div>
-                              <div className="text-[13px] font-semibold text-amber-700 mb-1">{alert.title}</div>
-                              <div className="text-[12px] text-rs-text2 leading-relaxed">{alert.desc}</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {/* Info */}
-                    {analysis.alerts.filter(a => a.level === 'info').length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-2">
-                          <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wide">提示（可选考虑）</span>
-                        </div>
-                        {analysis.alerts.filter(a => a.level === 'info').map((alert, i) => (
-                          <div key={i} className="flex gap-3 p-3.5 rounded-xl mb-2 bg-[rgba(46,107,230,0.06)] border border-[rgba(46,107,230,0.2)]">
-                            <span className="flex-shrink-0 text-base">💡</span>
-                            <div>
-                              <div className="text-[13px] font-semibold text-blue-600 mb-1">{alert.title}</div>
-                              <div className="text-[12px] text-rs-text2 leading-relaxed">{alert.desc}</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -1360,10 +1320,10 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
               <div className="bg-[#F8F9FB] rounded-2xl p-4 flex items-center gap-5">
                 <ScoreCircle score={analysis.score.total} />
                 <div className="flex-1 space-y-2">
-                  <ScoreBar label="项目完整性" value={analysis.score.completeness} breakdown={scoreBreakdown?.completeness} />
-                  <ScoreBar label="单价合理性" value={analysis.score.price} breakdown={scoreBreakdown?.price} />
-                  <ScoreBar label="工序逻辑性" value={analysis.score.logic} breakdown={scoreBreakdown?.logic} />
-                  <ScoreBar label="遗项风险" value={analysis.score.risk} breakdown={scoreBreakdown?.risk} />
+                  <ScoreBar label="项目完整性" value={analysis.score.completeness} color="#F97316" breakdown={scoreBreakdown?.completeness} />
+                  <ScoreBar label="单价合理性" value={analysis.score.price} color="#16A34A" breakdown={scoreBreakdown?.price} />
+                  <ScoreBar label="工序逻辑性" value={analysis.score.logic} color="#16A34A" breakdown={scoreBreakdown?.logic} />
+                  <ScoreBar label="漏项风险" value={analysis.score.risk} color="#E53935" breakdown={scoreBreakdown?.risk} />
                 </div>
               </div>
               {analysis.summary && (

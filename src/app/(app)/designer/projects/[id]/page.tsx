@@ -236,7 +236,13 @@ export default function ProjectDetailPage() {
         (async () => {
           try {
             await supabase.from('gantt_tasks').delete().eq('project_id', id);
-            await supabase.from('gantt_tasks').insert(newTasks.map(t => ({ ...t, assigned_workers: t.assigned_workers || [] })));
+            await supabase.from('gantt_tasks').insert(newTasks.map(t => ({
+              id: t.id, project_id: t.project_id, name: t.name, name_zh: t.name_zh,
+              trade: t.trade, start_date: t.start_date, end_date: t.end_date,
+              duration: t.duration, progress: t.progress, dependencies: t.dependencies,
+              color: t.color, is_critical: t.is_critical, subtasks: t.subtasks,
+              assigned_workers: t.assigned_workers || [],
+            })));
           } catch { /* non-blocking */ }
         })();
       }
@@ -250,7 +256,13 @@ export default function ProjectDetailPage() {
       setGanttTasks(newTasks);
       if (!g || g.length === 0) {
         (async () => {
-          try { await supabase.from('gantt_tasks').insert(newTasks.map(t => ({ ...t, assigned_workers: [] }))); } catch { /* non-blocking */ }
+          try { await supabase.from('gantt_tasks').insert(newTasks.map(t => ({
+            id: t.id, project_id: t.project_id, name: t.name, name_zh: t.name_zh,
+            trade: t.trade, start_date: t.start_date, end_date: t.end_date,
+            duration: t.duration, progress: t.progress, dependencies: t.dependencies,
+            color: t.color, is_critical: t.is_critical, subtasks: t.subtasks,
+            assigned_workers: [],
+          }))); } catch { /* non-blocking */ }
         })();
       }
     } else if (g && g.length > 0) {
