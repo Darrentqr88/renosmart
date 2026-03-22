@@ -117,6 +117,7 @@ export interface GanttTradeData {
   points?: number;
   units?: number;
   ft?: number;
+  itemCount?: number;      // number of carpentry items/cabinets (for mfg duration calc)
   estimatedDays: number;
   taskName?: string;       // quotation-specific task name, e.g. "Kitchen & Bathroom Tiling"
   taskName_zh?: string;    // Chinese task name

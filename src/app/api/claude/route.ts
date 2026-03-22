@@ -60,18 +60,9 @@ export async function POST(req: NextRequest) {
 
       const currentUsage = usageRow?.usage_count || 0;
 
-      let totalUsage = currentUsage;
-      if (userPlan === 'free') {
-        const { data: allUsage } = await supabase
-          .from('ai_usage')
-          .select('usage_count')
-          .eq('user_id', userId);
-        totalUsage = (allUsage || []).reduce((sum: number, row: { usage_count: number }) => sum + row.usage_count, 0);
-      }
-
-      if (totalUsage >= limit) {
+      if (currentUsage >= limit) {
         return NextResponse.json(
-          { error: `AI quota exceeded. Please upgrade your plan. (${totalUsage}/${limit === Infinity ? '\u221e' : limit} used)` },
+          { error: `AI quota exceeded. Please upgrade your plan. (${currentUsage}/${limit === Infinity ? '\u221e' : limit} used this month)` },
           { status: 429 }
         );
       }

@@ -381,17 +381,24 @@ export default function QuotationPage() {
           items: prev.items.map((item, idx) => {
             const comp = breakdown.priceComparisons.find(c => c.itemIndex === idx);
             if (!comp || comp.source === 'ai_status') return item;
+            // Determine status: price within range (ok/ai_estimated) → always 'ok', overrides AI status
+            const isWithinRange = comp.verdict === 'ok' || comp.verdict === 'ai_estimated';
             const newStatus: AIItemStatus =
+              isWithinRange ? 'ok' :
               (comp.verdict === 'flag_high' || comp.verdict === 'flag_low') ? 'flag' :
               comp.verdict === 'warn_high' ? 'warn' : item.status;
-            const rangeLabel = (comp.source === 'database' || comp.source === 'known_range') && comp.dbMin != null && comp.dbMax != null
-              ? `市场${comp.dbMin.toFixed(0)}-${comp.dbMax.toFixed(0)}`
-              : comp.source === 'ai_estimate' && comp.aiEstMin != null && comp.aiEstMax != null
-                ? `AI估${comp.aiEstMin.toFixed(0)}-${comp.aiEstMax.toFixed(0)}`
-                : item.note;
+            // Only show range label for warn/flag items — 'ok' items don't need the range displayed
+            const showRange = !isWithinRange;
+            const rangeLabel = showRange
+              ? ((comp.source === 'database' || comp.source === 'known_range') && comp.dbMin != null && comp.dbMax != null
+                  ? `市场${comp.dbMin.toFixed(0)}-${comp.dbMax.toFixed(0)}`
+                  : comp.source === 'ai_estimate' && comp.aiEstMin != null && comp.aiEstMax != null
+                    ? `AI估${comp.aiEstMin.toFixed(0)}-${comp.aiEstMax.toFixed(0)}`
+                    : item.note)
+              : item.note;
             return {
               ...item,
-              status: newStatus === 'flag' || newStatus === 'warn' ? newStatus : item.status,
+              status: newStatus,
               note: rangeLabel && rangeLabel.length <= 25 ? rangeLabel : item.note,
             };
           }),
@@ -1114,11 +1121,13 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                               const origIdx = analysis?.items.indexOf(item) ?? -1;
                               const comp = scoreBreakdown?.priceComparisons.find(c => c.itemIndex === origIdx);
                               if (!comp) return null;
+                              // Only show range for warn/flag items — normal range items don't need it
+                              if (comp.verdict === 'ok' || comp.verdict === 'ai_estimated') return null;
                               if ((comp.source === 'database' || comp.source === 'known_range') && comp.dbMin != null && comp.dbMax != null) {
-                                return <div className="text-[9px] text-green-600 mt-0.5">市场 {comp.dbMin.toFixed(0)}-{comp.dbMax.toFixed(0)}</div>;
+                                return <div className="text-[9px] text-orange-500 mt-0.5">市场 {comp.dbMin.toFixed(0)}-{comp.dbMax.toFixed(0)}</div>;
                               }
                               if (comp.source === 'ai_estimate' && comp.aiEstMin != null && comp.aiEstMax != null) {
-                                return <div className="text-[9px] text-blue-500 mt-0.5">AI估 {comp.aiEstMin.toFixed(0)}-{comp.aiEstMax.toFixed(0)}</div>;
+                                return <div className="text-[9px] text-orange-500 mt-0.5">AI估 {comp.aiEstMin.toFixed(0)}-{comp.aiEstMax.toFixed(0)}</div>;
                               }
                               return null;
                             })()}

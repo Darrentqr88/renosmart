@@ -135,6 +135,14 @@ export function GanttChart({
     trackPx: number;
   } | null>(null);
 
+  // Local preview state — used for visual-only feedback during drag (no BFS)
+  const [previewDrag, setPreviewDrag] = useState<{
+    taskId: string;
+    start_date: string;
+    end_date: string;
+    duration: number;
+  } | null>(null);
+
   const [hoveredTask, setHoveredTask] = useState<string | null>(null);
   const [hoveredWeek, setHoveredWeek] = useState<number | null>(null);
   const [reorderDragId, setReorderDragId] = useState<string | null>(null);
@@ -206,9 +214,13 @@ export function GanttChart({
     return off >= 0 && off < totalDays ? (off / totalDays) * 100 : -1;
   }, [deadline, chartStart, totalDays]);
 
-  // ─── bar position helpers ───────────────────────────────────────
-  const barLeft  = (t: GanttTask) => (differenceInDays(parseISO(t.start_date), chartStart) / totalDays) * 100;
-  const barWidth = (t: GanttTask) => Math.max(((differenceInDays(parseISO(t.end_date), parseISO(t.start_date)) + 1) / totalDays) * 100, 0.8);
+  // ─── bar position helpers (use preview during drag for visual feedback) ────
+  const getEffTask = (t: GanttTask) =>
+    (previewDrag && previewDrag.taskId === t.id)
+      ? { ...t, start_date: previewDrag.start_date, end_date: previewDrag.end_date }
+      : t;
+  const barLeft  = (t: GanttTask) => { const e = getEffTask(t); return (differenceInDays(parseISO(e.start_date), chartStart) / totalDays) * 100; };
+  const barWidth = (t: GanttTask) => { const e = getEffTask(t); return Math.max(((differenceInDays(parseISO(e.end_date), parseISO(e.start_date)) + 1) / totalDays) * 100, 0.8); };
 
   // ─── task status helpers ────────────────────────────────────────
   const isActive = (t: GanttTask) => parseISO(t.start_date) <= today && parseISO(t.end_date) >= today;
@@ -246,8 +258,9 @@ export function GanttChart({
     setDragging({ taskId, type, startX: e.clientX, origStart: task.start_date, origEnd: task.end_date, trackPx });
   }, [tasks]);
 
+  // During drag: update local preview only (no BFS cascade until mouseUp)
   const onMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!dragging || !onTaskUpdate) return;
+    if (!dragging) return;
     const deltaX    = e.clientX - dragging.startX;
     const daysPerPx = totalDays / dragging.trackPx;
     const delta     = Math.round(deltaX * daysPerPx);
@@ -255,7 +268,8 @@ export function GanttChart({
     if (dragging.type === 'move') {
       const newStart = addDays(parseISO(dragging.origStart), delta);
       const newEnd = addDays(parseISO(dragging.origEnd), delta);
-      onTaskUpdate(dragging.taskId, {
+      setPreviewDrag({
+        taskId: dragging.taskId,
         start_date: format(newStart, 'yyyy-MM-dd'),
         end_date:   format(newEnd, 'yyyy-MM-dd'),
         duration:   countWorkdays(newStart, newEnd),
@@ -264,16 +278,28 @@ export function GanttChart({
       const newEndDate = addDays(parseISO(dragging.origEnd), delta);
       const newEnd = format(newEndDate, 'yyyy-MM-dd');
       if (newEnd > dragging.origStart) {
-        const startDate = parseISO(dragging.origStart);
-        onTaskUpdate(dragging.taskId, {
-          end_date: newEnd,
-          duration: countWorkdays(startDate, newEndDate),
+        setPreviewDrag({
+          taskId: dragging.taskId,
+          start_date: dragging.origStart,
+          end_date:   newEnd,
+          duration:   countWorkdays(parseISO(dragging.origStart), newEndDate),
         });
       }
     }
-  }, [dragging, onTaskUpdate, totalDays]);
+  }, [dragging, totalDays]);
 
-  const stopDrag = useCallback(() => setDragging(null), []);
+  // On mouseUp: commit final position → triggers BFS cascade once
+  const stopDrag = useCallback(() => {
+    if (previewDrag && onTaskUpdate) {
+      onTaskUpdate(previewDrag.taskId, {
+        start_date: previewDrag.start_date,
+        end_date:   previewDrag.end_date,
+        duration:   previewDrag.duration,
+      });
+    }
+    setDragging(null);
+    setPreviewDrag(null);
+  }, [previewDrag, onTaskUpdate]);
 
   // ─── computed summary ───────────────────────────────────────────
   const ganttStart = tasks.length > 0 ? tasks.reduce((m, t) => t.start_date < m ? t.start_date : m, tasks[0].start_date) : '';

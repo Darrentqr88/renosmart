@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { GanttTask, QuotationItem, TradeHint } from '@/types';
-import { getPhaseChecklist, getPhaseById, classifyItemTrade } from '@/lib/utils/gantt-rules';
+import { getPhaseChecklist, getPhaseById, classifyItemTrade, tradeMatches } from '@/lib/utils/gantt-rules';
 import { buildTradeHintPrompt } from '@/lib/ai/quotation-prompt';
 import { useI18n } from '@/lib/i18n/context';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -15,6 +15,10 @@ interface TaskDetailPanelProps {
   onDurationChange: (newDuration: number) => void;
   quotationItems?: QuotationItem[];
   region?: 'MY' | 'SG';
+  cachedHint?: TradeHint;
+  hintsLoading?: boolean;
+  /** AI-classified overrides: maps item name → trade (for items classifyItemTrade couldn't match) */
+  classificationOverrides?: Record<string, string>;
 }
 
 export function TaskDetailPanel({
@@ -25,6 +29,9 @@ export function TaskDetailPanel({
   onDurationChange,
   quotationItems = [],
   region = 'MY',
+  cachedHint,
+  hintsLoading: parentHintsLoading,
+  classificationOverrides = {},
 }: TaskDetailPanelProps) {
   const { lang } = useI18n();
   const [editDuration, setEditDuration] = useState(task.duration);
@@ -32,26 +39,36 @@ export function TaskDetailPanel({
   const [aiPrepChecks, setAiPrepChecks] = useState<Record<number, boolean>>({});
   const [aiHint, setAiHint] = useState<TradeHint | null>(null);
   const [hintLoading, setHintLoading] = useState(false);
+  const [showAllItems, setShowAllItems] = useState(false);
 
   const phase = getPhaseById(phaseId);
   const staticChecklist = getPhaseChecklist(phaseId);
 
-  // Find related quotation items — prefer source_items (exact match), fallback to regex
-  const relatedItems = task.source_items?.length
-    ? quotationItems.filter(item => task.source_items!.includes(item.name))
-    : quotationItems.filter(item => {
-        const classified = classifyItemTrade(item.section || '', item.name);
-        if (!classified) return false;
-        const trade = task.trade.toLowerCase();
-        return classified === trade
-          || (trade === 'construction' && classified === 'masonry')
-          || (trade === 'masonry' && classified === 'construction')
-          || (trade === 'false ceiling' && classified === 'ceiling')
-          || (trade === 'ceiling' && classified === 'false ceiling');
-      });
+  // Find related quotation items — prefer source_items (exact match), fallback to regex + AI overrides
+  const relatedItems = (() => {
+    if (task.source_items?.length) {
+      return quotationItems.filter(item => task.source_items!.includes(item.name));
+    }
+    return quotationItems.filter(item => {
+      // Check AI classification overrides first
+      if (classificationOverrides[item.name]) {
+        return tradeMatches(task.trade, classificationOverrides[item.name]);
+      }
+      const classified = classifyItemTrade(item.section || '', item.name);
+      return classified ? tradeMatches(task.trade, classified) : false;
+    });
+  })();
 
-  // Generate AI hints on mount when quotation items are available
+  // Use cached hint from batch generation (preferred), fallback to per-panel API call
   useEffect(() => {
+    if (cachedHint) {
+      setAiHint(cachedHint);
+      setHintLoading(false);
+      return;
+    }
+    // Don't trigger per-panel call while batch generation is in progress — wait for it
+    if (parentHintsLoading) return;
+    // Fallback: generate per-panel if no cached hint and items exist
     if (relatedItems.length === 0) return;
     setHintLoading(true);
     const prompt = buildTradeHintPrompt(
@@ -89,7 +106,7 @@ export function TaskDetailPanel({
       .catch(() => { /* ignore network error */ })
       .finally(() => setHintLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [cachedHint, parentHintsLoading]);
 
   const togglePrepCheck = (idx: number) => setPrepChecks(prev => ({ ...prev, [idx]: !prev[idx] }));
   const toggleAiPrepCheck = (idx: number) => setAiPrepChecks(prev => ({ ...prev, [idx]: !prev[idx] }));
@@ -189,170 +206,191 @@ export function TaskDetailPanel({
             </button>
           </div>
 
-          {/* ── AI Hints section ── */}
-          {relatedItems.length > 0 && (
+          {/* ── Prep Reminders & Notes section ── */}
+          {(relatedItems.length > 0 || staticChecklist.length > 0) && (
             <>
               <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-rs-text3 mb-2 flex items-center gap-2">
                 ✦ {lang === 'ZH' ? '事前准备 & 注意事项' : 'PREP REMINDERS & NOTES'}
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(79,142,247,0.1)] text-[#4F8EF7] border border-[rgba(79,142,247,0.2)] normal-case font-normal">
-                  {lang === 'ZH' ? '基于报价单内容' : 'From quotation AI'}
-                </span>
+                {relatedItems.length > 0 && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(79,142,247,0.1)] text-[#4F8EF7] border border-[rgba(79,142,247,0.2)] normal-case font-normal">
+                    {lang === 'ZH' ? '基于报价单内容' : 'From quotation AI'}
+                  </span>
+                )}
               </div>
 
-              {/* Loading state */}
-              {hintLoading && (
-                <div className="flex items-center gap-2 px-3 py-3 rounded-xl bg-[rgba(79,142,247,0.05)] border border-[rgba(79,142,247,0.15)] mb-3">
-                  <span className="text-[13px] animate-spin">⟳</span>
-                  <p className="text-[11px] text-amber-700">
-                    {lang === 'ZH' ? 'AI正在分析报价单内容...' : 'AI analyzing quotation content...'}
-                  </p>
-                </div>
-              )}
-
-              {/* AI quotation summary */}
-              {aiHint?.quotationNotes && (
-                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl mb-2 border"
-                  style={{ background: 'rgba(79,142,247,0.05)', borderColor: 'rgba(79,142,247,0.2)' }}>
-                  <span className="text-[13px] flex-shrink-0">📋</span>
-                  <p className="text-[11px] text-amber-800 leading-relaxed">{aiHint.quotationNotes}</p>
-                </div>
-              )}
-
-              {/* AI warnings */}
-              {aiHint?.warnings && aiHint.warnings.length > 0 && (
-                <div className="mb-2 space-y-1.5">
-                  {aiHint.warnings.map((w, idx) => (
-                    <div key={idx} className="flex items-start gap-2 px-3 py-2 rounded-xl border"
-                      style={{ background: 'rgba(239,68,68,0.04)', borderColor: 'rgba(239,68,68,0.18)' }}>
-                      <span className="text-[13px] flex-shrink-0">⚠️</span>
-                      <p className="text-[11px] text-red-800 leading-relaxed">{w}</p>
+              {/* AI hints — only when quotation items exist */}
+              {relatedItems.length > 0 && (
+                <>
+                  {/* Loading state */}
+                  {(hintLoading || (parentHintsLoading && !aiHint)) && (
+                    <div className="flex items-center gap-2 px-3 py-3 rounded-xl bg-[rgba(79,142,247,0.05)] border border-[rgba(79,142,247,0.15)] mb-3">
+                      <span className="text-[13px] animate-spin">⟳</span>
+                      <p className="text-[11px] text-amber-700">
+                        {lang === 'ZH' ? 'AI正在分析报价单内容...' : 'AI analyzing quotation content...'}
+                      </p>
                     </div>
-                  ))}
-                </div>
+                  )}
+
+                  {/* AI quotation summary */}
+                  {aiHint?.quotationNotes && (
+                    <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl mb-2 border"
+                      style={{ background: 'rgba(79,142,247,0.05)', borderColor: 'rgba(79,142,247,0.2)' }}>
+                      <span className="text-[13px] flex-shrink-0">📋</span>
+                      <p className="text-[11px] text-amber-800 leading-relaxed">{aiHint.quotationNotes}</p>
+                    </div>
+                  )}
+
+                  {/* AI warnings */}
+                  {aiHint?.warnings && aiHint.warnings.length > 0 && (
+                    <div className="mb-2 space-y-1.5">
+                      {aiHint.warnings.map((w, idx) => (
+                        <div key={idx} className="flex items-start gap-2 px-3 py-2 rounded-xl border"
+                          style={{ background: 'rgba(239,68,68,0.04)', borderColor: 'rgba(239,68,68,0.18)' }}>
+                          <span className="text-[13px] flex-shrink-0">⚠️</span>
+                          <p className="text-[11px] text-red-800 leading-relaxed">{w}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* AI prep checklist — max 5 items */}
+                  {aiHint?.prepItems && aiHint.prepItems.length > 0 && (
+                    <div className="space-y-1.5 mb-3">
+                      {aiHint.prepItems.slice(0, 5).map((item, idx) => {
+                        const checked = aiPrepChecks[idx] || false;
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => toggleAiPrepCheck(idx)}
+                            className={`w-full flex items-start gap-2 px-3 py-2 rounded-lg border text-[12px] text-left transition-all cursor-pointer ${
+                              checked
+                                ? 'bg-[rgba(22,163,74,0.07)] border-[rgba(22,163,74,0.25)]'
+                                : 'bg-[rgba(96,165,250,0.05)] border-[rgba(96,165,250,0.18)] hover:bg-[rgba(96,165,250,0.09)]'
+                            }`}
+                          >
+                            <span className="flex-shrink-0 text-[14px] mt-0.5">{checked ? '✅' : '🛒'}</span>
+                            <span className={`text-rs-text2 leading-snug ${checked ? 'line-through opacity-60' : ''}`}>
+                              {item}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Fallback: static hint while AI loads and no AI result yet */}
+                  {!hintLoading && !aiHint && staticHint && (
+                    <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl mb-3 border"
+                      style={{ background: 'rgba(79,142,247,0.06)', borderColor: 'rgba(79,142,247,0.2)' }}>
+                      <span className="text-[13px] flex-shrink-0">💡</span>
+                      <p className="text-[11px] text-amber-800 leading-relaxed">{staticHint}</p>
+                    </div>
+                  )}
+                </>
               )}
 
-              {/* AI prep checklist */}
-              {aiHint?.prepItems && aiHint.prepItems.length > 0 && (
-                <div className="space-y-1.5 mb-4">
-                  {aiHint.prepItems.map((item, idx) => {
-                    const checked = aiPrepChecks[idx] || false;
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => toggleAiPrepCheck(idx)}
-                        className={`w-full flex items-start gap-2 px-3 py-2 rounded-lg border text-[12px] text-left transition-all cursor-pointer ${
-                          checked
-                            ? 'bg-[rgba(22,163,74,0.07)] border-[rgba(22,163,74,0.25)]'
-                            : 'bg-[rgba(96,165,250,0.05)] border-[rgba(96,165,250,0.18)] hover:bg-[rgba(96,165,250,0.09)]'
-                        }`}
-                      >
-                        <span className="flex-shrink-0 text-[14px] mt-0.5">{checked ? '✅' : '🛒'}</span>
-                        <span className={`text-rs-text2 leading-snug ${checked ? 'line-through opacity-60' : ''}`}>
-                          {item}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Fallback: static hint while AI loads or if no quotation items match */}
-              {!hintLoading && !aiHint && staticHint && (
-                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl mb-4 border"
-                  style={{ background: 'rgba(79,142,247,0.06)', borderColor: 'rgba(79,142,247,0.2)' }}>
-                  <span className="text-[13px] flex-shrink-0">💡</span>
-                  <p className="text-[11px] text-amber-800 leading-relaxed">{staticHint}</p>
-                </div>
-              )}
-
-              {/* Static checklist — shown only when no AI hints loaded yet */}
-              {!aiHint && staticChecklist.length > 0 && !hintLoading && (
-                <div className="space-y-1.5 mb-4">
-                  {staticChecklist.map((item, idx) => {
-                    const checked = prepChecks[idx] || false;
-                    const bgMap: Record<string, string> = {
-                      warn:  'bg-[rgba(248,113,113,0.07)] border-[rgba(248,113,113,0.18)]',
-                      order: 'bg-[rgba(96,165,250,0.07)] border-[rgba(96,165,250,0.18)]',
-                      check: 'bg-[rgba(22,163,74,0.07)] border-[rgba(74,222,128,0.18)]',
-                      info:  'bg-[rgba(251,146,60,0.07)] border-[rgba(251,146,60,0.18)]',
-                    };
-                    const iconMap: Record<string, string> = { warn: '⚠️', order: '🛒', check: '🔲', info: '📋' };
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => togglePrepCheck(idx)}
-                        className={`w-full flex items-start gap-2 px-3 py-2 rounded-lg border text-[12px] text-left transition-all cursor-pointer hover:brightness-95 ${
-                          checked ? 'bg-[rgba(22,163,74,0.08)] border-[rgba(22,163,74,0.25)]' : bgMap[item.type] || bgMap.info
-                        }`}
-                      >
-                        <span className="flex-shrink-0 text-[14px] mt-0.5">{checked ? '✅' : (iconMap[item.type] || '📋')}</span>
-                        <span className={`text-rs-text2 ${checked ? 'line-through opacity-60' : ''}`}>
-                          {lang === 'ZH' ? item.text_zh : item.text}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+              {/* Static checklist — ALWAYS shown (below AI hints) */}
+              {staticChecklist.length > 0 && (
+                <>
+                  {relatedItems.length > 0 && (
+                    <div className="text-[10px] font-semibold tracking-[1px] uppercase text-rs-text3 mb-1.5 mt-1">
+                      🛠 {lang === 'ZH' ? '通用施工准备' : 'GENERAL PREP CHECKLIST'}
+                    </div>
+                  )}
+                  {relatedItems.length === 0 && (
+                    <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-rs-text3 mb-2">
+                      🛠 {lang === 'ZH' ? '开工前准备事项' : 'PREP CHECKLIST'}
+                    </div>
+                  )}
+                  <div className="space-y-1.5 mb-4">
+                    {staticChecklist.map((item, idx) => {
+                      const checked = prepChecks[idx] || false;
+                      const bgMap: Record<string, string> = {
+                        warn:  'bg-[rgba(248,113,113,0.07)] border-[rgba(248,113,113,0.18)]',
+                        order: 'bg-[rgba(96,165,250,0.07)] border-[rgba(96,165,250,0.18)]',
+                        check: 'bg-[rgba(22,163,74,0.07)] border-[rgba(74,222,128,0.18)]',
+                        info:  'bg-[rgba(251,146,60,0.07)] border-[rgba(251,146,60,0.18)]',
+                      };
+                      const iconMap: Record<string, string> = { warn: '⚠️', order: '🛒', check: '🔲', info: '📋' };
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => togglePrepCheck(idx)}
+                          className={`w-full flex items-start gap-2 px-3 py-2 rounded-lg border text-[12px] text-left transition-all cursor-pointer hover:brightness-95 ${
+                            checked ? 'bg-[rgba(22,163,74,0.08)] border-[rgba(22,163,74,0.25)]' : bgMap[item.type] || bgMap.info
+                          }`}
+                        >
+                          <span className="flex-shrink-0 text-[14px] mt-0.5">{checked ? '✅' : (iconMap[item.type] || '📋')}</span>
+                          <span className={`text-rs-text2 ${checked ? 'line-through opacity-60' : ''}`}>
+                            {lang === 'ZH' ? item.text_zh : item.text}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </>
           )}
 
-          {/* No quotation — show static checklist */}
-          {relatedItems.length === 0 && staticChecklist.length > 0 && (
-            <>
-              <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-rs-text3 mb-2">
-                🛠 {lang === 'ZH' ? '开工前准备事项' : 'PREP CHECKLIST'}
-              </div>
-              <div className="space-y-1.5 mb-4">
-                {staticChecklist.map((item, idx) => {
-                  const checked = prepChecks[idx] || false;
-                  const bgMap: Record<string, string> = {
-                    warn:  'bg-[rgba(248,113,113,0.07)] border-[rgba(248,113,113,0.18)]',
-                    order: 'bg-[rgba(96,165,250,0.07)] border-[rgba(96,165,250,0.18)]',
-                    check: 'bg-[rgba(22,163,74,0.07)] border-[rgba(74,222,128,0.18)]',
-                    info:  'bg-[rgba(251,146,60,0.07)] border-[rgba(251,146,60,0.18)]',
-                  };
-                  const iconMap: Record<string, string> = { warn: '⚠️', order: '🛒', check: '🔲', info: '📋' };
-                  return (
-                    <button key={idx} onClick={() => togglePrepCheck(idx)}
-                      className={`w-full flex items-start gap-2 px-3 py-2 rounded-lg border text-[12px] text-left transition-all cursor-pointer hover:brightness-95 ${
-                        checked ? 'bg-[rgba(22,163,74,0.08)] border-[rgba(22,163,74,0.25)]' : bgMap[item.type] || bgMap.info
-                      }`}>
-                      <span className="flex-shrink-0 text-[14px] mt-0.5">{checked ? '✅' : (iconMap[item.type] || '📋')}</span>
-                      <span className={`text-rs-text2 ${checked ? 'line-through opacity-60' : ''}`}>
-                        {lang === 'ZH' ? item.text_zh : item.text}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
-
-          {/* Quotation items from the quotation */}
+          {/* Quotation items from the quotation — collapsible (first 5 visible) */}
           {relatedItems.length > 0 && (
             <>
               <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-rs-text3 mb-2 flex items-center gap-2">
                 {lang === 'ZH' ? '报价单明细' : 'QUOTATION ITEMS'}
                 <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(79,142,247,0.1)] text-[#4F8EF7] border border-[rgba(79,142,247,0.2)] normal-case font-normal">
-                  {relatedItems.length} 项
+                  {relatedItems.length} {lang === 'ZH' ? '项' : 'items'}
                 </span>
               </div>
-              <div className="mb-4 space-y-1.5">
-                {relatedItems.slice(0, 10).map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-2.5 px-3 py-2 rounded-lg bg-[rgba(79,142,247,0.04)] border border-[rgba(79,142,247,0.12)] text-[12px]">
-                    <span className="w-[17px] h-[17px] rounded flex-shrink-0 border border-[rgba(79,142,247,0.3)] flex items-center justify-center text-[9px] text-[#4F8EF7] mt-0.5 font-bold">
-                      {idx + 1}
-                    </span>
-                    <span className="flex-1 text-rs-text2 leading-snug">{item.name}</span>
-                    {item.total > 0 && (
-                      <span className="font-mono text-[11px] text-[#4F8EF7] whitespace-nowrap flex-shrink-0">
-                        {region === 'SG' ? 'SGD' : 'RM'} {(item.total ?? 0).toLocaleString()}
+              <div className="mb-2 space-y-1.5">
+                {(showAllItems ? relatedItems : relatedItems.slice(0, 5)).map((item, idx) => {
+                  const isFlag = item.status === 'flag';
+                  const isWarn = item.status === 'warn';
+                  return (
+                    <div key={idx} className={`flex items-start gap-2.5 px-3 py-2 rounded-lg border text-[12px] ${
+                      isFlag
+                        ? 'bg-[rgba(239,68,68,0.04)] border-[rgba(239,68,68,0.2)]'
+                        : isWarn
+                          ? 'bg-[rgba(251,146,60,0.05)] border-[rgba(251,146,60,0.2)]'
+                          : 'bg-[rgba(79,142,247,0.04)] border-[rgba(79,142,247,0.12)]'
+                    }`}>
+                      <span className={`w-[17px] h-[17px] rounded flex-shrink-0 border flex items-center justify-center text-[9px] mt-0.5 font-bold ${
+                        isFlag ? 'border-red-300 text-red-500' : isWarn ? 'border-orange-300 text-orange-500' : 'border-[rgba(79,142,247,0.3)] text-[#4F8EF7]'
+                      }`}>
+                        {idx + 1}
                       </span>
-                    )}
-                  </div>
-                ))}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-rs-text2 leading-snug">{item.name}</div>
+                        {isFlag && (
+                          <div className="text-[10px] text-red-600 mt-0.5 leading-snug">
+                            ⚠️ {lang === 'ZH' ? '价格偏高，材料及做法须与承包商确认' : 'Price high — confirm materials & method with contractor'}
+                          </div>
+                        )}
+                        {isWarn && !isFlag && (
+                          <div className="text-[10px] text-orange-600 mt-0.5 leading-snug">
+                            注意：检查是否有漏算，或与承包商确认实际做法
+                          </div>
+                        )}
+                      </div>
+                      {item.total > 0 && (
+                        <span className={`font-mono text-[11px] whitespace-nowrap flex-shrink-0 ${isFlag ? 'text-red-500' : isWarn ? 'text-orange-500' : 'text-[#4F8EF7]'}`}>
+                          {region === 'SG' ? 'SGD' : 'RM'} {(item.total ?? 0).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
+              {relatedItems.length > 5 && (
+                <button
+                  onClick={() => setShowAllItems(v => !v)}
+                  className="w-full text-[11px] text-[#4F8EF7] py-1.5 mb-3 rounded-lg border border-[rgba(79,142,247,0.2)] bg-[rgba(79,142,247,0.04)] hover:bg-[rgba(79,142,247,0.08)] transition-colors"
+                >
+                  {showAllItems
+                    ? (lang === 'ZH' ? '▲ 收起' : '▲ Show less')
+                    : (lang === 'ZH' ? `▼ 查看全部 ${relatedItems.length} 项` : `▼ Show all ${relatedItems.length} items`)}
+                </button>
+              )}
             </>
           )}
 

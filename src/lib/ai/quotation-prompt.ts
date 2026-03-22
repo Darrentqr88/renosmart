@@ -188,12 +188,34 @@ Standard keys: demolition|masonry|tiling|electrical|plumbing|painting|carpentry|
 
 Non-standard → customPhases with: name, name_zh, trade, estimatedDays, insertAfter (phase ID).
 
-Day rules: demolition=ceil(sqft/120) min2; masonry=ceil(sqft/60) min3; tiling=ceil(sqft/80) min3; electrical=ceil(pts/5) min3; plumbing=ceil(units/2) min2; carpentry=max(21,ceil(ft*0.7)); painting=ceil(sqft*2/150) min4; falseCeiling=ceil(sqft/100) min3; waterproofing=ceil(sqft/70) min2; flooring=ceil(sqft/70) min3; aluminium=ceil(sqft/35) min2; aircon=ceil(units/2) min1.
+Day rules (assume multi-worker crews):
+- demolition=ceil(sqft/120/3) min2 (3-person crew)
+- masonry: DETECT sub-types from items:
+    • Bricklaying/Wall = ceil(sqft/80/4) days (4-person crew)
+    • RC Slab/Floor = +4 days (concrete pour + cure, 3-person crew)
+    • RC Roofing/Footing/Beam/Column = +4 days per element type
+    • Extension (扩建) = +10 days (structural + cure, 4-person crew)
+    • Screed/Re-level = ceil(sqft/120/3) days
+    → Sum all sub-types, min 3 days
+- tiling=ceil(sqft/80/3) min3 (3-person crew)
+- electrical=ceil(pts/5) min3; pts = count of power/light/fan/data points in items
+- plumbing=ceil(units/2) min2; units = count of basins/wc/showers/taps
+- painting=ceil(sqft*2/150/2) min4 (2-person crew)
+- falseCeiling=ceil(sqft/100/2) min3 (2-person crew)
+- waterproofing=ceil(sqft/70/2) min2
+- flooring=ceil(sqft/70/2) min3
+- aluminium=ceil(sqft/35/2) min2
+- aircon=ceil(units/2) min1
+- carpentry: SEPARATE mfg and install:
+    • ft = total linear ft of all carpentry items
+    • itemCount = count of distinct carpentry items (cabinets, wardrobes, etc.)
+    • Output BOTH: ft and itemCount fields in tradeScope.carpentry
+    (mfg days = max(10, itemCount×3) capped at 42; install = max(3, ceil(ft/8/3)) 3-person team)
 
 taskName: describe ACTUAL scope (e.g. "Kitchen Floor + 3 Bathrooms Wall Tiling (950sqft)" NOT "Tiling Works"). Include floor prefix if multi-floor.
 
 JSON:
-{"sqft":${projectSqft},"projectType":"${projectType}","hasDemolition":true,"detectedCategories":["Demolition","Tiling"],"tradeScope":{"demolition":{"sqft":200,"estimatedDays":4,"taskName":"...","taskName_zh":"..."}},"customPhases":[],"riskNotes":{"carpentry":"Confirm factory slot"}}`;
+{"sqft":${projectSqft},"projectType":"${projectType}","hasDemolition":true,"detectedCategories":["Demolition","Tiling"],"tradeScope":{"demolition":{"sqft":200,"estimatedDays":4,"taskName":"...","taskName_zh":"..."},"carpentry":{"ft":45,"itemCount":6,"estimatedDays":28,"taskName":"Kitchen Cabinet + 2 Wardrobes + TV Console","taskName_zh":"..."}},"customPhases":[],"riskNotes":{"carpentry":"Confirm factory slot"}}`;
 }
 
 /**
@@ -226,6 +248,79 @@ ${itemList}
   "prepItems": ["3-5条具体准备事项，必须基于上方实际报价内容，包含数量/材料/品牌等细节"],
   "warnings": ["1-3条风险提醒或注意事项"],
   "quotationNotes": "一句话总结该工种报价内容（含金额）"
+}`;
+}
+
+/**
+ * Builds a batch prompt to generate AI prep hints for ALL trades at once.
+ * Called once after Gantt generation, instead of per-panel.
+ * Also accepts unmatched items (classifyItemTrade returned null) for AI to classify.
+ */
+export function buildBatchTradeHintPrompt(
+  trades: { trade: string; items: { name: string; qty: number; unit: string; unitPrice: number; total: number }[] }[],
+  region: 'MY' | 'SG',
+  options?: {
+    projectType?: string;
+    unmatchedItems?: { name: string; qty: number; unit: string; unitPrice: number; total: number }[];
+  },
+): string {
+  const currency = region === 'SG' ? 'SGD' : 'RM';
+  const projectType = options?.projectType || 'residential';
+  const unmatchedItems = options?.unmatchedItems || [];
+
+  const tradeBlocks = trades
+    .map(t => {
+      const itemList = t.items
+        .slice(0, 10)
+        .map(i => `- ${i.name}: ${i.qty} ${i.unit} × ${currency} ${i.unitPrice} = ${currency} ${i.total}`)
+        .join('\n');
+      return `【${t.trade}】\n${itemList}`;
+    })
+    .join('\n\n');
+
+  const unmatchedBlock = unmatchedItems.length > 0
+    ? `\n\n【未分类项目 — 请将每项归入正确工种】\n` +
+      unmatchedItems
+        .slice(0, 20)
+        .map(i => `- ${i.name}: ${i.qty} ${i.unit} × ${currency} ${i.unitPrice} = ${currency} ${i.total}`)
+        .join('\n')
+    : '';
+
+  const isCommercial = ['commercial', 'mall', 'shop_lot', 'factory'].includes(projectType);
+  const projectTypeNote = isCommercial
+    ? `项目类型：商业/商场 — 注意是否需要夜班施工（商场通常要求凌晨施工），以及是否需要工程管理局许可证（JKR/CIDB）。`
+    : `项目类型：${projectType}`;
+
+  return `你是专业的工程设计师，负责审核报价单内容并为施工团队提供施工前准备提示。
+地区：${region === 'SG' ? 'Singapore' : 'Malaysia'}
+${projectTypeNote}
+
+以下是报价单中各工种的实际项目：
+
+${tradeBlocks}${unmatchedBlock}
+
+要求：
+1. 为每个工种生成 **最多5条** 针对本次报价内容的关键准备事项（prepItems），必须结合实际项目名称、数量、材料规格，不能泛泛而谈。
+2. prepItems 按三类结构生成（总数不超过5条）：
+   a) 按工程类型注意事项（如公寓楼层限制、商业夜班要求，最多1条）
+   b) 工作内容关键注意事项（施工技术要点，最多2条）
+   c) 工前材料准备注意事项（需确认备妥的材料/品牌/规格/数量，最多2条）
+3. warnings：1-2条风险提醒（质量风险/常见漏项）
+4. quotationNotes：一句话总结该工种报价内容（含金额范围）${unmatchedItems.length > 0 ? `
+5. unmatchedClassifications：将未分类项目逐一归入正确工种（仅返回工种名，与trades中的工种名一致）` : ''}
+
+只返回JSON，不加任何说明文字：
+{
+  "trades": {
+    "工种名称": {
+      "prepItems": ["最多5条具体准备事项"],
+      "warnings": ["1-2条风险提醒"],
+      "quotationNotes": "一句话总结"
+    }
+  }${unmatchedItems.length > 0 ? `,
+  "unmatchedClassifications": {
+    "项目名称": "归属工种名（与trades中一致）"
+  }` : ''}
 }`;
 }
 

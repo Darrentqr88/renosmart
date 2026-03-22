@@ -1,24 +1,24 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { QuotationAnalysis, GanttTask, GanttParams, SiteType } from '@/types';
-import { generateGanttTasks, generateGanttFromAIParams, getPhaseChecklist, getPhaseById, CONSTRUCTION_PHASES, classifyItemTrade } from '@/lib/utils/gantt-rules';
+import { QuotationAnalysis, GanttTask, GanttParams, SiteType, TradeHint } from '@/types';
+import { generateGanttTasks, generateGanttFromAIParams, getPhaseChecklist, getPhaseById, CONSTRUCTION_PHASES, classifyItemTrade, tradeMatches } from '@/lib/utils/gantt-rules';
+import { buildBatchTradeHintPrompt } from '@/lib/ai/quotation-prompt';
 import { GanttChart } from './GanttChart';
 import { TaskDetailPanel } from './TaskDetailPanel';
 import { Sparkles, Pencil, Building2, Zap } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 import { exportGanttToExcel } from '@/lib/utils/excel-export';
-import { MY_HOLIDAYS, SG_HOLIDAYS } from '@/lib/utils/dates';
+import { MY_HOLIDAYS } from '@/lib/utils/dates';
 import { useI18n } from '@/lib/i18n/context';
 
-// Simple workday check for BFS cascade (skips weekends + MY holidays)
+// Workday helpers for cascade reschedule (skips weekends + MY holidays)
 function isWorkday_simple(d: Date): boolean {
   const day = d.getDay();
   if (day === 0 || day === 6) return false;
   return !MY_HOLIDAYS.has(format(d, 'yyyy-MM-dd'));
 }
 
-// Add workdays (skipping weekends + holidays) — for BFS cascade
 function addWorkdays_simple(start: Date, workdays: number): Date {
   let d = new Date(start);
   let count = 0;
@@ -29,13 +29,90 @@ function addWorkdays_simple(start: Date, workdays: number): Date {
   return d;
 }
 
-// Find next workday on or after given date
 function nextWorkday_simple(d: Date): Date {
   let cursor = new Date(d);
   while (!isWorkday_simple(cursor)) {
     cursor = addDays(cursor, 1);
   }
   return cursor;
+}
+
+/**
+ * Full forward reschedule: topological sort → shift any task that starts
+ * before the latest end of its dependencies. Only moves tasks FORWARD —
+ * never pulls tasks backward when a dep is shortened.
+ */
+function forwardReschedule(tasks: GanttTask[]): GanttTask[] {
+  // Build adjacency: depId → list of task IDs that depend on it
+  const inDegree = new Map<string, number>();
+  const adj = new Map<string, string[]>();
+  for (const t of tasks) {
+    if (!inDegree.has(t.id)) inDegree.set(t.id, 0);
+    for (const depId of t.dependencies || []) {
+      if (!adj.has(depId)) adj.set(depId, []);
+      adj.get(depId)!.push(t.id);
+      inDegree.set(t.id, (inDegree.get(t.id) || 0) + 1);
+    }
+  }
+
+  // Kahn's topological sort — use index pointer (O(1)) instead of shift() (O(n))
+  const queue = tasks.filter(t => (inDegree.get(t.id) || 0) === 0).map(t => t.id);
+  const order: string[] = [];
+  let qi = 0;
+  while (qi < queue.length) {
+    const id = queue[qi++];
+    order.push(id);
+    for (const childId of adj.get(id) || []) {
+      const newDeg = (inDegree.get(childId) || 0) - 1;
+      inDegree.set(childId, newDeg);
+      if (newDeg === 0) queue.push(childId);
+    }
+  }
+  // Any tasks not reached (cycles or disconnected) appended at end
+  // Use Set for O(1) lookup instead of order.includes() which is O(n)
+  const orderSet = new Set(order);
+  for (const t of tasks) {
+    if (!orderSet.has(t.id)) order.push(t.id);
+  }
+
+  // Process in topo order — shift forward if task starts before its deps allow.
+  // Store only modified tasks; untouched tasks keep their original reference.
+  const updMap = new Map<string, GanttTask>(tasks.map(t => [t.id, t]));
+  let hasChanges = false;
+
+  for (const taskId of order) {
+    const task = updMap.get(taskId)!;
+    const deps = task.dependencies || [];
+    if (deps.length === 0) continue; // root — keep anchor date as-is
+
+    // Compare ISO strings directly (lexicographic = chronological for yyyy-MM-dd)
+    // Only parse the latest end date once, avoiding N parseISO calls per task
+    let latestDepEndStr = '';
+    for (const dId of deps) {
+      const depTask = updMap.get(dId);
+      if (depTask && depTask.end_date > latestDepEndStr) latestDepEndStr = depTask.end_date;
+    }
+    if (!latestDepEndStr) continue;
+
+    const minStart = nextWorkday_simple(addDays(parseISO(latestDepEndStr), 1));
+    const minStartStr = format(minStart, 'yyyy-MM-dd');
+
+    if (task.start_date < minStartStr) {
+      const newEnd = (task.duration || 1) > 1
+        ? addWorkdays_simple(minStart, (task.duration || 1) - 1)
+        : minStart;
+      updMap.set(taskId, {
+        ...task,
+        start_date: minStartStr,
+        end_date: format(newEnd, 'yyyy-MM-dd'),
+      });
+      hasChanges = true;
+    }
+  }
+
+  // Return original array reference if nothing shifted (avoids spurious re-renders)
+  if (!hasChanges) return tasks;
+  return tasks.map(t => updMap.get(t.id)!);
 }
 
 const SITE_TYPE_OPTIONS: { value: SiteType; label: string; label_zh: string }[] = [
@@ -95,6 +172,14 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
   const [pendingSave, setPendingSave] = useState(false);
   const tasksRef = useRef<GanttTask[]>([]);
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Hints state — declared early so fetchTradeHints can reference them before generateTasks
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [aiOptimizing, setAiOptimizing] = useState(false);
+  const [aiNotes, setAiNotes] = useState<Record<string, string>>({});
+  const [tradeHints, setTradeHints] = useState<Record<string, TradeHint>>({});
+  const [hintsLoading, setHintsLoading] = useState(false);
+  const [classificationOverrides, setClassificationOverrides] = useState<Record<string, string>>({});
+  const hintsGeneratedForRef = useRef<string>('');
 
   // Keep tasksRef in sync
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
@@ -109,6 +194,75 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
     }, 1500);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [pendingSave, onSave]);
+
+  // ── Batch-generate trade hints — called directly from generateTasks ──
+  const fetchTradeHints = useCallback((generatedTasks: GanttTask[]) => {
+    if (!analysis.items?.length) return;
+    const fingerprint = analysis.items.map(i => i.name).sort().join('|').slice(0, 200);
+    if (hintsGeneratedForRef.current === fingerprint) return;
+    hintsGeneratedForRef.current = fingerprint;
+
+    const tradeItemsMap: Record<string, { name: string; qty: number; unit: string; unitPrice: number; total: number }[]> = {};
+    const unmatchedItems: { name: string; qty: number; unit: string; unitPrice: number; total: number }[] = [];
+    const uniqueTrades = new Set(generatedTasks.map(t => t.trade));
+
+    for (const item of analysis.items) {
+      const classified = classifyItemTrade(item.section || '', item.name);
+      const payload = { name: item.name, qty: item.qty, unit: item.unit, unitPrice: item.unitPrice, total: item.total };
+      if (!classified) { unmatchedItems.push(payload); continue; }
+      let matchedTrade = '';
+      for (const trade of uniqueTrades) {
+        if (tradeMatches(trade, classified)) { matchedTrade = trade; break; }
+      }
+      if (!matchedTrade) { unmatchedItems.push(payload); continue; }
+      if (!tradeItemsMap[matchedTrade]) tradeItemsMap[matchedTrade] = [];
+      tradeItemsMap[matchedTrade].push(payload);
+    }
+
+    for (const task of generatedTasks) {
+      if (!task.source_items?.length) continue;
+      const matched = analysis.items.filter(i => task.source_items!.includes(i.name));
+      if (!tradeItemsMap[task.trade]) tradeItemsMap[task.trade] = [];
+      for (const item of matched) {
+        if (!tradeItemsMap[task.trade].some(e => e.name === item.name)) {
+          tradeItemsMap[task.trade].push({ name: item.name, qty: item.qty, unit: item.unit, unitPrice: item.unitPrice, total: item.total });
+        }
+      }
+    }
+
+    const tradesWithItems = Object.entries(tradeItemsMap).filter(([, v]) => v.length > 0).map(([trade, items]) => ({ trade, items }));
+    if (tradesWithItems.length === 0 && unmatchedItems.length === 0) return;
+
+    setHintsLoading(true);
+    const prompt = buildBatchTradeHintPrompt(tradesWithItems, 'MY', {
+      projectType: analysis.ganttParams?.projectType || analysis.projectType,
+      unmatchedItems,
+    });
+    fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 4000, messages: [{ role: 'user', content: prompt }], skipQuota: true }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        const text = data.content?.[0]?.text || '';
+        const match = text.match(/\{[\s\S]*\}/);
+        if (match) {
+          try {
+            const parsed = JSON.parse(match[0]);
+            if (parsed.trades && typeof parsed.trades === 'object') setTradeHints(parsed.trades);
+            if (parsed.unmatchedClassifications && typeof parsed.unmatchedClassifications === 'object') {
+              const overrides: Record<string, string> = {};
+              for (const [n, t] of Object.entries(parsed.unmatchedClassifications)) overrides[n] = t as string;
+              setClassificationOverrides(prev => ({ ...prev, ...overrides }));
+            }
+          } catch { /* ignore */ }
+        }
+      })
+      .catch(() => { /* ignore */ })
+      .finally(() => setHintsLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysis]);
 
   useEffect(() => {
     generateTasks();
@@ -151,6 +305,8 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
       const generatedTasks = generateGanttFromAIParams(projectId, enrichedParams, new Date(startDate), 'MY', workSat, workSun, effectiveSiteType);
       setTasks(generatedTasks);
       setGenerating(false);
+      // Start hints fetch in parallel — no need to wait for render cycle
+      fetchTradeHints(generatedTasks);
       return;
     }
 
@@ -172,70 +328,14 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
     const generatedTasks = generateGanttTasks(projectId, new Date(startDate), sqft, hasDemolition, 'residential', 'MY', workSat, workSun, effectiveSiteType);
     setTasks(generatedTasks);
     setGenerating(false);
-  }, [analysis, projectId, startDate, workSat, workSun, siteType, customSiteType]);
+    fetchTradeHints(generatedTasks);
+  }, [analysis, projectId, startDate, workSat, workSun, siteType, customSiteType, fetchTradeHints]);
 
   const handleTaskUpdate = (taskId: string, updates: Partial<GanttTask>) => {
     setTasks(prev => {
-      // Apply direct update
-      let updated = prev.map(t => t.id === taskId ? { ...t, ...updates } : t);
-
-      // Cascade: auto-adjust all dependent tasks
-      const changedTask = updated.find(t => t.id === taskId);
-      if (!changedTask) return updated;
-
-      // Build dependency graph: taskId → list of tasks that depend on it
-      const dependents = new Map<string, string[]>();
-      for (const t of updated) {
-        for (const depId of (t.dependencies || [])) {
-          if (!dependents.has(depId)) dependents.set(depId, []);
-          dependents.get(depId)!.push(t.id);
-        }
-      }
-
-      // BFS cascade from the changed task (uses workdays — skips weekends & holidays)
-      const queue = [taskId];
-      const visited = new Set<string>([taskId]);
-      while (queue.length > 0) {
-        const currentId = queue.shift()!;
-        const children = dependents.get(currentId) || [];
-
-        for (const childId of children) {
-          if (visited.has(childId)) continue;
-          visited.add(childId);
-          const child = updated.find(t => t.id === childId);
-          if (!child) continue;
-
-          // Child's start should be >= next workday after all its dependencies' end dates
-          const allDepEnds = (child.dependencies || [])
-            .map(dId => updated.find(t => t.id === dId))
-            .filter(Boolean)
-            .map(t => parseISO(t!.end_date));
-          if (allDepEnds.length === 0) continue;
-
-          const latestDepEnd = new Date(Math.max(...allDepEnds.map(d => d.getTime())));
-          const minStart = nextWorkday_simple(addDays(latestDepEnd, 1));
-          const childStart = parseISO(child.start_date);
-
-          // Only shift if child starts before its dependency allows
-          if (childStart < minStart) {
-            const childWorkdays = child.duration || Math.max(1, Math.round(
-              (parseISO(child.end_date).getTime() - childStart.getTime()) / (86400000)
-            ));
-            const newStart = minStart;
-            const newEnd = childWorkdays > 1
-              ? addWorkdays_simple(newStart, childWorkdays - 1)
-              : newStart;
-            updated = updated.map(t => t.id === childId ? {
-              ...t,
-              start_date: format(newStart, 'yyyy-MM-dd'),
-              end_date: format(newEnd, 'yyyy-MM-dd'),
-              duration: childWorkdays,
-            } : t);
-          }
-          queue.push(childId);
-        }
-      }
-      return updated;
+      // Apply direct update to the changed task, then full topological forward reschedule
+      const withUpdate = prev.map(t => t.id === taskId ? { ...t, ...updates } : t);
+      return forwardReschedule(withUpdate);
     });
     // Trigger debounced auto-save
     setPendingSave(true);
@@ -276,9 +376,6 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
     // TODO: if recalcDates, rebuild schedule from new order
   };
 
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [aiOptimizing, setAiOptimizing] = useState(false);
-  const [aiNotes, setAiNotes] = useState<Record<string, string>>({});
 
   // ── Export Gantt schedule to Excel ──
   const handleExportExcel = useCallback(async () => {
@@ -677,6 +774,9 @@ Only include tasks where you changed the duration. Skip unchanged tasks.`;
           onSubtaskToggle={(subtaskId) => handleSubtaskToggle(selectedTask.id, subtaskId)}
           onDurationChange={(newDuration) => handleDurationChange(selectedTask.id, newDuration)}
           quotationItems={analysis.items}
+          cachedHint={tradeHints[selectedTask.trade]}
+          hintsLoading={hintsLoading}
+          classificationOverrides={classificationOverrides}
         />
       )}
 
