@@ -435,30 +435,27 @@ Only include tasks where you changed the duration. Skip unchanged tasks.`;
       const aiTasks: { id: string; duration: number; aiNote?: string }[] = JSON.parse(match[0]);
       const notes: Record<string, string> = {};
 
-      setTasks(prev => prev.map(t => {
-        const aiTask = aiTasks.find(a => a.id === t.id);
-        if (!aiTask || aiTask.duration === t.duration) return t;
-        if (aiTask.aiNote) notes[t.id] = aiTask.aiNote;
-        // Recalculate end_date based on new duration
-        let d = parseISO(t.start_date);
-        let count = 0;
-        while (count < aiTask.duration - 1) {
-          d = addDays(d, 1);
-          const day = d.getDay();
-          const dateStr = format(d, 'yyyy-MM-dd');
-          if (day !== 0 && day !== 6 && !MY_HOLIDAYS.has(dateStr)) {
-            count++;
-          }
-        }
-        return { ...t, duration: aiTask.duration, end_date: format(d, 'yyyy-MM-dd') };
-      }));
+      setTasks(prev => {
+        const updated = prev.map(t => {
+          const aiTask = aiTasks.find(a => a.id === t.id);
+          if (!aiTask || aiTask.duration === t.duration) return t;
+          if (aiTask.aiNote) notes[t.id] = aiTask.aiNote;
+          // Recalculate end_date based on new duration (respects workSat/workSun)
+          const d = aiTask.duration > 1
+            ? addWorkdays_simple(parseISO(t.start_date), aiTask.duration - 1, workSat, workSun)
+            : parseISO(t.start_date);
+          return { ...t, duration: aiTask.duration, end_date: format(d, 'yyyy-MM-dd') };
+        });
+        // Cascade downstream tasks after AI duration changes
+        return forwardReschedule(updated, workSat, workSun);
+      });
       setAiNotes(notes);
     } catch {
       // silently fail — user can retry
     } finally {
       setAiOptimizing(false);
     }
-  }, [tasks, analysis, aiOptimizing]);
+  }, [tasks, analysis, aiOptimizing, workSat, workSun]);
 
   const handleAddTask = (newTask: { name: string; trade: string; duration: number; phaseGroup: string }) => {
     const id = `${projectId}-custom_${Date.now()}`;
