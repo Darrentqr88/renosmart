@@ -175,6 +175,8 @@ export interface GanttParams {
     delivery?:      GanttTradeData;
     metalwork?:     GanttTradeData;
     stonework?:     GanttTradeData;
+    stone?:         GanttTradeData;
+    tabletop?:      GanttTradeData;
   };
   customPhases?: GanttCustomPhase[];
   phaseOrder?: GanttPhaseOrderEntry[];
@@ -227,6 +229,7 @@ export interface GanttTask {
   phase_group?: PhaseGroup;
   source_items?: string[];  // quotation item names linked to this task
   ai_hint?: TradeHint | null; // batch-generated AI trade hint (persisted in DB)
+  phase_id?: string; // original CONSTRUCTION_PHASES id (e.g. 'demolition', 'tiling')
 }
 
 export interface GanttSubtask {

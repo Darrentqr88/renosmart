@@ -40,8 +40,9 @@ export function TaskDetailPanel({
   const [hintLoading, setHintLoading] = useState(false);
   const [showAllItems, setShowAllItems] = useState(false);
 
-  const phase = getPhaseById(phaseId);
-  const staticChecklist = getPhaseChecklist(phaseId);
+  const effectivePhaseId = task.phase_id || phaseId;
+  const phase = getPhaseById(effectivePhaseId);
+  const staticChecklist = getPhaseChecklist(effectivePhaseId);
 
   // Find related quotation items — prefer source_items (exact match), fallback to regex + AI overrides
   const relatedItems = (() => {

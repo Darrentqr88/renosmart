@@ -4,39 +4,58 @@ IMPORTANT: These are DESIGNER-TO-HOMEOWNER prices (retail quotation prices), NOT
 "Supply & Install" = material + labour included. "Labour Only" = workmanship only, material by owner.
 
 === TILING (per sqft) ===
-- Tiling LABOUR ONLY (floor 300x300-600x600): RM 6-10/sqft | SG $8-15/sqft
-- Tiling LABOUR ONLY (wall 300x600-600x600): RM 7-12/sqft | SG $10-18/sqft
-- Tiling LABOUR ONLY (large format 900x900+): RM 8-14/sqft | SG $12-20/sqft
-- Tiling S&I (floor 300x300): RM 15-22/sqft | SG $20-32/sqft
-- Tiling S&I (floor 300x600): RM 16-24/sqft | SG $22-35/sqft
-- Tiling S&I (floor 600x600): RM 18-28/sqft | SG $25-40/sqft
-- Tiling S&I (floor 800x800): RM 20-30/sqft | SG $28-42/sqft
-- Tiling S&I (floor 900x900): RM 22-32/sqft | SG $30-45/sqft
-- Tiling S&I (floor 1200x600): RM 25-35/sqft | SG $32-48/sqft
-- Tiling S&I (wall 200x300): RM 15-22/sqft | SG $20-32/sqft
-- Tiling S&I (wall 300x600): RM 18-26/sqft | SG $24-38/sqft
-- Tiling S&I (wall 600x600): RM 20-28/sqft | SG $28-40/sqft
-- Tiling S&I (wall 600x1200): RM 25-35/sqft | SG $32-48/sqft
-- Tiling S&I (outdoor anti-slip): RM 18-30/sqft | SG $25-42/sqft
-- Tiling S&I (feature/mosaic): RM 25-45/sqft | SG $35-60/sqft
-- Tiling S&I (rubber tiles): RM 25-40/sqft | SG $35-55/sqft
+LABOUR ONLY:
+- Floor & Wall Tiles 300x300 Labour Only: RM 4.5-10/sqft | SG $8-15/sqft
+- Floor & Wall Tiles 300x600 Labour Only: RM 5-10/sqft | SG $10-18/sqft
+- Floor & Wall Tiles 600x600 Labour Only: RM 6-12/sqft | SG $12-20/sqft
+- Floor & Wall Tiles 800x800 Labour Only: RM 6-12/sqft | SG $12-20/sqft
+- Floor & Wall Tiles 900x900 Labour Only: RM 7-14/sqft | SG $12-20/sqft
+- Floor & Wall Tiles 600x1200 Labour Only: RM 7-14/sqft | SG $12-20/sqft
+- Mosaic Tiles Labour Only: RM 9-18/sqft | SG $12-20/sqft
+SUPPLY & INSTALL Floor:
+- Floor 300x300 S&I: RM 13-22/sqft
+- Floor 300x600 S&I: RM 13-22/sqft
+- Floor 600x600 S&I: RM 15-26/sqft
+- Floor 800x800 S&I: RM 16-28/sqft
+- Floor 900x900 S&I: RM 17-32/sqft
+- Floor 600x1200 S&I: RM 18-35/sqft
+SUPPLY & INSTALL Wall:
+- Wall 300x300 S&I: RM 13-22/sqft
+- Wall 300x600 S&I: RM 13-22/sqft
+- Wall 600x600 S&I: RM 15-26/sqft
+- Wall 800x800 S&I: RM 16-28/sqft
+- Wall 900x900 S&I: RM 17-32/sqft
+- Wall 600x1200 S&I: RM 18-38/sqft
+- Feature/mosaic S&I: RM 25-45/sqft
 
 === CONSTRUCTION (per sqft) ===
-- Build-up brick wall c/w plastering: RM 20-40/sqft | SG $30-55/sqft
-- Build-up brick wall (labour only): RM 12-20/sqft | SG $18-30/sqft
-- RC floor slab 150mm G25: RM 35-55/sqft | SG $50-75/sqft
-- RC floor slab 150mm G30: RM 38-60/sqft | SG $55-80/sqft
-- RC slab extension: RM 40-65/sqft | SG $55-85/sqft
-- Concrete flooring c/w BRC: RM 15-35/sqft | SG $22-48/sqft
-- Screed/Re-leveling: RM 8-15/sqft | SG $12-22/sqft
-- Plastering finish: RM 5-10/sqft | SG $8-15/sqft
-- Kerb (brick/concrete): RM 40-80/ft | SG $55-100/ft
+- Build-up brick wall c/w plastering S&I: RM 22-35/sqft | SG $30-50/sqft
+- Build-up brick wall S&I: RM 22-35/sqft
+- Build-up brick wall w/o Plastering S&I: RM 15-25/sqft | SG $18-30/sqft
+- RC floor slab 150mm G25 S&I: RM 20-40/sqft | SG $50-75/sqft
+- RC floor slab 150mm G30 S&I: RM 28-55/sqft | SG $55-80/sqft
+- RC slab extension S&I: RM 145-190/sqft
+- Extension using Roofing S&I: RM 135-185/sqft
+- Concrete flooring c/w BRC S&I: RM 18-35/sqft | SG $22-48/sqft
+- Screed/Re-leveling S&I: RM 8-15/sqft | SG $12-22/sqft
+- Plastering finish S&I: RM 5-10/sqft | SG $8-15/sqft
+- Kerb (brick/concrete) S&I: RM 40-80/ft | SG $55-100/ft
+
+=== WATERPROOFING (per sqft) ===
+- Water proofing S&I: RM 12-35/sqft
+- Membrane S&I: RM 15-40/sqft
+- Water proofing For Roofing S&I: RM 25-70/sqft
+- 3 Layer water proofing S&I: RM 25-70/sqft
+- Bathroom (cementitious) S&I: RM 8-18/sqft | SG $12-25/sqft
+- Flat roof (torch-on membrane) S&I: RM 12-25/sqft | SG $18-35/sqft
+- Balcony/patio S&I: RM 10-20/sqft | SG $15-28/sqft
 
 === ELECTRICAL (per point/unit) ===
-- Lighting point S&I (new wiring + cable): RM 55-100/pt | SG $80-150/pt
-- Lighting point S&I (>12ft height, extra): RM 80-130/pt | SG $110-180/pt
-- 13A socket power point S&I: RM 85-150/pt | SG $130-220/pt
-- 15A socket power point S&I: RM 100-170/pt | SG $150-250/pt
+- Lighting point S&I (new wiring + cable): RM 60-110/pt | SG $80-150/pt
+- Lighting point S&I (>12ft height): RM 80-130/pt | SG $90-180/pt
+- 13A socket power point S&I: RM 85-150/pt | SG $100-220/pt
+- 15A socket power point S&I: RM 100-170/pt | SG $130-250/pt
+- 20A socket power point S&I: RM 150-300/pt | SG $150-300/pt
 - USB socket point S&I: RM 120-200/pt | SG $180-280/pt
 - Ceiling fan point S&I: RM 100-200/pt | SG $150-280/pt
 - Exhaust fan point S&I: RM 80-150/pt | SG $120-220/pt
@@ -48,80 +67,99 @@ IMPORTANT: These are DESIGNER-TO-HOMEOWNER prices (retail quotation prices), NOT
 - Electrical labour only (install fitting): RM 15-35/pt | SG $25-50/pt
 - DB box upgrade (18-way): RM 800-1500/unit | SG $1200-2000/unit
 - DB box upgrade (36-way): RM 1200-2200/unit | SG $1800-3000/unit
+- DB box upgrade (48-way): RM 1800-2600/unit | SG $2200-3500/unit
 
 === PAINTING (per sqft or L/sum) ===
-- Painting (interior 2-coat): RM 2.50-5.00/sqft | SG $3.50-7/sqft
-- Painting (skim coat + paint): RM 4-8/sqft | SG $6-12/sqft
-- Painting (exterior weather-shield): RM 3-6/sqft | SG $5-9/sqft
-- Re-paint existing roofing: RM 2-4/sqft | SG $3-6/sqft
+- Painting (interior 2-coat) S&I: RM 2.50-5.00/sqft | SG $3.50-7/sqft
+- Painting (skim coat + paint) S&I: RM 4-8/sqft | SG $6-12/sqft
+- Painting (exterior weather-shield) S&I: RM 3-6/sqft | SG $5-9/sqft
+- Re-paint existing roofing S&I: RM 2-4/sqft | SG $3-6/sqft
+- Touch-up Painting S&I: RM 1200-6500/L-sum
 
 === FALSE CEILING (per sqft) ===
-- False ceiling (flat plasterboard): RM 10-18/sqft | SG $15-25/sqft
-- False ceiling c/w cove light: RM 14-22/sqft | SG $20-32/sqft
-- False ceiling (L-box/design): RM 18-35/sqft | SG $25-50/sqft
-- False ceiling (calcium silicate): RM 12-20/sqft | SG $18-28/sqft
-- Partition wall (single layer): RM 18-30/sqft | SG $25-42/sqft
+- False ceiling (flat plasterboard) S&I: RM 4-8/sqft | SG $15-25/sqft
+- False ceiling c/w cove light S&I: RM 14-25/sqft | SG $20-32/sqft
+- False ceiling (L-box/design) S&I: RM 12-35/sqft | SG $25-50/sqft
+- False ceiling (calcium silicate) S&I: RM 12-20/sqft | SG $18-28/sqft
+- Partition wall (single layer) S&I: RM 10-22/sqft | SG $7-12/sqft
 
-=== CARPENTRY (per ft-run, top+bottom combined) ===
-- Kitchen cabinet (laminated/melamine): RM 450-950/ft | SG $700-1400/ft
-- Kitchen cabinet (solid plywood + veneer): RM 550-1200/ft | SG $800-1800/ft
-- Kitchen cabinet (aluminium honeycomb/ACP): RM 400-900/ft | SG $600-1300/ft
-- Kitchen cabinet (solid nyatoh/rubber wood): RM 800-1800/ft | SG $1200-2500/ft
+=== CARPENTRY (per ft-run, Supply & Install) ===
+- Kitchen cabinet Solid plywood + laminated: RM 350-580/ft
+- Kitchen cabinet Solid plywood + Aluminum Glass: RM 420-700/ft
+- Kitchen cabinet Solid plywood + veneer: RM 435-685/ft
+- Kitchen cabinet (solid plywood + veneer premium): RM 550-1200/ft | SG $800-1800/ft
+- Kitchen cabinet (aluminium honeycomb/ACP): RM 450-900/ft | SG $600-1300/ft
+- Kitchen cabinet (solid nyatoh/rubber wood): RM 550-1800/ft | SG $1200-2500/ft
+- Kitchen cabinet Aluminum: RM 550-750/ft
+- Kitchen cabinet Aluminum & Glass: RM 550-750/ft
+- Kitchen cabinet Composite: RM 480-650/ft
+- Kitchen cabinet Aluminium Honeycomb: RM 580-920/ft
+- Wardrobe Aluminium Honeycomb: RM 1580-1880/ft
+- Kitchen Tall Cabinet: RM 780-1250/ft
+- Kitchen Tall Cabinet Honeycomb: RM 1350-1950/ft
+- Kitchen Tall Cabinet Aluminum: RM 950-1350/ft
 - Wardrobe (laminated swing door): RM 700-1200/ft | SG $1000-1800/ft
 - Wardrobe (laminated sliding): RM 800-1400/ft | SG $1200-2000/ft
 - Wardrobe (solid plywood): RM 900-1600/ft | SG $1300-2300/ft
-- TV console/feature wall: RM 200-500/ft | SG $300-750/ft
-- Shoe cabinet: RM 250-550/ft | SG $400-800/ft
+- TV console/feature wall: RM 320-500/ft | SG $300-750/ft
+- Shoe cabinet: RM 320-550/ft | SG $400-800/ft
+- Feature wall: RM 55-95/sqft
+- Display Cabinet: RM 680-1250/ft
 - Vanity cabinet: RM 350-700/ft | SG $500-1000/ft
 
-=== PLUMBING (per unit) ===
-- Basin + mixer tap install: RM 300-600/unit | SG $500-900/unit
-- WC floor-mount: RM 400-800/unit | SG $600-1200/unit
-- WC wall-hung: RM 800-1500/unit | SG $1200-2200/unit
-- Water heater install: RM 200-500/unit | SG $350-700/unit
-- Rain shower set: RM 400-900/unit | SG $600-1300/unit
-- Toilet bowl outlet piping: RM 800-2000/L-sum | SG $1200-3000/L-sum
-- Inlet/outlet pipe for basin/tap: RM 400-1000/L-sum | SG $600-1500/L-sum
+=== TABLE TOP (per ft-run, Supply & Install) ===
+- Quartz table top: RM 180-320/ft
+- Sintered Stone table top: RM 165-330/ft
+- Marble / Granite table top: RM 260-800/ft
+- Wood Postform top: RM 120-300/ft
+- Compressed table top: RM 250-650/ft
 
-=== WATERPROOFING (per sqft) ===
-- Bathroom (cementitious): RM 8-18/sqft | SG $12-25/sqft
-- Flat roof (torch-on membrane): RM 12-25/sqft | SG $18-35/sqft
-- Balcony/patio: RM 10-20/sqft | SG $15-28/sqft
+=== PLUMBING (per unit) ===
+- Basin + mixer tap install S&I: RM 300-600/unit | SG $500-900/unit
+- WC floor-mount S&I: RM 400-800/unit | SG $600-1200/unit
+- WC wall-hung S&I: RM 800-1500/unit | SG $1200-2200/unit
+- Water heater install S&I: RM 200-500/unit | SG $350-700/unit
+- Rain shower set S&I: RM 400-900/unit | SG $600-1300/unit
+- Toilet bowl outlet piping S&I: RM 800-2000/L-sum | SG $1200-3000/L-sum
+- Inlet/outlet pipe for basin/tap S&I: RM 400-1000/L-sum | SG $600-1500/L-sum
 
 === DEMOLITION (per sqft) ===
-- Hacking floor: RM 3-8/sqft | SG $5-12/sqft
-- Hacking wall: RM 5-12/sqft | SG $8-18/sqft
-- Hacking + re-leveling: RM 8-15/sqft | SG $12-22/sqft
+- Hacking floor S&I: RM 3-8/sqft | SG $5-12/sqft
+- Hacking wall S&I: RM 5-12/sqft | SG $8-18/sqft
+- Hacking + re-leveling S&I: RM 12-22/sqft | SG $12-22/sqft
+- Dismantle Roofing S&I: RM 5-15/sqft
 
 === ROOFING (per sqft) ===
-- Metal roofing (PU metal deck): RM 22-34/sqft | SG $30-48/sqft
-- Polycarbonate roof (twinwall): RM 18-30/sqft | SG $25-42/sqft
-- Glass roofing (tempered): RM 55-90/sqft | SG $75-125/sqft
+- Metal roofing (PU metal deck) S&I: RM 22-34/sqft | SG $30-48/sqft
+- Polycarbonate roof (twinwall) S&I: RM 25-35/sqft | SG $25-42/sqft
+- Glass roofing (tempered) S&I: RM 55-90/sqft | SG $75-125/sqft
 
 === ALUMINIUM & GLASS (per sqft) ===
-- Aluminium casement window: RM 100-250/sqft | SG $150-350/sqft
-- Aluminium sliding door (standard): RM 120-300/sqft | SG $180-400/sqft
-- Aluminium sliding glass door (powder coated): RM 80-120/sqft | SG $120-180/sqft
-- Aluminium folding/bi-fold glass door (powder coated): RM 120-170/sqft | SG $180-250/sqft
-- Glass shower screen (10mm): RM 45-90/sqft | SG $65-130/sqft
-- Tempered glass fix panel: RM 55-100/sqft | SG $75-140/sqft
-- Mirror (standard): RM 22-40/sqft | SG $30-55/sqft
+- Aluminium casement window S&I: RM 40-95/sqft | SG $150-350/sqft
+- Aluminium sliding door S&I: RM 60-150/sqft | SG $180-400/sqft
+- Glass shower screen (10mm) S&I: RM 35-90/sqft | SG $65-130/sqft
+- Tempered glass fix panel S&I: RM 40-100/sqft | SG $75-140/sqft
+- Mirror (standard) S&I: RM 18-40/sqft | SG $30-55/sqft
+- Aluminium Folding door S&I: RM 110-175/sqft | SG $110-175/sqft
 
-=== FLOORING ===
-- Vinyl SPC click-lock: RM 6-12/sqft | SG $8-18/sqft
-- Timber engineered: RM 12-28/sqft | SG $18-40/sqft
-- Carpet grass (artificial turf): RM 8-18/sqft | SG $12-25/sqft
-- Artificial grass: RM 15-35/sqft | SG $22-48/sqft
-- Composite decking: RM 45-90/sqft | SG $60-120/sqft
+=== FLOORING (per sqft) ===
+- Vinyl SPC click-lock S&I: RM 6-12/sqft | SG $8-18/sqft
+- Laminated Floor S&I: RM 7-18/sqft
+- Timber engineered S&I: RM 15-28/sqft | SG $18-40/sqft
+- Composite decking S&I: RM 45-90/sqft | SG $60-120/sqft
+
+=== LANDSCAPE (per sqft) ===
+- Carpet grass (artificial turf) S&I: RM 8-18/sqft | SG $12-25/sqft
+- Landscape soil + carpet grass S&I: RM 8-18/sqft | SG $12-25/sqft
+- Artificial grass S&I: RM 11-25/sqft | SG $22-48/sqft
 
 === OTHERS ===
-- Air conditioning 1.5HP split inverter: RM 1800-3500/unit | SG $2500-4500/unit
-- Metal railing mild steel powder coated: RM 80-180/ft | SG $120-250/ft
-- Stainless steel fencing: RM 35-80/sqft | SG $50-110/sqft
-- PVC wall panel: RM 20-50/sqft | SG $30-70/sqft
-- Staircase (metal I-beam structure): RM 15000-35000/L-sum | SG $22000-50000/L-sum
-- Staircase (wood step + handrail): RM 30000-60000/L-sum | SG $45000-85000/L-sum
-- Landscape soil re-leveling + carpet grass: RM 8-18/sqft | SG $12-25/sqft
+- Air conditioning 1.5HP split inverter S&I: RM 1800-3500/unit | SG $2500-4500/unit
+- Metal railing mild steel powder coated S&I: RM 180-350/ft | SG $120-250/ft
+- Metal steel fencing S&I: RM 50-80/sqft | SG $50-110/sqft
+- PVC wall panel S&I: RM 20-50/sqft | SG $30-70/sqft
+- Staircase (metal I-beam structure) S&I: RM 15000-35000/L-sum | SG $22000-50000/L-sum
+- Staircase (wood step + handrail) S&I: RM 30000-60000/L-sum | SG $45000-85000/L-sum
 `;
 
 export function buildQuotationPrompt(textForAI: string, outputLang: string, dbPriceRef?: string): string {
@@ -184,8 +222,10 @@ RULES:
     - These are critical for price scoring. Never leave as 0.
 14. missingCritical: array of up to 6 critical missing items. Each MUST have an estimated cost range based on PRICE_REFERENCE and projectSqft. Only include items truly absent from the quotation.
 
+IMPORTANT: Output missing/missingCritical/alerts BEFORE items array to ensure they are not truncated.
+
 JSON structure:
-{"projectType":"landed_terrace","projectSqft":1200,"client":{"company":"","address":"","attention":"","tel":"","email":null,"projectRef":"","projectName":""},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"one-line summary","items":[{"no":"1","section":"Section","name":"Item name verbatim","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"supplyType":"supply_install","status":"ok","note":"","subcategory":"Floor Tiles","materialMethod":"600x600","estMinPrice":5.0,"estMaxPrice":12.0,"page":1}],"subtotals":[{"label":"Section Total","amount":1000}],"totalAmount":50000,"missing":["item1"],"missingCritical":[{"item":"Waterproofing (3 bathrooms)","reason":"Wet areas present but no waterproofing in quotation","estimatedCost":"RM 3,500–6,000","urgency":"critical"}],"alerts":[{"level":"critical","title":"Title","desc":"Short desc under 150 chars"}],"paymentTerms":[]}`;
+{"projectType":"landed_terrace","projectSqft":1200,"client":{"company":"","address":"","attention":"","tel":"","email":null,"projectRef":"","projectName":""},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"one-line summary","missing":["item1","item2"],"missingCritical":[{"item":"Waterproofing (3 bathrooms)","reason":"Wet areas present but no waterproofing","estimatedCost":"RM 3,500–6,000","urgency":"critical"}],"alerts":[{"level":"critical","title":"Title","desc":"Short desc under 150 chars"},{"level":"warning","title":"Title","desc":"desc"},{"level":"info","title":"Title","desc":"desc"}],"items":[{"no":"1","section":"Section","name":"Item name verbatim","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"supplyType":"supply_install","status":"ok","note":"","subcategory":"Floor Tiles","materialMethod":"600x600","estMinPrice":5.0,"estMaxPrice":12.0,"page":1}],"subtotals":[{"label":"Section Total","amount":1000}],"totalAmount":50000,"paymentTerms":[]}`;
 }
 
 /**
@@ -206,7 +246,7 @@ STEP 1 — Identify ALL work categories (detectedCategories).
 STEP 2 — Map to standard tradeScope keys OR customPhases.
 STEP 3 — Calculate days from ACTUAL quantities.
 
-Standard keys: demolition|masonry|tiling|electrical|plumbing|painting|carpentry|falseCeiling|waterproofing|flooring|aluminium|aircon
+Standard keys: demolition|masonry|tiling|electrical|plumbing|painting|carpentry|falseCeiling|waterproofing|flooring|aluminium|aircon|glass|metalwork|stone|tabletop
 
 Non-standard → customPhases with: name, name_zh, trade, estimatedDays, insertAfter (phase ID).
 
@@ -222,11 +262,11 @@ Day rules (assume multi-worker crews):
 - tiling=ceil(sqft/80/3) min3 (3-person crew)
 - electrical=ceil(pts/5) min3; pts = count of power/light/fan/data points in items
 - plumbing=ceil(units/2) min2; units = count of basins/wc/showers/taps
-- painting=ceil(sqft*2/150/2) min4 (2-person crew)
-- falseCeiling=ceil(sqft/100/2) min3 (2-person crew)
-- waterproofing=ceil(sqft/70/2) min2
-- flooring=ceil(sqft/70/2) min3
-- aluminium=ceil(sqft/35/2) min2
+- painting=ceil(sqft/150/2) min4 (2-person crew)
+- falseCeiling=ceil(ceilingSqft/100/2) min2 max8 (2-person crew)
+- waterproofing=ceil(wetAreaSqft/70/2) min2 max5
+- flooring=ceil(floorSqft/70/2) min2 max8
+- aluminium=ceil(sqft/300/2) min2
 - aircon=ceil(units/2) min1
 - carpentry: SEPARATE mfg and install:
     • ft = total linear ft of all carpentry items
@@ -357,40 +397,72 @@ export async function fetchDbPriceReference(
   region: string,
 ): Promise<string> {
   try {
-    const sb = supabaseClient as { from: (t: string) => { select: (c: string) => { eq: (c: string, v: string) => { order: (c: string) => PromiseLike<{ data: DbPriceRow[] | null }> } } } };
-    const { data } = await sb
-      .from('price_database')
-      .select('item_name, category, subcategory, material_method, unit, supply_type, min_price, max_price, sample_count, confidence')
-      .eq('region', region)
-      .order('category');
+    const sb = supabaseClient as any; // flexible chaining for two different query shapes
 
-    // Return '' when DB has no data — PRICE_REFERENCE is always included in buildQuotationPrompt
-    if (!data || data.length === 0) return '';
+    // Layer 1 + Layer 2 queries in parallel
+    const [layer1Result, layer2Result] = await Promise.all([
+      sb.from('price_database')
+        .select('item_name, category, subcategory, material_method, unit, supply_type, min_price, max_price, sample_count')
+        .eq('region', region)
+        .order('category'),
+      sb.from('price_data_points')
+        .select('category, subcategory, material_method, unit, supply_type, unit_price')
+        .eq('region', region),
+    ]);
 
-    // Group by category for compact output
+    const layer1Data: DbPriceRow[] = layer1Result.data || [];
+    const layer2Raw: PriceDataPoint[] = layer2Result.data || [];
+
+    const currency = region === 'SG' ? '$' : 'RM';
+    const fmtNum = (n: number) =>
+      n >= 1000 ? `${(n / 1000).toFixed(1)}k` : n % 1 === 0 ? n.toString() : n.toFixed(1);
+
+    // Layer 1: aggregated benchmarks (≥10 samples, high confidence)
+    const layer1Keys = new Set<string>();
     const groups = new Map<string, string[]>();
-    for (const row of data) {
-      const r = row as DbPriceRow;
-      if (r.sample_count < 10) continue; // skip low-confidence entries
+
+    for (const r of layer1Data) {
+      if (r.sample_count < 10) continue;
+      const key = `${r.category}|${r.subcategory}|${r.material_method}|${r.unit}|${r.supply_type}`;
+      layer1Keys.add(key);
       const cat = r.category;
       if (!groups.has(cat)) groups.set(cat, []);
       const supplyLabel = r.supply_type === 'labour_only' ? ' [Labour]' : '';
-      const currency = region === 'SG' ? '$' : 'RM';
       const min = Number(r.min_price);
       const max = Number(r.max_price);
-      const minStr = min >= 1000 ? `${(min / 1000).toFixed(1)}k` : min % 1 === 0 ? min.toString() : min.toFixed(1);
-      const maxStr = max >= 1000 ? `${(max / 1000).toFixed(1)}k` : max % 1 === 0 ? max.toString() : max.toFixed(1);
-      groups.get(cat)!.push(
-        `${r.item_name}${supplyLabel}: ${currency}${minStr}-${maxStr}/${r.unit}`
-      );
+      groups.get(cat)!.push(`${r.item_name}${supplyLabel}: ${currency}${fmtNum(min)}-${fmtNum(max)}/${r.unit}`);
     }
+
+    // Layer 2: raw data points — only for items NOT yet in layer 1
+    const earlyMap = new Map<string, { min: number; max: number; count: number; cat: string; name: string; unit: string; supply: string }>();
+    for (const pt of layer2Raw) {
+      const key = `${pt.category}|${pt.subcategory ?? ''}|${pt.material_method ?? ''}|${pt.unit}|${pt.supply_type}`;
+      if (layer1Keys.has(key)) continue;
+      const displayName = pt.material_method
+        ? `${pt.subcategory || pt.category} ${pt.material_method}`
+        : (pt.subcategory || pt.category);
+      if (!earlyMap.has(key)) {
+        earlyMap.set(key, { min: pt.unit_price, max: pt.unit_price, count: 1, cat: pt.category, name: displayName, unit: pt.unit, supply: pt.supply_type });
+      } else {
+        const g = earlyMap.get(key)!;
+        g.min = Math.min(g.min, pt.unit_price);
+        g.max = Math.max(g.max, pt.unit_price);
+        g.count++;
+      }
+    }
+
+    for (const [, g] of earlyMap) {
+      if (!groups.has(g.cat)) groups.set(g.cat, []);
+      const supplyLabel = g.supply === 'labour_only' ? ' [Labour]' : '';
+      groups.get(g.cat)!.push(`${g.name}${supplyLabel} [early ${g.count} samples]: ${currency}${fmtNum(g.min)}-${fmtNum(g.max)}/${g.unit}`);
+    }
+
+    if (groups.size === 0) return '';
 
     const lines: string[] = [];
     for (const [cat, items] of groups) {
       lines.push(`[${cat}]`);
-      for (const item of items) {
-        lines.push(`- ${item}`);
-      }
+      for (const item of items) lines.push(`- ${item}`);
     }
 
     return lines.join('\n');
@@ -411,4 +483,13 @@ interface DbPriceRow {
   max_price: number;
   sample_count: number;
   confidence: string;
+}
+
+interface PriceDataPoint {
+  category: string;
+  subcategory: string | null;
+  material_method: string | null;
+  unit: string;
+  supply_type: string;
+  unit_price: number;
 }

@@ -480,7 +480,7 @@ export function GanttChart({
 
             return (
               <div
-                key={task.id}
+                key={`${task.id}-${taskIdx}`}
                 className={`rs-gantt-row${reorderDragId === task.id ? ' reorder-dragging' : ''}${reorderOverIdx === taskIdx ? ' reorder-over' : ''}`}
                 style={{ display: 'flex', alignItems: 'stretch', opacity: reorderDragId === task.id ? 0.4 : 1 }}
                 draggable={!!onTaskReorder}
@@ -773,8 +773,13 @@ export function GanttChart({
         }} onClick={() => setPendingReorder(null)}>
           <div style={{
             background: '#fff', borderRadius: 12, padding: '20px 24px', maxWidth: 400,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.15)', position: 'relative',
           }} onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setPendingReorder(null)}
+              style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#9CA3AF', lineHeight: 1 }}
+              aria-label="Close"
+            >✕</button>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#1B2336', marginBottom: 8 }}>
               {lang === 'ZH' ? '调整工序顺序' : 'Reorder Tasks'}
             </div>

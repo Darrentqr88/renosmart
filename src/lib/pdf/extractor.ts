@@ -61,6 +61,35 @@ function enhanceByFormat(lines: string[], format: QuotationFormat): string[] {
   return lines;
 }
 
+// ===== CLIENT HINTS PRE-EXTRACTOR =====
+
+function extractClientHints(rawText: string): string {
+  const hints: string[] = [];
+
+  // Tel/HP/Phone/Mobile
+  const telMatch = rawText.match(/(?:Tel|H\/P|Hp|Phone|Mobile)[:\s]*([+\d\s\-().]{8,18})/i);
+  if (telMatch) hints.push(`Tel: ${telMatch[1].trim()}`);
+
+  // Email
+  const emailMatch = rawText.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+  if (emailMatch) hints.push(`Email: ${emailMatch[0]}`);
+
+  // Client name (To / Attn / Attention / Bill To / Prepared for)
+  const attnMatch = rawText.match(/(?:^|\n)(?:To|Attn|Attention|Prepared\s+for|Bill\s+To)[:\s]+([^\n]{3,60})/im);
+  if (attnMatch) hints.push(`Attn: ${attnMatch[1].trim()}`);
+
+  // Address
+  const addrMatch = rawText.match(/(?:Site\s+Address|Project\s+Address|Property\s+Address|Address)[:\s]+([^\n]{10,100})/i);
+  if (addrMatch) hints.push(`Address: ${addrMatch[1].trim()}`);
+
+  // Project Ref
+  const refMatch = rawText.match(/(?:Ref|Our\s+Ref|Q\/No|Quotation\s+No)[:\s.]*([A-Z0-9][A-Z0-9\-\/]{3,19})/i);
+  if (refMatch) hints.push(`Ref: ${refMatch[1].trim()}`);
+
+  if (hints.length === 0) return '';
+  return `[PRE-EXTRACTED HINTS — verify and use if correct]\n${hints.join('\n')}\n[END HINTS]\n\n`;
+}
+
 // ===== LAYER 1: PDF Extraction =====
 
 export async function extractPDFText(file: File): Promise<string> {
@@ -141,10 +170,12 @@ export async function extractPDFText(file: File): Promise<string> {
   const sectionEnhanced = enhanceByFormat(allLines, format);
   const supplyAnnotated = annotateSupplyTypes(sectionEnhanced);
 
+  const hints = extractClientHints(rawText);
   const result = [
+    hints,
     `[DETECTED FORMAT: ${format}]`,
     ...supplyAnnotated,
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 
   return result.slice(0, 20000); // CRITICAL: 20,000 chars max
 }
@@ -168,7 +199,8 @@ export async function extractExcelText(file: File): Promise<string> {
 
   const raw = lines.join('\n');
   const format = detectFormat(raw);
-  return `[DETECTED FORMAT: ${format}]\n${raw}`.slice(0, 20000);
+  const hints = extractClientHints(raw);
+  return `${hints}[DETECTED FORMAT: ${format}]\n${raw}`.slice(0, 20000);
 }
 
 export async function extractTextFromFile(file: File): Promise<string> {
@@ -180,11 +212,12 @@ export async function extractTextFromFile(file: File): Promise<string> {
     return extractExcelText(file);
   } else if (['csv', 'txt'].includes(ext)) {
     const text = await file.text();
+    const hints = extractClientHints(text);
     const lines = text.split('\n');
     const annotated = annotateSupplyTypes(lines);
     const raw = annotated.join('\n');
     const format = detectFormat(raw);
-    return `[DETECTED FORMAT: ${format}]\n${raw}`.slice(0, 20000);
+    return `${hints}[DETECTED FORMAT: ${format}]\n${raw}`.slice(0, 20000);
   }
 
   throw new Error(`Unsupported file type: .${ext}`);

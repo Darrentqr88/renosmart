@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -162,6 +162,67 @@ export default function ProjectDetailPage() {
     return addr.includes('singapore') || addr.includes(', sg') ? 'SG' : 'MY';
   })();
 
+  // ── Auto-save Gantt to DB when dirty (debounced 2s) ─────────────────────
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ganttTasksRef = useRef(ganttTasks);
+  ganttTasksRef.current = ganttTasks;
+
+  // Build gantt upsert payload — base columns only (extra columns may not exist in DB)
+  const buildGanttUpsert = useCallback((tasks: GanttTask[]) => {
+    return tasks.map(t => ({
+      id: t.id,
+      project_id: id as string,
+      user_id: sessionUserId,
+      name: t.name,
+      name_zh: t.name_zh,
+      trade: t.trade,
+      start_date: t.start_date,
+      end_date: t.end_date,
+      duration: t.duration,
+      progress: t.progress,
+      dependencies: t.dependencies,
+      color: t.color,
+      is_critical: t.is_critical,
+      subtasks: t.subtasks,
+      assigned_workers: t.assigned_workers,
+      ai_hint: t.ai_hint ?? null,
+      phase_id: t.phase_id ?? null,
+    }));
+  }, [sessionUserId]);
+
+  const saveFailedRef = useRef(false);
+  const autoSaveGantt = useCallback(async () => {
+    if (!sessionUserId || !id || ganttTasksRef.current.length === 0) return;
+    if (saveFailedRef.current) return; // Stop retrying after FK error
+    try {
+      const upsertData = buildGanttUpsert(ganttTasksRef.current);
+      const { error } = await supabase.from('gantt_tasks').upsert(upsertData, { onConflict: 'id' });
+      if (error) {
+        if (error.code === '23503') {
+          // FK violation — project doesn't exist in DB, stop retrying
+          saveFailedRef.current = true;
+        }
+        console.error('Auto-save gantt error:', error.message, error.code);
+      } else {
+        setIsDirty(false);
+      }
+    } catch (e) { console.error('Auto-save gantt exception:', e); }
+  }, [sessionUserId, id, buildGanttUpsert]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => { autoSaveGantt(); }, 2000);
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
+  }, [isDirty, ganttTasks, autoSaveGantt]);
+
+  // ── Warn before leaving with unsaved changes ───────────────────────────
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => { if (isDirty) { e.preventDefault(); } };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
   useEffect(() => {
     loadProject();
   }, [id]);
@@ -213,29 +274,25 @@ export default function ProjectDetailPage() {
       ? new Date(savedStart + 'T00:00:00')
       : (g && g.length > 0) ? new Date(g[0].start_date + 'T00:00:00') : new Date();
 
-    if (ganttParams) {
-      // Active quotation has AI-analysed params → always generate from it (source of truth)
-      const newTasks = generateGanttFromAIParams(id as string, ganttParams, dbStartDate, region, false, false);
-      setGanttTasks(newTasks);
+    // Check if DB tasks have valid UUID format (migration from old string IDs)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const hasValidIds = g && g.length > 0 && g.every((t: GanttTask) => uuidRegex.test(t.id));
 
-      // Sync DB if content differs (bidirectional trade check)
-      const tradeNameToKey: Record<string, string> = {
-        electrical: 'electrical', plumbing: 'plumbing', tiling: 'tiling',
-        carpentry: 'carpentry', painting: 'painting', 'false ceiling': 'falseCeiling',
-        waterproofing: 'waterproofing', demolition: 'demolition',
-        construction: 'masonry', aluminium: 'aluminium', flooring: 'flooring', ac: 'aircon',
-      };
-      const ts = ganttParams.tradeScope || {};
-      const dbTrades = new Set((g || []).map((t: GanttTask) => t.trade.toLowerCase()));
-      const scopeKeys = Object.keys(ts) as (keyof typeof ts)[];
-      // Stale if DB has extra trades or is missing scope trades
-      const dbHasExtra = [...dbTrades].some(name => { const k = tradeNameToKey[name]; return k && ts[k as keyof typeof ts] == null; });
-      const scopeHasNew = scopeKeys.some(k => { const name = Object.entries(tradeNameToKey).find(([, v]) => v === k)?.[0]; return name && !dbTrades.has(name); });
-      const isAllDefault = dbTrades.size <= 2 && dbTrades.has('general') && !dbTrades.has('tiling');
-      if (dbHasExtra || scopeHasNew || isAllDefault || !g || g.length === 0) {
+    if (g && g.length > 0 && hasValidIds) {
+      // DB has saved tasks with valid UUIDs → use them (preserves user adjustments)
+      setGanttTasks(g);
+    } else if (g && g.length > 0 && !hasValidIds) {
+      // DB has old-format IDs → delete and regenerate with proper UUIDs
+      console.log('Migrating gantt tasks to UUID format...');
+      (async () => {
+        try { await supabase.from('gantt_tasks').delete().eq('project_id', id); } catch { /* ok */ }
+      })();
+      // Fall through to regeneration below
+      if (ganttParams) {
+        const newTasks = generateGanttFromAIParams(id as string, ganttParams, dbStartDate, region, false, false);
+        setGanttTasks(newTasks);
         (async () => {
           try {
-            await supabase.from('gantt_tasks').delete().eq('project_id', id);
             await supabase.from('gantt_tasks').insert(newTasks.map(t => ({
               id: t.id, project_id: t.project_id, name: t.name, name_zh: t.name_zh,
               trade: t.trade, start_date: t.start_date, end_date: t.end_date,
@@ -243,33 +300,48 @@ export default function ProjectDetailPage() {
               color: t.color, is_critical: t.is_critical, subtasks: t.subtasks,
               assigned_workers: t.assigned_workers || [],
             })));
+            console.log('Gantt tasks migrated to UUID format');
           } catch { /* non-blocking */ }
         })();
+      } else {
+        const tasks = generateGanttTasks(id as string, dbStartDate, 1000, true, 'residential', region, false, false);
+        setGanttTasks(tasks);
       }
+    } else if (ganttParams) {
+      // No DB tasks but have AI params → generate fresh schedule
+      const newTasks = generateGanttFromAIParams(id as string, ganttParams, dbStartDate, region, false, false);
+      setGanttTasks(newTasks);
+      // Save to DB
+      (async () => {
+        try {
+          await supabase.from('gantt_tasks').insert(newTasks.map(t => ({
+            id: t.id, project_id: t.project_id, name: t.name, name_zh: t.name_zh,
+            trade: t.trade, start_date: t.start_date, end_date: t.end_date,
+            duration: t.duration, progress: t.progress, dependencies: t.dependencies,
+            color: t.color, is_critical: t.is_critical, subtasks: t.subtasks,
+            assigned_workers: t.assigned_workers || [],
+          })));
+        } catch { /* non-blocking */ }
+      })();
     } else if (activeQ?.parsed_items && activeQ.parsed_items.length > 0) {
-      // No ganttParams but have parsed items — derive trade scope from items
+      // No DB tasks, no ganttParams but have parsed items → derive from items
       const newTasks = generateGanttFromQuotation(
         id as string,
         activeQ.parsed_items.map((i: { name: string; section?: string; qty?: number; unitPrice?: number; total?: number }) => ({ ...i, unit: '' })),
         dbStartDate, region, false, false,
       );
       setGanttTasks(newTasks);
-      if (!g || g.length === 0) {
-        (async () => {
-          try { await supabase.from('gantt_tasks').insert(newTasks.map(t => ({
-            id: t.id, project_id: t.project_id, name: t.name, name_zh: t.name_zh,
-            trade: t.trade, start_date: t.start_date, end_date: t.end_date,
-            duration: t.duration, progress: t.progress, dependencies: t.dependencies,
-            color: t.color, is_critical: t.is_critical, subtasks: t.subtasks,
-            assigned_workers: [],
-          }))); } catch { /* non-blocking */ }
-        })();
-      }
-    } else if (g && g.length > 0) {
-      // No quotation analysis → use saved DB tasks (user-customized schedule)
-      setGanttTasks(g);
+      (async () => {
+        try { await supabase.from('gantt_tasks').insert(newTasks.map(t => ({
+          id: t.id, project_id: t.project_id, name: t.name, name_zh: t.name_zh,
+          trade: t.trade, start_date: t.start_date, end_date: t.end_date,
+          duration: t.duration, progress: t.progress, dependencies: t.dependencies,
+          color: t.color, is_critical: t.is_critical, subtasks: t.subtasks,
+          assigned_workers: [],
+        }))); } catch { /* non-blocking */ }
+      })();
     } else {
-      // No quotation and no DB tasks → show default schedule
+      // No DB tasks, no quotation → show default schedule
       const tasks = generateGanttTasks(id as string, new Date(), 1000, true);
       setGanttTasks(tasks);
     }
@@ -343,17 +415,26 @@ export default function ProjectDetailPage() {
       updated.splice(newIndex, 0, moved);
       const reordered = updated.map((t, i) => ({ ...t, sort_order: i }));
 
-      if (recalcDates && reordered.length > 0) {
-        // Recalculate dates sequentially based on new order
-        const firstStart = new Date(reordered[0].start_date + 'T00:00:00');
-        let currentEnd = firstStart;
-        for (let i = 0; i < reordered.length; i++) {
-          const t = reordered[i];
-          const start = i === 0 ? firstStart : addWorkdays(currentEnd, 1, projectRegion, workOnSaturday, workOnSunday);
-          const end = addWorkdays(start, Math.max(1, t.duration) - 1, projectRegion, workOnSaturday, workOnSunday);
-          reordered[i] = { ...t, start_date: start.toISOString().split('T')[0], end_date: end.toISOString().split('T')[0] };
-          currentEnd = end;
+      if (recalcDates) {
+        // Update moved task's dependencies → point to the task above it
+        const prevTask = newIndex > 0 ? reordered[newIndex - 1] : null;
+        const movedTask = reordered[newIndex];
+        reordered[newIndex] = {
+          ...movedTask,
+          dependencies: prevTask ? [prevTask.id] : [],
+        };
+        // Update the task below → depend on the moved task (restore BFS chain)
+        if (newIndex + 1 < reordered.length) {
+          const nextTask = reordered[newIndex + 1];
+          if (!nextTask.dependencies.includes(movedTask.id)) {
+            reordered[newIndex + 1] = {
+              ...nextTask,
+              dependencies: [...nextTask.dependencies.filter(d => d !== prevTask?.id), movedTask.id],
+            };
+          }
         }
+        // fullReschedule preserves all other BFS dependencies
+        return fullReschedule(reordered, workOnSaturday, workOnSunday);
       }
       return reordered;
     });
@@ -397,7 +478,25 @@ export default function ProjectDetailPage() {
       : activeQ?.parsed_items && activeQ.parsed_items.length > 0
         ? generateGanttFromQuotation(id as string, activeQ.parsed_items.map(i => ({ ...i, unit: '' })), newStart, projectRegion, workOnSaturday, workOnSunday)
         : generateGanttTasks(id as string, newStart, 1000, true, 'residential', projectRegion, workOnSaturday, workOnSunday);
-    setGanttTasks(newTasks);
+
+    // If existing tasks: preserve user's sort order, dependencies, start_dates, and assigned workers
+    // ONLY update duration + end_date — no cascade, no reorder
+    if (ganttTasks.length > 0) {
+      setGanttTasks(prev => prev.map(existingTask => {
+        const match = newTasks.find(nt => nt.id === existingTask.id || nt.name === existingTask.name);
+        if (!match) return existingTask; // preserve user-added custom tasks
+        const start = new Date(existingTask.start_date + 'T00:00:00');
+        const newEnd = addWorkdays(start, Math.max(1, match.duration) - 1, projectRegion, workOnSaturday, workOnSunday);
+        return {
+          ...existingTask,
+          duration: match.duration,
+          end_date: newEnd.toISOString().split('T')[0],
+          source_items: match.source_items ?? existingTask.source_items,
+        };
+      }));
+    } else {
+      setGanttTasks(newTasks);
+    }
     setIsDirty(true);
   };
 
@@ -437,35 +536,15 @@ export default function ProjectDetailPage() {
     const targetWorkdays  = countWorkdays(startDate, targetEndDate);
     const scaleFactor = targetWorkdays / currentWorkdays;
 
-    // Scale durations proportionally (min 1 day each)
-    const scaledTasks: GanttTask[] = ganttTasks.map(t => ({
-      ...t,
-      duration: Math.max(1, Math.round(t.duration * scaleFactor)),
-    }));
-
-    // Recompute all start/end dates in dependency order
-    const taskEndDates: Record<string, Date> = {};
-    for (const task of scaledTasks) {
-      let taskStart: Date;
-      if (!task.dependencies || task.dependencies.length === 0) {
-        taskStart = new Date(startDate);
-      } else {
-        const depEnds = task.dependencies.map(depId => taskEndDates[depId]).filter(Boolean);
-        if (depEnds.length > 0) {
-          const latestDepEnd = new Date(Math.max(...depEnds.map(d => d.getTime())));
-          // next workday after the dependency ends
-          taskStart = addWorkdays(latestDepEnd, 1, projectRegion, workOnSaturday, workOnSunday);
-        } else {
-          taskStart = new Date(startDate);
-        }
-      }
-      const taskEnd = addWorkdays(taskStart, task.duration - 1, projectRegion, workOnSaturday, workOnSunday);
-      taskEndDates[task.id] = taskEnd;
-      task.start_date = taskStart.toISOString().split('T')[0];
-      task.end_date   = taskEnd.toISOString().split('T')[0];
-    }
-
-    setGanttTasks([...scaledTasks]);
+    // Scale durations proportionally (min 1 day each), then cascade to close gaps
+    const scaled = ganttTasks.map(t => {
+      const newDur = Math.max(1, Math.round(t.duration * scaleFactor));
+      const start = new Date(t.start_date + 'T00:00:00');
+      const newEnd = addWorkdays(start, newDur - 1, projectRegion, workOnSaturday, workOnSunday);
+      return { ...t, duration: newDur, end_date: newEnd.toISOString().split('T')[0] };
+    });
+    // Full reschedule: recalculate all task positions from dependencies after duration scaling
+    setGanttTasks(fullReschedule(scaled, workOnSaturday, workOnSunday));
     setIsDirty(true);
     const savedDays = Math.round(currentWorkdays - targetWorkdays);
     toast({ title: `🎯 AI 智能压缩完成`, description: `已压缩 ${savedDays} 工作日，截止日期：${ganttDeadline}` });
@@ -488,41 +567,23 @@ export default function ProjectDetailPage() {
   const handlePublish = async () => {
     setIsPublishing(true);
     try {
-      const upsertData = ganttTasks.map(t => ({
-        id: t.id,
-        project_id: t.project_id,
-        user_id: sessionUserId,
-        name: t.name,
-        name_zh: t.name_zh,
-        trade: t.trade,
-        start_date: t.start_date,
-        end_date: t.end_date,
-        duration: t.duration,
-        progress: t.progress,
-        dependencies: t.dependencies,
-        color: t.color,
-        is_critical: t.is_critical,
-        subtasks: t.subtasks,
-        assigned_workers: t.assigned_workers,
-        sort_order: t.sort_order ?? 0,
-        phase_group: t.phase_group ?? 'construction',
-        source_items: t.source_items ?? [],
-        ai_hint: t.ai_hint ?? null,
-      }));
+      const upsertData = buildGanttUpsert(ganttTasks);
       const { error } = await supabase.from('gantt_tasks').upsert(upsertData, { onConflict: 'id' });
       if (error) throw error;
       setIsDirty(false);
       setShowPublishModal(false);
-      toast({ title: '✅ 进度已发布！', description: '工人将即时看到最新工序安排' });
+      toast({ title: '✅ 进度已保存！' });
     } catch (err) {
       console.error('Gantt publish error:', err);
-      toast({ title: '发布失败', description: '请稍后重试', variant: 'destructive' });
+      toast({ title: '保存失败', description: '请稍后重试', variant: 'destructive' });
     } finally {
       setIsPublishing(false);
     }
   };
 
-  // ── Auto-rebuild Gantt from quotation items + save to DB ─────────────────
+  // ── Smart Gantt update from new quotation ────────────────────────────────
+  // Instead of deleting all tasks, preserve past/in-progress tasks and only
+  // adjust future tasks based on the new quotation's trade scope.
   const regenerateAndSaveGantt = async (
     parsedItems?: QuotationVersionLocal['parsed_items'],
     startDateStr?: string,
@@ -533,69 +594,173 @@ export default function ProjectDetailPage() {
       return addr.includes('singapore') || addr.includes(', sg') ? 'SG' : 'MY';
     })();
 
-    const start = startDateStr
-      ? new Date(startDateStr + 'T00:00:00')
-      : ganttTasks.length > 0
-        ? new Date(ganttTasks[0].start_date + 'T00:00:00')
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // If no existing tasks, do a full generation
+    if (ganttTasks.length === 0) {
+      const start = startDateStr
+        ? new Date(startDateStr + 'T00:00:00')
         : new Date();
+      const newTasks = ganttParams
+        ? generateGanttFromAIParams(id as string, ganttParams, start, region, workOnSaturday, workOnSunday)
+        : parsedItems && parsedItems.length > 0
+          ? generateGanttFromQuotation(id as string, parsedItems.map(pi => ({ ...pi, unit: '' })), start, region, workOnSaturday, workOnSunday)
+          : generateGanttTasks(id as string, start, 1000, true, 'residential', region, workOnSaturday, workOnSunday);
+      setGanttTasks(newTasks);
+      setIsDirty(false);
+      try {
+        await supabase.from('gantt_tasks').delete().eq('project_id', id);
+        await supabase.from('gantt_tasks').insert(newTasks.map(t => ({
+          id: t.id, project_id: t.project_id, user_id: sessionUserId,
+          name: t.name, name_zh: t.name_zh, trade: t.trade,
+          start_date: t.start_date, end_date: t.end_date, duration: t.duration,
+          progress: t.progress, dependencies: t.dependencies, color: t.color,
+          is_critical: t.is_critical, subtasks: t.subtasks, assigned_workers: t.assigned_workers || [],
+        })));
+      } catch { /* non-blocking */ }
+      setGanttSyncedAt(new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }));
+      return;
+    }
 
-    // Priority: AI params > parsed items regex > default
-    const newTasks = ganttParams
-      ? generateGanttFromAIParams(id as string, ganttParams, start, region, workOnSaturday, workOnSunday)
+    // ── Smart merge: keep past tasks, adjust future tasks ──
+    // 1) Split existing tasks: past (end_date < today) vs future (end_date >= today)
+    const pastTasks = ganttTasks.filter(t => t.end_date < todayStr);
+    const futureTasks = ganttTasks.filter(t => t.end_date >= todayStr);
+
+    // 2) Generate fresh schedule from new quotation to see what trades are needed
+    const futureStart = futureTasks.length > 0
+      ? new Date(futureTasks.reduce((m, t) => t.start_date < m ? t.start_date : m, futureTasks[0].start_date) + 'T00:00:00')
+      : new Date();
+    // Use today as the earliest start for new future tasks
+    const mergeStart = new Date(Math.max(futureStart.getTime(), new Date(todayStr + 'T00:00:00').getTime()));
+
+    const freshTasks = ganttParams
+      ? generateGanttFromAIParams(id as string, ganttParams, mergeStart, region, workOnSaturday, workOnSunday)
       : parsedItems && parsedItems.length > 0
-        ? generateGanttFromQuotation(
-            id as string,
-            parsedItems.map(pi => ({ ...pi, unit: '' })),
-            start,
-            region,
-            workOnSaturday,
-            workOnSunday
-          )
-        : generateGanttTasks(id as string, start, 1000, true, 'residential', region, workOnSaturday, workOnSunday);
+        ? generateGanttFromQuotation(id as string, parsedItems.map(pi => ({ ...pi, unit: '' })), mergeStart, region, workOnSaturday, workOnSunday)
+        : generateGanttTasks(id as string, mergeStart, 1000, true, 'residential', region, workOnSaturday, workOnSunday);
 
-    setGanttTasks(newTasks);
-    setIsDirty(false);
+    // 3) Build trade sets for comparison
+    const freshTradeSet = new Set(freshTasks.map(t => t.trade.toLowerCase()));
+    const futureTradeMap = new Map<string, GanttTask[]>();
+    for (const t of futureTasks) {
+      const key = t.trade.toLowerCase();
+      if (!futureTradeMap.has(key)) futureTradeMap.set(key, []);
+      futureTradeMap.get(key)!.push(t);
+    }
+    const pastTradeSet = new Set(pastTasks.map(t => t.trade.toLowerCase()));
 
-    // Preserve existing worker assignments where task IDs match
+    // 4) Merge logic:
+    //    - Existing future tasks whose trade is still in new quotation → KEEP (preserve user adjustments)
+    //    - Existing future tasks whose trade is NOT in new quotation → REMOVE
+    //    - New trades in fresh schedule not in existing future → ADD
+    const keptFutureTasks: GanttTask[] = [];
+    const removedTrades: string[] = [];
+    for (const [trade, tasks] of futureTradeMap) {
+      if (freshTradeSet.has(trade)) {
+        // Trade still needed — keep existing tasks (user may have customized duration/dates)
+        // But update duration if AI gives a different estimate
+        const freshMatch = freshTasks.find(ft => ft.trade.toLowerCase() === trade);
+        for (const t of tasks) {
+          if (freshMatch && t.duration !== freshMatch.duration) {
+            // AI has new duration estimate → update duration and recalculate end_date
+            const newEnd = addWorkdays(new Date(t.start_date + 'T00:00:00'), freshMatch.duration - 1, region, workOnSaturday, workOnSunday);
+            keptFutureTasks.push({ ...t, duration: freshMatch.duration, end_date: newEnd.toISOString().split('T')[0] });
+          } else {
+            keptFutureTasks.push(t);
+          }
+        }
+      } else {
+        removedTrades.push(trade);
+      }
+    }
+
+    // New trades to add (in fresh schedule but not in existing future or past)
+    const addedTasks: GanttTask[] = [];
+    for (const ft of freshTasks) {
+      const trade = ft.trade.toLowerCase();
+      if (!futureTradeMap.has(trade) && !pastTradeSet.has(trade)) {
+        // Preserve worker assignments if matching trade existed before
+        addedTasks.push(ft);
+      }
+    }
+
+    // 5) Combine: past (unchanged) + kept future, preserving original sort_order
+    const merged = [...pastTasks, ...keptFutureTasks];
+
+    // 6) Insert new trades in correct construction sequence position (not appended at end)
+    //    Use fresh tasks' order as reference to find proper insertion point
+    for (const newTask of addedTasks) {
+      const newTradeLower = newTask.trade.toLowerCase();
+      // Find this trade's position in the fresh (AI-generated) schedule
+      const freshIdx = freshTasks.findIndex(ft => ft.trade.toLowerCase() === newTradeLower);
+      // Find the trade that comes BEFORE this in the fresh schedule and exists in merged
+      let insertIdx = merged.length; // default: append at end
+      for (let fi = freshIdx - 1; fi >= 0; fi--) {
+        const prevTrade = freshTasks[fi].trade.toLowerCase();
+        const existingIdx = merged.findIndex(mt => mt.trade.toLowerCase() === prevTrade);
+        if (existingIdx >= 0) {
+          // Find the last task of this trade in merged
+          let lastOfTrade = existingIdx;
+          for (let mi = existingIdx + 1; mi < merged.length; mi++) {
+            if (merged[mi].trade.toLowerCase() === prevTrade) lastOfTrade = mi;
+          }
+          insertIdx = lastOfTrade + 1;
+          // Set new task's start_date to the day after the preceding task ends
+          const precTask = merged[lastOfTrade];
+          const newStart = addWorkdays(new Date(precTask.end_date + 'T00:00:00'), 1, region, workOnSaturday, workOnSunday);
+          const newEnd = addWorkdays(newStart, Math.max(1, newTask.duration) - 1, region, workOnSaturday, workOnSunday);
+          newTask.start_date = newStart.toISOString().split('T')[0];
+          newTask.end_date = newEnd.toISOString().split('T')[0];
+          break;
+        }
+      }
+      merged.splice(insertIdx, 0, newTask);
+    }
+
+    // Re-assign sort_order after merge
+    const finalTasks = merged.map((t, i) => ({ ...t, sort_order: i }));
+
+    // 7) Preserve worker assignments from old tasks
     const existingAssignments: Record<string, string[]> = {};
     for (const t of ganttTasks) {
       if ((t.assigned_workers || []).length > 0) {
         existingAssignments[t.id] = t.assigned_workers!;
       }
     }
-    const tasksWithWorkers = newTasks.map(t => ({
+    const tasksWithWorkers = finalTasks.map(t => ({
       ...t,
-      assigned_workers: existingAssignments[t.id] || [],
+      assigned_workers: existingAssignments[t.id] || t.assigned_workers || [],
     }));
 
-    // Delete old tasks and insert new ones atomically
+    setGanttTasks(tasksWithWorkers);
+    setIsDirty(false);
+
+    // 8) Save to DB (delete old, insert merged)
     try {
-      const { error: delErr } = await supabase.from('gantt_tasks').delete().eq('project_id', id);
-      if (delErr) console.error('Gantt delete error:', delErr);
-      const { error: insErr } = await supabase.from('gantt_tasks').insert(
+      await supabase.from('gantt_tasks').delete().eq('project_id', id);
+      await supabase.from('gantt_tasks').insert(
         tasksWithWorkers.map(t => ({
-          id: t.id,
-          project_id: t.project_id,
-          user_id: sessionUserId,
-          name: t.name,
-          name_zh: t.name_zh,
-          trade: t.trade,
-          start_date: t.start_date,
-          end_date: t.end_date,
-          duration: t.duration,
-          progress: t.progress,
-          dependencies: t.dependencies,
-          color: t.color,
-          is_critical: t.is_critical,
-          taskStatus: t.taskStatus,
-          subtasks: t.subtasks,
+          id: t.id, project_id: t.project_id, user_id: sessionUserId,
+          name: t.name, name_zh: t.name_zh, trade: t.trade,
+          start_date: t.start_date, end_date: t.end_date, duration: t.duration,
+          progress: t.progress, dependencies: t.dependencies, color: t.color,
+          is_critical: t.is_critical, subtasks: t.subtasks,
           assigned_workers: t.assigned_workers,
         }))
       );
-      if (insErr) console.error('Gantt insert error:', insErr);
       const now = new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
       setGanttSyncedAt(now);
-      setGanttTasks(tasksWithWorkers);
+
+      // Show summary of changes
+      const addedCount = addedTasks.length;
+      const removedCount = removedTrades.length;
+      const desc = [
+        pastTasks.length > 0 ? `${pastTasks.length} 已完成工序保留` : '',
+        addedCount > 0 ? `+${addedCount} 新增工序` : '',
+        removedCount > 0 ? `-${removedCount} 类工序移除` : '',
+      ].filter(Boolean).join('，');
+      toast({ title: '📋 进度表已智能更新', description: desc || '进度表与新报价单同步完成' });
     } catch (err) {
       console.error('Gantt save error:', err);
     }
@@ -635,27 +800,7 @@ export default function ProjectDetailPage() {
     setIsSendingTasks(true);
     try {
       // Upsert gantt tasks with worker assignments
-      const upsertData = ganttTasks.map(t => ({
-        id: t.id,
-        project_id: t.project_id,
-        user_id: sessionUserId,
-        name: t.name,
-        name_zh: t.name_zh,
-        trade: t.trade,
-        start_date: t.start_date,
-        end_date: t.end_date,
-        duration: t.duration,
-        progress: t.progress,
-        dependencies: t.dependencies,
-        color: t.color,
-        is_critical: t.is_critical,
-        subtasks: t.subtasks,
-        assigned_workers: t.assigned_workers,
-        sort_order: t.sort_order ?? 0,
-        phase_group: t.phase_group ?? 'construction',
-        source_items: t.source_items ?? [],
-        ai_hint: t.ai_hint ?? null,
-      }));
+      const upsertData = buildGanttUpsert(ganttTasks);
       await supabase.from('gantt_tasks').upsert(upsertData, { onConflict: 'id' });
       setIsDirty(false);
       toast({
@@ -814,7 +959,7 @@ export default function ProjectDetailPage() {
           id: t.id, project_id: t.project_id, name: t.name, name_zh: t.name_zh,
           trade: t.trade, start_date: t.start_date, end_date: t.end_date,
           duration: t.duration, progress: t.progress, dependencies: t.dependencies,
-          color: t.color, is_critical: t.is_critical, taskStatus: t.taskStatus,
+          color: t.color, is_critical: t.is_critical,
           subtasks: t.subtasks, assigned_workers: t.assigned_workers,
         }))
       );
@@ -1360,26 +1505,7 @@ export default function ProjectDetailPage() {
                           </button>
                         ) : null;
                       })()}
-                      {/* Manual re-generate from active quotation */}
-                      {quotationVersions.find(q => q.is_active)?.parsed_items && (
-                        <button
-                          onClick={async () => {
-                            const activeQ = quotationVersions.find(q => q.is_active);
-                            toast({ title: '🔄 重新推算工期…' });
-                            await regenerateAndSaveGantt(activeQ?.parsed_items, ganttStartDate || undefined, activeQ?.analysis_result?.ganttParams);
-                            toast({ title: '✅ 进度表已更新', description: '已根据报价单智能重新排程' });
-                          }}
-                          className="text-xs px-3 py-1.5 bg-[#4F8EF7]/10 text-[#4F8EF7] border border-[#4F8EF7]/30 rounded-lg hover:bg-[#4F8EF7]/20 transition-colors whitespace-nowrap flex items-center gap-1"
-                        >
-                          ✨ 根据报价重新排程
-                        </button>
-                      )}
-                      {ganttStartDate && !(quotationVersions.find(q => q.is_active)?.parsed_items) && (
-                        <button onClick={handleRegenerateGantt}
-                          className="text-xs px-3 py-1.5 bg-[#4F8EF7]/10 text-[#4F8EF7] border border-[#4F8EF7]/30 rounded-lg hover:bg-[#4F8EF7]/20 transition-colors whitespace-nowrap flex items-center gap-1">
-                          ✨ AI 重新推算工期
-                        </button>
-                      )}
+                      {/* Auto-sync happens when new quotation is uploaded/activated — no manual button needed */}
                       <button
                         onClick={async () => {
                           const { exportGanttToExcel } = await import('@/lib/utils/excel-export');
@@ -1393,11 +1519,20 @@ export default function ProjectDetailPage() {
                         📊 导出Excel
                       </button>
                       <button
+                        onClick={async () => {
+                          await autoSaveGantt();
+                          toast({ title: '✅ 保存成功！' });
+                        }}
+                        className="text-xs px-3 py-1.5 bg-[#4F8EF7] text-white rounded-lg font-semibold whitespace-nowrap flex items-center gap-1 hover:bg-[#3B7BE8] shadow-sm"
+                      >
+                        💾 保存进度表
+                      </button>
+                      <button
                         onClick={() => setShowPublishModal(true)}
                         className="text-xs px-3 py-1.5 text-white rounded-lg font-semibold whitespace-nowrap flex items-center gap-1 hover:brightness-110 shadow-sm"
                         style={{ background: 'linear-gradient(135deg, #4F8EF7, #8B5CF6, #EC4899)' }}
                       >
-                        📤 保存并分配工人
+                        📤 发布并通知工人
                       </button>
                     </div>
                   </div>
@@ -1425,7 +1560,7 @@ export default function ProjectDetailPage() {
             {selectedTaskId && (() => {
               const task = ganttTasks.find(t => t.id === selectedTaskId);
               if (!task) return null;
-              const phaseId = task.id.replace(task.project_id + '-', '');
+              const phaseId = task.phase_id || '';
               const activeQ = quotationVersions.find(q => q.is_active);
               const qItems = (activeQ?.parsed_items || []).map(pi => ({
                 no: '',
@@ -1452,6 +1587,8 @@ export default function ProjectDetailPage() {
                   onDurationChange={(newDuration) => handleDurationChange(selectedTaskId, newDuration)}
                   quotationItems={qItems}
                   region={region}
+                  cachedHint={task.ai_hint ?? undefined}
+                  hintsLoading={false}
                 />
               );
             })()}
@@ -1465,8 +1602,8 @@ export default function ProjectDetailPage() {
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
                   <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                     <div>
-                      <h3 className="font-bold text-gray-900">📤 确认并发布进度</h3>
-                      <p className="text-xs text-gray-500 mt-0.5">将最新施工进度同步给工人</p>
+                      <h3 className="font-bold text-gray-900">📤 发布并通知工人</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">确认后将通知已分配的工人</p>
                     </div>
                     <button onClick={() => setShowPublishModal(false)} className="p-2 rounded-xl hover:bg-gray-100">
                       <X className="w-4 h-4 text-gray-500" />
@@ -1528,18 +1665,11 @@ export default function ProjectDetailPage() {
 
                     <div className="flex gap-3">
                       <Button
-                        className="flex-1 bg-[#4F8EF7] text-white hover:bg-[#3B7BE8] font-semibold"
-                        onClick={handlePublish}
-                        disabled={isPublishing}
-                      >
-                        {isPublishing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />发布中...</> : '✓ 保存进度表'}
-                      </Button>
-                      <Button
                         className="flex-1 bg-blue-600 text-white hover:bg-blue-700 font-semibold"
                         onClick={async () => { await handlePublish(); if (!isPublishing) handleSendToWorkers(); }}
                         disabled={isPublishing || isSendingTasks}
                       >
-                        {isSendingTasks ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />发送中...</> : <><Send className="w-4 h-4 mr-1.5" />发布并通知工人</>}
+                        {isSendingTasks ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />发送中...</> : <><Send className="w-4 h-4 mr-1.5" />确认发布并通知工人</>}
                       </Button>
                       <Button variant="outline" onClick={() => setShowPublishModal(false)}>取消</Button>
                     </div>

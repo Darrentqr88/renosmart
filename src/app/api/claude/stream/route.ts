@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { checkRateLimit } from '@/lib/ai/rate-limit';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -42,6 +43,15 @@ export async function POST(req: NextRequest) {
 
     // Quota check
     if (userId && !isSecondaryCall) {
+      // Rate limit check (20-min window, max 10 calls → 60-min cooldown)
+      const rateCheck = await checkRateLimit(supabase, userId);
+      if (!rateCheck.allowed) {
+        return new Response(
+          JSON.stringify({ error: `请求过于频繁，请等待 ${rateCheck.cooldownMinutes} 分钟后再试。` }),
+          { status: 429, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('plan')
@@ -72,7 +82,7 @@ export async function POST(req: NextRequest) {
 
       if (totalUsage >= limit) {
         return new Response(
-          JSON.stringify({ error: `AI quota exceeded. Please upgrade your plan. (${totalUsage}/${limit === Infinity ? '\u221e' : limit} used)` }),
+          JSON.stringify({ error: `AI quota exceeded. Please upgrade your plan. (${totalUsage}/${limit === Infinity ? '∞' : limit} used)` }),
           { status: 429, headers: { 'Content-Type': 'application/json' } }
         );
       }
@@ -87,6 +97,8 @@ export async function POST(req: NextRequest) {
     });
 
     const encoder = new TextEncoder();
+    let inputTokens = 0;
+    let outputTokens = 0;
 
     const readable = new ReadableStream({
       async start(controller) {
@@ -96,12 +108,24 @@ export async function POST(req: NextRequest) {
               // Send text chunks as SSE
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`));
             }
+            // Capture token usage from stream events
+            if (event.type === 'message_start' && event.message.usage) {
+              inputTokens = event.message.usage.input_tokens;
+            }
+            if (event.type === 'message_delta' && event.usage) {
+              outputTokens = event.usage.output_tokens;
+            }
           }
 
           // Increment usage after successful completion (only for main analysis, not gantt)
           if (userId && !isSecondaryCall) {
             const yearMonth = new Date().toISOString().slice(0, 7);
-            await supabase.rpc('increment_ai_usage', { p_user_id: userId, p_year_month: yearMonth });
+            await supabase.rpc('increment_ai_usage', {
+              p_user_id: userId,
+              p_year_month: yearMonth,
+              p_tokens_input: inputTokens,
+              p_tokens_output: outputTokens,
+            });
           }
 
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`));

@@ -153,12 +153,18 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
           try {
             const parsed = JSON.parse(match[0]);
             if (parsed.trades && typeof parsed.trades === 'object') {
-              const hintsMap = parsed.trades as Record<string, TradeHint>;
-              setTradeHints(hintsMap);
-              // Merge ai_hint into tasks state so it can be persisted to DB
+              const rawHintsMap = parsed.trades as Record<string, TradeHint>;
+              // Build case-insensitive + normalized lookup for robust matching
+              const hintsLookup = new Map<string, TradeHint>();
+              for (const [key, val] of Object.entries(rawHintsMap)) {
+                hintsLookup.set(key, val);
+                hintsLookup.set(key.toLowerCase(), val);
+              }
+              setTradeHints(rawHintsMap);
+              // Merge ai_hint into tasks — try exact match, then lowercase match
               setTasks(prev => prev.map(t => ({
                 ...t,
-                ai_hint: hintsMap[t.trade] ?? t.ai_hint ?? null,
+                ai_hint: hintsLookup.get(t.trade) ?? hintsLookup.get(t.trade.toLowerCase()) ?? t.ai_hint ?? null,
               })));
               // Trigger auto-save so hints persist to DB
               setPendingSave(true);
@@ -293,9 +299,31 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
       const updated = [...prev];
       const [moved] = updated.splice(idx, 1);
       updated.splice(newIndex, 0, moved);
-      return updated.map((t, i) => ({ ...t, sort_order: i }));
+      const reordered = updated.map((t, i) => ({ ...t, sort_order: i }));
+
+      if (recalcDates) {
+        // Update moved task's dependencies → point to the task above it
+        const prevTask = newIndex > 0 ? reordered[newIndex - 1] : null;
+        const movedTask = reordered[newIndex];
+        reordered[newIndex] = {
+          ...movedTask,
+          dependencies: prevTask ? [prevTask.id] : [],
+        };
+        // Update the task below → depend on the moved task (restore BFS chain)
+        if (newIndex + 1 < reordered.length) {
+          const nextTask = reordered[newIndex + 1];
+          if (!nextTask.dependencies.includes(movedTask.id)) {
+            reordered[newIndex + 1] = {
+              ...nextTask,
+              dependencies: [...nextTask.dependencies.filter(d => d !== prevTask?.id), movedTask.id],
+            };
+          }
+        }
+        // fullReschedule preserves all other BFS dependencies
+        return fullReschedule(reordered, workSat, workSun);
+      }
+      return reordered;
     });
-    // TODO: if recalcDates, rebuild schedule from new order
   };
 
 
@@ -357,18 +385,19 @@ Only include tasks where you changed the duration. Skip unchanged tasks.`;
       const notes: Record<string, string> = {};
 
       setTasks(prev => {
+        const changedIds: string[] = [];
         const updated = prev.map(t => {
           const aiTask = aiTasks.find(a => a.id === t.id);
           if (!aiTask || aiTask.duration === t.duration) return t;
+          changedIds.push(t.id);
           if (aiTask.aiNote) notes[t.id] = aiTask.aiNote;
-          // Recalculate end_date based on new duration (respects workSat/workSun)
           const d = aiTask.duration > 1
             ? addWorkdays_simple(parseISO(t.start_date), aiTask.duration - 1, workSat, workSun)
             : parseISO(t.start_date);
           return { ...t, duration: aiTask.duration, end_date: format(d, 'yyyy-MM-dd') };
         });
-        // Cascade downstream tasks after AI duration changes
-        return forwardReschedule(updated, workSat, workSun);
+        // Cascade downstream tasks after AI duration changes (seed all changed tasks)
+        return forwardReschedule(updated, workSat, workSun, changedIds);
       });
       setAiNotes(notes);
     } catch {
@@ -468,7 +497,7 @@ Only include tasks where you changed the duration. Skip unchanged tasks.`;
   }
 
   const selectedTask = selectedTaskId ? tasks.find(t => t.id === selectedTaskId) : null;
-  const selectedPhaseId = selectedTaskId?.replace(`${projectId}-`, '') || '';
+  const selectedPhaseId = selectedTask?.phase_id || '';
 
   return (
     <>
@@ -693,7 +722,7 @@ Only include tasks where you changed the duration. Skip unchanged tasks.`;
           onSubtaskToggle={(subtaskId) => handleSubtaskToggle(selectedTask.id, subtaskId)}
           onDurationChange={(newDuration) => handleDurationChange(selectedTask.id, newDuration)}
           quotationItems={analysis.items}
-          cachedHint={tradeHints[selectedTask.trade]}
+          cachedHint={tradeHints[selectedTask.trade] ?? Object.entries(tradeHints).find(([k]) => k.toLowerCase() === selectedTask.trade.toLowerCase())?.[1]}
           hintsLoading={hintsLoading}
           classificationOverrides={classificationOverrides}
         />

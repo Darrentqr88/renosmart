@@ -2,6 +2,21 @@ import { GanttTask, GanttSubtask, GanttParams, PhaseGroup, SiteType } from '@/ty
 import { addDays, format, parseISO } from 'date-fns';
 import { isWorkday, MY_HOLIDAYS } from './dates';
 
+/**
+ * Generate a deterministic UUID v4-format string from a seed.
+ * Same seed always produces the same UUID — safe for DB UUID columns.
+ */
+function deterministicUUID(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+  }
+  const hex = (n: number) => ((n >>> 0) * 2654435761 >>> 0).toString(16).padStart(8, '0');
+  const a = hex(h), b = hex(h + 1), c = hex(h + 2), d = hex(h + 3);
+  // Format: 8-4-4-4-12 (total 32 hex chars)
+  return `${a}-${b.slice(0,4)}-4${c.slice(1,4)}-${(8+(parseInt(d[0],16)%4)).toString(16)}${d.slice(1,4)}-${(b.slice(4)+c.slice(4)+d.slice(4)).slice(0,12).padEnd(12,'0')}`;
+}
+
 export interface ConstructionPhase {
   id: string;
   name: string;
@@ -128,7 +143,7 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     hint_SG: 'Waterproofing warranty min 5 years per SS 212. 48-hr ponding test required, witnessed by supervisor. Document with photos.',
     hint_zh: '防水层必须做2道，待第一道干透后再做第二道。做完防水后必须进行48小时蓄水试验，确认无渗漏才能铺砖。',
     trade: 'Waterproofing', baseDays: 3, deps: ['plumbing1'],
-    scaleBy: 'sqft', scaleFactor: 1 / 300,
+    scaleBy: 'sqft', scaleFactor: 1 / 600,
     prepChecklist: [
       { icon: '💧', text: 'Waterproofing membrane ordered', text_zh: '防水膜已订购', type: 'order' },
       { icon: '⏰', text: '48-hour ponding test required', text_zh: '需进行48小时蓄水试验', type: 'warn' },
@@ -157,6 +172,22 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
       { name: 'Wall tiling (kitchen)', name_zh: '厨房墙砖' },
       { name: 'Wall tiling (bathroom)', name_zh: '卫生间墙砖' },
       { name: 'Grouting & cleaning', name_zh: '填缝及清理' },
+    ],
+  },
+  {
+    id: 'stone_marble', name: 'Stone & Marble Works', name_zh: '石材工程',
+    hint_MY: 'Natural stone requires sealing before and after installation. Marble is porous — apply impregnating sealer. Allow 3-5 days for fabrication of custom cuts.',
+    hint_SG: 'Natural stone slabs must be inspected for cracks before installation. Use epoxy adhesive for heavy pieces. Seal with penetrating sealer for stain resistance.',
+    hint_zh: '天然石材安装前后都需做防护处理。大理石属多孔材料，必须做渗透型防护。定制切割需3-5天加工时间。',
+    trade: 'Stone', baseDays: 3, deps: ['tiling'],
+    prepChecklist: [
+      { icon: '🪨', text: 'Stone slabs selected & ordered', text_zh: '石材已选购订购', type: 'order' },
+      { icon: '📐', text: 'Template/measurement taken', text_zh: '现场模板已测量', type: 'check' },
+    ],
+    subItems: [
+      { name: 'Kitchen backsplash stone', name_zh: '厨房石材背景' },
+      { name: 'Bathroom vanity top', name_zh: '浴室台面石材' },
+      { name: 'Feature wall stone', name_zh: '背景墙石材' },
     ],
   },
   {
@@ -196,8 +227,8 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     hint_MY: 'Putty (filler) must be fully dry before sanding. Min 2 coats primer on new plaster. Weather humidity >85% will extend drying — avoid rainy season scheduling if possible.',
     hint_SG: 'Use low-VOC paints (Singapore Green Label preferred). New plaster: apply alkali-resistant primer first. Humidity controlled environments dry faster; open windows for ventilation.',
     hint_zh: '腻子层需完全干透才能打磨，打磨后上底漆。新批灰墙面需上抗碱底漆，否则面漆容易起泡。潮湿天气会大幅延长干燥时间。',
-    trade: 'Painting', baseDays: 5, deps: ['ceiling'],
-    scaleBy: 'sqft', scaleFactor: 1 / 200,
+    trade: 'Painting', baseDays: 4, deps: ['ceiling'],
+    scaleBy: 'sqft', scaleFactor: 1 / 600,
     prepChecklist: [
       { icon: '🎨', text: 'Paint colors selected', text_zh: '油漆颜色已选定', type: 'check' },
       { icon: '📦', text: 'Primer & putty ordered', text_zh: '底漆及腻子已订购', type: 'order' },
@@ -267,6 +298,38 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     ],
   },
   {
+    id: 'glass_work', name: 'Glass Work', name_zh: '玻璃工程',
+    hint_MY: 'Tempered glass requires 7-10 day lead time for custom sizes. Measure after tiling is complete for accurate dimensions.',
+    hint_SG: 'Glass must comply with SS 310 for safety glazing. Tempered or laminated glass required for shower screens and balcony.',
+    hint_zh: '钢化玻璃需提前7-10天定制。瓷砖铺完后再精确测量尺寸，确保安装无缝隙。淋浴房玻璃必须用钢化玻璃。',
+    trade: 'Glass', baseDays: 3, deps: ['door_window'],
+    prepChecklist: [
+      { icon: '🪟', text: 'Glass panels ordered & measured', text_zh: '玻璃已订购及测量', type: 'order' },
+      { icon: '📐', text: 'Opening dimensions confirmed after tiling', text_zh: '贴砖后开口尺寸已确认', type: 'check' },
+    ],
+    subItems: [
+      { name: 'Shower screen installation', name_zh: '淋浴屏安装' },
+      { name: 'Mirror installation', name_zh: '镜子安装' },
+      { name: 'Glass panel / partition', name_zh: '玻璃隔断' },
+    ],
+  },
+  {
+    id: 'metal_work', name: 'Metal Work / Ironwork', name_zh: '铁工工程',
+    hint_MY: 'Custom metalwork (gates, grilles) needs 2-3 weeks fabrication. Hot-dip galvanize for outdoor items. Powder coat finish preferred.',
+    hint_SG: 'Metal railings must comply with BCA requirements. Min 1m height for balcony railings. Use stainless steel 304 for outdoor.',
+    hint_zh: '定制铁艺（门、栏杆）需2-3周制作。户外铁件必须热镀锌防锈。建议粉末喷涂表面处理。',
+    trade: 'Metal Work', baseDays: 3, deps: ['masonry'],
+    prepChecklist: [
+      { icon: '🔩', text: 'Metal work design approved', text_zh: '铁艺设计已确认', type: 'check' },
+      { icon: '📦', text: 'Fabrication order placed', text_zh: '已下单制作', type: 'order' },
+    ],
+    subItems: [
+      { name: 'Gate & grille installation', name_zh: '铁门/铁花安装' },
+      { name: 'Railing & handrail', name_zh: '栏杆/扶手' },
+      { name: 'Awning / canopy', name_zh: '雨棚/遮阳篷' },
+    ],
+  },
+  {
     id: 'carpentry_install', name: 'Carpentry Installation', name_zh: '木工柜体安装',
     trade: 'Carpentry', baseDays: 7, deps: ['carpentry_mfg', 'door_window'],
     prepChecklist: [
@@ -278,6 +341,22 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
       { name: 'Wardrobes', name_zh: '衣柜安装' },
       { name: 'TV console / shoe cabinet', name_zh: '电视柜/鞋柜安装' },
       { name: 'Countertop installation', name_zh: '台面安装' },
+    ],
+  },
+  {
+    id: 'tabletop', name: 'Table Top / Countertop', name_zh: '台面工程',
+    hint_MY: 'Quartz and solid surface need 5-7 day fabrication. Template must be taken AFTER cabinets are installed. Sink cutout position must match plumbing point.',
+    hint_SG: 'Ensure countertop overhang does not exceed 300mm without support bracket. Use silicone sealant at wall junction for waterproofing.',
+    hint_zh: '石英石和人造石台面需5-7天加工。必须在柜体安装完成后才能测量模板。水槽开孔位置必须与水管对应。',
+    trade: 'Tabletop', baseDays: 2, deps: ['carpentry_install'],
+    prepChecklist: [
+      { icon: '📐', text: 'Countertop template measured', text_zh: '台面模板已测量', type: 'check' },
+      { icon: '📦', text: 'Material fabricated & ready', text_zh: '台面材料已加工完成', type: 'order' },
+    ],
+    subItems: [
+      { name: 'Kitchen countertop', name_zh: '厨房台面' },
+      { name: 'Bathroom vanity top', name_zh: '浴室台面' },
+      { name: 'Bar counter top', name_zh: '吧台台面' },
     ],
   },
   {
@@ -328,8 +407,8 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
   },
   {
     id: 'painting2', name: 'Painting Phase 2 — Topcoat', name_zh: '面漆工程',
-    trade: 'Painting', baseDays: 4, deps: ['electrical3', 'plumbing2', 'ac_install'],
-    scaleBy: 'sqft', scaleFactor: 1 / 250,
+    trade: 'Painting', baseDays: 3, deps: ['electrical3', 'plumbing2', 'ac_install'],
+    scaleBy: 'sqft', scaleFactor: 1 / 1200,
     prepChecklist: [
       { icon: '🎨', text: 'Final touch-up color code ready', text_zh: '补漆色号准备', type: 'check' },
       { icon: '⚠️', text: 'Protect cabinets & fixtures from paint', text_zh: '保护柜体及洁具', type: 'warn' },
@@ -338,46 +417,6 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
       { name: 'Touch-up & patch', name_zh: '补灰及修补' },
       { name: 'Wall topcoat (2 coats)', name_zh: '墙面面漆(2道)' },
       { name: 'Ceiling topcoat', name_zh: '天花面漆' },
-    ],
-  },
-  {
-    id: 'glass_work', name: 'Glass Work', name_zh: '玻璃工程',
-    trade: 'Glass', baseDays: 5, deps: ['tiling'],
-    prepChecklist: [
-      { icon: '🪟', text: 'Confirm glass dimensions & type', text_zh: '确认玻璃尺寸及类型', type: 'check' },
-      { icon: '📦', text: 'Glass panels delivered & inspected', text_zh: '玻璃面板到货并检查', type: 'order' },
-      { icon: '⚠️', text: 'Protect flooring during installation', text_zh: '安装时保护地面', type: 'warn' },
-    ],
-    subItems: [
-      { name: 'Shower screen installation', name_zh: '淋浴房玻璃安装' },
-      { name: 'Glass partition', name_zh: '玻璃隔断' },
-      { name: 'Mirror installation', name_zh: '镜面安装' },
-    ],
-  },
-  {
-    id: 'metalwork', name: 'Metal Work', name_zh: '金属工程',
-    trade: 'Metal Work', baseDays: 7, deps: ['masonry'],
-    prepChecklist: [
-      { icon: '🔧', text: 'Confirm metal fabrication specs', text_zh: '确认金属加工规格', type: 'check' },
-      { icon: '📐', text: 'Site measurement for metal work', text_zh: '金属工程现场测量', type: 'check' },
-    ],
-    subItems: [
-      { name: 'Metal gate & railing fabrication', name_zh: '金属门及栏杆制作' },
-      { name: 'Stainless steel installation', name_zh: '不锈钢安装' },
-      { name: 'Metal structure work', name_zh: '金属结构工程' },
-    ],
-  },
-  {
-    id: 'stonework', name: 'Stone & Marble Work', name_zh: '石材工程',
-    trade: 'Stonework', baseDays: 5, deps: ['tiling'],
-    prepChecklist: [
-      { icon: '🪨', text: 'Stone slabs selected & ordered', text_zh: '石材选定并下单', type: 'order' },
-      { icon: '📐', text: 'Template measurement completed', text_zh: '模板测量完成', type: 'check' },
-    ],
-    subItems: [
-      { name: 'Countertop installation', name_zh: '台面安装' },
-      { name: 'Marble/granite flooring', name_zh: '大理石/花岗岩地面' },
-      { name: 'Stone wall cladding', name_zh: '石材墙面' },
     ],
   },
   {
@@ -556,6 +595,12 @@ function calculateDuration(phase: ConstructionPhase, sqft: number, typeMultiplie
   if (phase.id === 'carpentry_mfg') {
     return Math.max(7, Math.min(42, phase.baseDays));
   }
+
+  // Cap painting phases: primer max 8 days, topcoat max 7 days
+  if (phase.id === 'painting1') return Math.min(days, 8);
+  if (phase.id === 'painting2') return Math.min(days, 7);
+  // Cap door/window: max 5 days (count-based, not sqft)
+  if (phase.id === 'door_window') return Math.min(days, 5);
 
   return days;
 }
@@ -781,7 +826,8 @@ function _schedulePhases(
 
       // Prepend (will reverse later)
       tasks.unshift({
-        id: `${projectId}-${phase.id}`,
+        id: deterministicUUID(`${projectId}-${phase.id}`),
+        phase_id: phase.id,
         project_id: projectId,
         name: phase.name,
         name_zh: phase.name_zh,
@@ -790,7 +836,7 @@ function _schedulePhases(
         end_date: format(taskEnd, 'yyyy-MM-dd'),
         duration,
         progress: 0,
-        dependencies: phase.deps.map(d => `${projectId}-${d}`),
+        dependencies: phase.deps.map(d => deterministicUUID(`${projectId}-${d}`)),
         color: TRADE_COLORS[phase.trade] || '#94A3B8',
         is_critical: false,
         subtasks,
@@ -822,7 +868,7 @@ function _schedulePhases(
 
       if (phase.parallel && phase.parallel.length > 0) {
         for (const parallelId of phase.parallel) {
-          const parallelTask = tasks.find(t => t.id === `${projectId}-${parallelId}`);
+          const parallelTask = tasks.find(t => t.id === deterministicUUID(`${projectId}-${parallelId}`));
           if (parallelTask) {
             const parallelStart = new Date(parallelTask.start_date);
             if (parallelStart < taskStart) taskStart = parallelStart;
@@ -839,7 +885,8 @@ function _schedulePhases(
       }));
 
       tasks.push({
-        id: `${projectId}-${phase.id}`,
+        id: deterministicUUID(`${projectId}-${phase.id}`),
+        phase_id: phase.id,
         project_id: projectId,
         name: phase.name,
         name_zh: phase.name_zh,
@@ -848,7 +895,7 @@ function _schedulePhases(
         end_date: format(taskEnd, 'yyyy-MM-dd'),
         duration,
         progress: 0,
-        dependencies: phase.deps.map(d => `${projectId}-${d}`),
+        dependencies: phase.deps.map(d => deterministicUUID(`${projectId}-${d}`)),
         color: TRADE_COLORS[phase.trade] || '#94A3B8',
         is_critical: ['demolition', 'tiling', 'carpentry_mfg', 'carpentry_install', 'handover'].includes(phase.id),
         subtasks,
@@ -920,9 +967,10 @@ const PHASE_TRADE_REQUIRED: Record<string, string[]> = {
   plumbing2:         ['plumbing'],
   ac_install:        ['aircon'],
   painting2:         ['painting'],
+  stone_marble:      ['stonework', 'stone'],
   glass_work:        ['glass'],
-  metalwork:         ['metalwork'],
-  stonework:         ['stonework'],
+  metal_work:        ['metalwork'],
+  tabletop:          ['tabletop'],
   landscape:         ['landscape'],
   cleaning:          [],
   curtains:          ['curtain'],
@@ -965,9 +1013,9 @@ export function generateGanttFromAIParams(
     overrides['plumbing2'] = Math.max(2, Math.ceil(p * 0.40));
   }
   if (ts.painting?.estimatedDays) {
-    const p = ts.painting.estimatedDays;
-    overrides['painting1'] = Math.max(3, Math.ceil(p * 0.55));
-    overrides['painting2'] = Math.max(2, Math.ceil(p * 0.45));
+    const p = Math.min(ts.painting.estimatedDays, 15); // cap total painting to 15 days
+    overrides['painting1'] = Math.min(8, Math.max(3, Math.ceil(p * 0.55)));
+    overrides['painting2'] = Math.min(7, Math.max(2, Math.ceil(p * 0.45)));
   }
   if (ts.carpentry?.estimatedDays || ts.carpentry?.ft || ts.carpentry?.itemCount) {
     // itemCount from AI (new field), fallback to itemNames count, fallback to 3
@@ -983,17 +1031,19 @@ export function generateGanttFromAIParams(
       : Math.max(3, Math.ceil(itemCount * 2 / 3));
   }
   if (ts.aluminium?.estimatedDays) {
-    overrides['door_window'] = ts.aluminium.estimatedDays;
+    overrides['door_window'] = Math.min(5, Math.max(2, ts.aluminium.estimatedDays));
   }
   if (ts.aircon?.estimatedDays) {
     const a = ts.aircon.estimatedDays;
     overrides['ac_piping'] = Math.max(1, Math.ceil(a * 0.4));
     overrides['ac_install'] = Math.max(1, Math.ceil(a * 0.6));
   }
-  if (ts.glass?.estimatedDays)     overrides['glass_work'] = ts.glass.estimatedDays;
-  if (ts.landscape?.estimatedDays) overrides['landscape']  = ts.landscape.estimatedDays;
-  if (ts.metalwork?.estimatedDays) overrides['metalwork']  = ts.metalwork.estimatedDays;
-  if (ts.stonework?.estimatedDays) overrides['stonework']  = ts.stonework.estimatedDays;
+  if (ts.glass?.estimatedDays)      overrides['glass_work']   = ts.glass.estimatedDays;
+  if (ts.landscape?.estimatedDays)  overrides['landscape']    = ts.landscape.estimatedDays;
+  if (ts.metalwork?.estimatedDays)  overrides['metal_work']   = ts.metalwork.estimatedDays;
+  if (ts.stonework?.estimatedDays || ts.stone?.estimatedDays)
+    overrides['stone_marble'] = (ts.stone?.estimatedDays || ts.stonework?.estimatedDays)!;
+  if (ts.tabletop?.estimatedDays)   overrides['tabletop']     = ts.tabletop.estimatedDays;
   if (ts.curtain?.estimatedDays)   overrides['curtains']   = ts.curtain.estimatedDays;
   if (ts.delivery?.estimatedDays)  overrides['delivery']   = ts.delivery.estimatedDays;
 
@@ -1040,9 +1090,10 @@ export function generateGanttFromAIParams(
     carpentry_install: 'carpentry',
     door_window:       'aluminium',
     ac_install:        'aircon',
+    stone_marble:      'stonework',
     glass_work:        'glass',
-    metalwork:         'metalwork',
-    stonework:         'stonework',
+    metal_work:        'metalwork',
+    tabletop:          'tabletop',
     landscape:         'landscape',
   };
 
@@ -1567,7 +1618,8 @@ export function appendVOTask(
   const voEnd = addWorkdays(voStart, duration - 1, region, workOnSaturday, workOnSunday);
 
   const voTask: GanttTask = {
-    id: `${projectId}-vo-${voId}`,
+    id: deterministicUUID(`${projectId}-vo-${voId}`),
+    phase_id: `vo-${voId}`,
     project_id: projectId,
     name: `VO: ${voDescription}`,
     name_zh: `变更单: ${voDescription}`,
@@ -1683,7 +1735,7 @@ export function fullReschedule(tasks: GanttTask[], workSat = false, workSun = fa
  * ends later than a dependent's start. Never pulls tasks backward.
  * Used after drag/resize so downstream tasks cascade correctly.
  */
-export function forwardReschedule(tasks: GanttTask[], workSat = false, workSun = false, movedTaskId?: string): GanttTask[] {
+export function forwardReschedule(tasks: GanttTask[], workSat = false, workSun = false, movedTaskId?: string | string[]): GanttTask[] {
   const inDegree = new Map<string, number>();
   const adj = new Map<string, string[]>();
   for (const t of tasks) {
@@ -1711,14 +1763,17 @@ export function forwardReschedule(tasks: GanttTask[], workSat = false, workSun =
 
   const updMap = new Map<string, GanttTask>(tasks.map(t => [t.id, t]));
   const shifted = new Set<string>(); // track which tasks moved
-  // Seed with the explicitly moved task so both forward AND backward cascade works
-  if (movedTaskId) shifted.add(movedTaskId);
+  // Seed with the explicitly moved task(s) so both forward AND backward cascade works
+  if (movedTaskId) {
+    const ids = Array.isArray(movedTaskId) ? movedTaskId : [movedTaskId];
+    ids.forEach(id => shifted.add(id));
+  }
   for (const taskId of order) {
     const task = updMap.get(taskId)!;
     const deps = task.dependencies || [];
     if (deps.length === 0) continue;
-    // Skip the explicitly moved task — user's choice takes priority (allows overlap/parallel work)
-    if (taskId === movedTaskId) continue;
+    // Skip explicitly moved task(s) — user's choice takes priority (allows overlap/parallel work)
+    if (movedTaskId && (Array.isArray(movedTaskId) ? movedTaskId.includes(taskId) : taskId === movedTaskId)) continue;
     // Check if any dependency was shifted (cascade trigger)
     const anyDepShifted = deps.some(dId => shifted.has(dId));
     let latestDepEndStr = '';
@@ -1729,7 +1784,7 @@ export function forwardReschedule(tasks: GanttTask[], workSat = false, workSun =
     if (!latestDepEndStr) continue;
     const minStart = nextWorkday_simple(addDays(parseISO(latestDepEndStr), 1), workSat, workSun);
     const minStartStr = format(minStart, 'yyyy-MM-dd');
-    // Shift if: overlap detected OR any ancestor was shifted (full cascade)
+    // Bidirectional cascade: push forward if overlapping OR pull forward if a dep was shifted
     if (task.start_date < minStartStr || anyDepShifted) {
       const newEnd = (task.duration || 1) > 1
         ? addWorkdays_simple(minStart, (task.duration || 1) - 1, workSat, workSun)

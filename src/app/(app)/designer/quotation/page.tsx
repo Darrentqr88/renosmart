@@ -245,7 +245,7 @@ export default function QuotationPage() {
       const res = await fetch('/api/claude/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
-        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 16000, messages: [{ role: 'user', content: prompt }] }),
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 32000, messages: [{ role: 'user', content: prompt }] }),
       });
 
       if (!res.ok) {
@@ -857,6 +857,11 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                     ? (lang === 'ZH' ? '正在识别文件格式与表格结构...' : lang === 'BM' ? 'Mengenal pasti format fail...' : 'Identifying file format and table structure...')
                     : (lang === 'ZH' ? '正在分析价格、风险及缺失项目...' : lang === 'BM' ? 'Menganalisis harga dan risiko...' : 'Analyzing prices, risks and missing items...')}
                 </p>
+                {step === 'analyzing' && (
+                  <p className="text-[11px] text-rs-text3/60 mt-2">
+                    {lang === 'ZH' ? '⏳ 可能需要几分钟分析，请耐心等待' : lang === 'BM' ? '⏳ Mungkin mengambil beberapa minit' : '⏳ This may take a few minutes, please wait'}
+                  </p>
+                )}
               </div>
             ) : (
               <div>
@@ -1013,6 +1018,141 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                 )}
               </div>
             </div>
+
+            {/* AI QS Audit Summary — 3 columns */}
+            {(analysis.missing.length > 0 || analysis.alerts.length > 0 || scoreBreakdown) && (
+              <div className="bg-white border border-rs-surface3 rounded-xl overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-[#F0F2F7] bg-gradient-to-r from-[rgba(233,30,99,0.04)] to-transparent flex items-center gap-2">
+                  <span className="text-base">🔍</span>
+                  <span className="text-[14px] font-bold text-rs-text tracking-wide">AI QS AUDIT SUMMARY</span>
+                  <span className="text-[11px] text-rs-text3 ml-2">Powered by price_database + AI</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#F0F2F7]">
+                  {/* Column 1: Missing Items — use missingCritical (with costs) if available, fallback to missing strings */}
+                  <div className="p-4">
+                    {(() => {
+                      const mc = analysis.missingCritical ?? [];
+                      const missingCount = mc.length > 0 ? mc.length : analysis.missing.length;
+                      return (
+                        <>
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="w-2 h-2 rounded-full bg-red-500" />
+                            <span className="text-[12px] font-bold text-red-600 tracking-wide">MISSING ITEMS</span>
+                            <span className="bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{missingCount}</span>
+                          </div>
+                          {mc.length > 0 ? (
+                            <div className="space-y-2">
+                              {mc.map((m, i) => (
+                                <div key={i} className={`rounded-lg p-3 ${m.urgency === 'critical' ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
+                                  <div className={`text-[12px] font-semibold flex items-start gap-1.5 ${m.urgency === 'critical' ? 'text-red-700' : 'text-amber-700'}`}>
+                                    <span className="flex-shrink-0">{m.urgency === 'critical' ? '✗' : '⚠'}</span>
+                                    <span>{m.item}</span>
+                                  </div>
+                                  <div className="text-[11px] text-gray-500 mt-1 leading-relaxed">{m.reason}</div>
+                                  {m.estimatedCost && (
+                                    <div className="text-[11px] font-semibold text-red-600 mt-1">Est. {m.estimatedCost}</div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : analysis.missing.length > 0 ? (
+                            <div className="space-y-2">
+                              {analysis.missing.map((m, i) => (
+                                <div key={i} className="bg-red-50 border border-red-100 rounded-lg p-3">
+                                  <div className="text-[12px] font-semibold text-red-700 flex items-start gap-1.5">
+                                    <span className="text-red-400 flex-shrink-0">✗</span>
+                                    <span>{m}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-[12px] text-green-600">✓ No missing items detected</p>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Column 2: Price Flags — full item name, unit, correct percentage */}
+                  <div className="p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      <span className="text-[12px] font-bold text-amber-600 tracking-wide">PRICE FLAGS</span>
+                      <span className="bg-amber-100 text-amber-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                        {scoreBreakdown?.priceComparisons.filter(c => c.verdict === 'flag_high' || c.verdict === 'flag_low' || c.verdict === 'warn_high').length ?? 0}
+                      </span>
+                    </div>
+                    {scoreBreakdown?.priceComparisons
+                      .filter(c => c.verdict === 'flag_high' || c.verdict === 'flag_low' || c.verdict === 'warn_high')
+                      .slice(0, 8)
+                      .map((comp, i) => {
+                        const item = analysis.items[comp.itemIndex];
+                        if (!item) return null;
+                        const isHigh = comp.verdict === 'flag_high' || comp.verdict === 'warn_high';
+                        const pct = comp.deviation != null ? Math.abs(Math.round(comp.deviation * 100)) : null;
+                        const marketRange = comp.dbMin != null && comp.dbMax != null
+                          ? `${currency} ${comp.dbMin.toFixed(0)}-${comp.dbMax.toFixed(0)}`
+                          : comp.aiEstMin != null && comp.aiEstMax != null
+                            ? `${currency} ${comp.aiEstMin.toFixed(0)}-${comp.aiEstMax.toFixed(0)}`
+                            : null;
+                        return (
+                          <div key={i} className={`rounded-lg p-3 mb-2 ${comp.verdict === 'flag_high' ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
+                            <div className="text-[12px] font-semibold text-gray-800 leading-snug">{item.name}</div>
+                            <div className="text-[11px] text-gray-500 mt-1">
+                              Quoted: {currency} {(item.unitPrice ?? 0).toFixed(2)}/{item.unit || 'unit'}
+                            </div>
+                            {marketRange && (
+                              <div className="text-[11px] text-gray-500">Market: {marketRange}/{item.unit || 'unit'}</div>
+                            )}
+                            {pct != null && (
+                              <div className={`text-[11px] font-semibold mt-1 ${isHigh ? 'text-red-500' : 'text-blue-500'}`}>
+                                {isHigh ? '▲' : '▼'} {isHigh ? 'Above' : 'Below'} {pct}%
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }) ?? null}
+                    {(!scoreBreakdown || scoreBreakdown.priceComparisons.filter(c => c.verdict === 'flag_high' || c.verdict === 'flag_low' || c.verdict === 'warn_high').length === 0) && (
+                      <p className="text-[12px] text-green-600">✓ No price anomalies detected</p>
+                    )}
+                  </div>
+
+                  {/* Column 3: Suggestions — critical alerts first, then warnings, then tips */}
+                  <div className="p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="w-2 h-2 rounded-full bg-blue-500" />
+                      <span className="text-[12px] font-bold text-blue-600 tracking-wide">SUGGESTIONS</span>
+                      <span className="bg-blue-100 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{analysis.alerts.length}</span>
+                    </div>
+                    {analysis.alerts.length > 0 ? (
+                      <div className="space-y-2">
+                        {[...analysis.alerts]
+                          .sort((a, b) => {
+                            const order: Record<string, number> = { critical: 0, warning: 1, info: 2 };
+                            return (order[a.level] ?? 3) - (order[b.level] ?? 3);
+                          })
+                          .slice(0, 8)
+                          .map((alert, i) => {
+                          const isCrit = alert.level === 'critical';
+                          const isWarn = alert.level === 'warning';
+                          return (
+                            <div key={i} className={`rounded-lg p-3 ${isCrit ? 'bg-red-50 border border-red-100' : isWarn ? 'bg-amber-50 border border-amber-100' : 'bg-blue-50 border border-blue-100'}`}>
+                              <div className={`text-[12px] font-semibold ${isCrit ? 'text-red-700' : isWarn ? 'text-amber-700' : 'text-blue-700'}`}>
+                                {isCrit ? '🚨' : isWarn ? '⚠️' : '💡'} {alert.title}
+                              </div>
+                              <div className="text-[11px] text-gray-500 mt-1 leading-relaxed">{alert.desc}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[12px] text-green-600">✓ No additional notes</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Work Items */}
             <div className="bg-white border border-rs-surface3 rounded-xl overflow-hidden">
@@ -1195,43 +1335,25 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
               </div>
             </div>
 
-            {/* Missing Items */}
-            {analysis.missing.length > 0 && (
-              <div style={{ background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 10, padding: '16px 18px' }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#E53935', marginBottom: 10 }}>⚠️ 发现 {analysis.missing.length} 项可能漏算</div>
-                {analysis.missing.map((m, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', fontSize: 12, color: '#6B7A94', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                    <span style={{ color: '#E53935', fontSize: 14 }}>✗</span>{m}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Alerts — flat reference style */}
-            {analysis.alerts.length > 0 && (
-              <div className="space-y-2.5">
-                {analysis.alerts.map((alert, i) => {
-                  const isCrit = alert.level === 'critical';
-                  const isWarn = alert.level === 'warning';
-                  return (
-                    <div key={i} style={{
-                      display: 'flex', gap: 12, padding: '12px 16px', borderRadius: 8, alignItems: 'flex-start',
-                      background: isCrit ? 'rgba(248,113,113,0.1)' : isWarn ? 'rgba(251,146,60,0.1)' : 'rgba(96,165,250,0.1)',
-                      border: `1px solid ${isCrit ? 'rgba(248,113,113,0.25)' : isWarn ? 'rgba(251,146,60,0.25)' : 'rgba(96,165,250,0.25)'}`,
-                    }}>
-                      <span style={{ fontSize: 16, marginTop: 1, flexShrink: 0 }}>{isCrit ? '🚨' : isWarn ? '⚠️' : '💡'}</span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 3, color: isCrit ? '#E53935' : isWarn ? '#F97316' : '#3B82F6' }}>{alert.title}</div>
-                        <div style={{ fontSize: 12, color: '#6B7A94', lineHeight: 1.5 }}>{alert.desc}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {/* Old missing/alerts sections removed — now in AI QS AUDIT SUMMARY card above */}
 
             {/* Gantt (when shown) */}
-            {showGantt && <GanttAutoGenerator analysis={analysis} />}
+            {showGantt && <GanttAutoGenerator analysis={analysis} onSave={async (tasks) => {
+              const pid = savedProjectId || linkedProjectId;
+              if (!pid) return;
+              const { data: { session } } = await supabase.auth.getSession();
+              if (!session?.user?.id) return;
+              const upsertData = tasks.map(t => ({
+                id: t.id, project_id: pid, user_id: session.user.id,
+                name: t.name, name_zh: t.name_zh, trade: t.trade,
+                start_date: t.start_date, end_date: t.end_date, duration: t.duration,
+                progress: t.progress, dependencies: t.dependencies, color: t.color,
+                is_critical: t.is_critical, subtasks: t.subtasks, assigned_workers: t.assigned_workers,
+                ai_hint: t.ai_hint ?? null, phase_id: t.phase_id ?? null,
+                source_items: t.source_items ?? [], sort_order: t.sort_order ?? 0,
+              }));
+              await supabase.from('gantt_tasks').upsert(upsertData, { onConflict: 'id' });
+            }} />}
           </>
         )}
       </div>
@@ -1332,16 +1454,27 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                 </div>
               )}
 
-              {/* Missing */}
-              {analysis.missing.length > 0 && (
+              {/* Missing — use missingCritical with cost estimates if available */}
+              {((analysis.missingCritical ?? []).length > 0 || analysis.missing.length > 0) && (
                 <div>
-                  <h4 className="font-semibold text-gray-900 text-sm mb-2">📋 可能漏算项目</h4>
+                  <h4 className="font-semibold text-gray-900 text-sm mb-2">📋 关键缺失项目</h4>
                   <div className="space-y-1.5">
-                    {analysis.missing.map((m, i) => (
-                      <div key={i} className="flex items-start gap-2 text-[13px] text-rs-text2 bg-red-50 rounded-lg px-3 py-2">
-                        <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" /> {m}
-                      </div>
-                    ))}
+                    {(analysis.missingCritical ?? []).length > 0
+                      ? (analysis.missingCritical ?? []).map((m, i) => (
+                        <div key={i} className={`rounded-lg px-3 py-2.5 ${m.urgency === 'critical' ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
+                          <div className={`flex items-start gap-2 text-[13px] font-semibold ${m.urgency === 'critical' ? 'text-red-700' : 'text-amber-700'}`}>
+                            <XCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" /> {m.item}
+                          </div>
+                          <div className="text-[12px] text-gray-500 mt-1 ml-5">{m.reason}</div>
+                          {m.estimatedCost && <div className="text-[12px] font-semibold text-red-600 mt-1 ml-5">Est. {m.estimatedCost}</div>}
+                        </div>
+                      ))
+                      : analysis.missing.map((m, i) => (
+                        <div key={i} className="flex items-start gap-2 text-[13px] text-rs-text2 bg-red-50 rounded-lg px-3 py-2">
+                          <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" /> {m}
+                        </div>
+                      ))
+                    }
                   </div>
                 </div>
               )}

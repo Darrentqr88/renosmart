@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { checkRateLimit } from '@/lib/ai/rate-limit';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -41,6 +42,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (userId && !isSecondaryCall) {
+      // Rate limit check (20-min window, max 10 calls → 60-min cooldown)
+      const rateCheck = await checkRateLimit(supabase, userId);
+      if (!rateCheck.allowed) {
+        return NextResponse.json(
+          { error: `请求过于频繁，请等待 ${rateCheck.cooldownMinutes} 分钟后再试。` },
+          { status: 429 }
+        );
+      }
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('plan')
@@ -62,7 +72,7 @@ export async function POST(req: NextRequest) {
 
       if (currentUsage >= limit) {
         return NextResponse.json(
-          { error: `AI quota exceeded. Please upgrade your plan. (${currentUsage}/${limit === Infinity ? '\u221e' : limit} used this month)` },
+          { error: `AI quota exceeded. Please upgrade your plan. (${currentUsage}/${limit === Infinity ? '∞' : limit} used this month)` },
           { status: 429 }
         );
       }
@@ -77,7 +87,12 @@ export async function POST(req: NextRequest) {
 
     if (userId && !isSecondaryCall) {
       const yearMonth = new Date().toISOString().slice(0, 7);
-      await supabase.rpc('increment_ai_usage', { p_user_id: userId, p_year_month: yearMonth });
+      await supabase.rpc('increment_ai_usage', {
+        p_user_id: userId,
+        p_year_month: yearMonth,
+        p_tokens_input: response.usage?.input_tokens ?? 0,
+        p_tokens_output: response.usage?.output_tokens ?? 0,
+      });
     }
 
     return NextResponse.json(response);
