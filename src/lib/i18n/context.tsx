@@ -20,8 +20,14 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Language>('EN');
   const [region, setRegion] = useState<Region>('MY');
 
-  // Auto-detect region from user profile on mount
+  // Auto-detect region and language from localStorage / user profile on mount
   useEffect(() => {
+    // Restore saved language
+    const savedLang = localStorage.getItem('rs_lang') as Language | null;
+    if (savedLang === 'EN' || savedLang === 'BM' || savedLang === 'ZH') {
+      setLang(savedLang);
+    }
+
     // 1. Check localStorage first (user manually switched → respect that)
     const saved = localStorage.getItem('rs_region') as Region | null;
     if (saved === 'MY' || saved === 'SG') {
@@ -52,6 +58,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const t = TRANSLATIONS[lang];
   const prices = PRICES[region];
 
+  // Persist manual language changes to localStorage
+  const handleSetLang = (l: Language) => {
+    setLang(l);
+    localStorage.setItem('rs_lang', l);
+  };
+
   // Persist manual region changes to localStorage
   const handleSetRegion = (r: Region) => {
     setRegion(r);
@@ -59,7 +71,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <I18nContext.Provider value={{ lang, setLang, region, setRegion: handleSetRegion, t, prices }}>
+    <I18nContext.Provider value={{ lang, setLang: handleSetLang, region, setRegion: handleSetRegion, t, prices }}>
       {children}
     </I18nContext.Provider>
   );
