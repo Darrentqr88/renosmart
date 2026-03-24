@@ -71,13 +71,7 @@ const STATUS_CYCLE: Record<PaymentStatus, PaymentStatus> = {
   collected: 'not_due',
 };
 
-const STATUS_LABELS: Record<PaymentStatus, { label: string; color: string }> = {
-  not_due:   { label: '未到期', color: 'bg-gray-100 text-gray-600' },
-  pending:   { label: '待收款', color: 'bg-amber-100 text-amber-700' },
-  collected: { label: '已收款', color: 'bg-green-100 text-green-700' },
-};
-
-const OVERDUE_LABEL = { label: '已到期', color: 'bg-red-100 text-red-700' };
+// STATUS_LABELS is built dynamically inside the component using t.pay.*
 
 // Maps old status values (overdue/due/paid/pending) to new schema
 const normalizePaymentStatus = (s: string): PaymentStatus => {
@@ -95,6 +89,14 @@ export default function ProjectDetailPage() {
   const currency = getCurrencySymbol(region);
   // Region-aware currency formatter (S$ for SG, RM for MY)
   const fmtCurrency = (amount: number) => formatCurrency(amount, currency);
+
+  // Payment status labels — built from translations so they switch with language
+  const STATUS_LABELS: Record<PaymentStatus, { label: string; color: string }> = {
+    not_due:   { label: t.pay.statusNotDue,   color: 'bg-gray-100 text-gray-600' },
+    pending:   { label: t.pay.statusPending,   color: 'bg-amber-100 text-amber-700' },
+    collected: { label: t.pay.statusCollected, color: 'bg-green-100 text-green-700' },
+  };
+  const OVERDUE_LABEL = { label: t.pay.statusOverdue, color: 'bg-red-100 text-red-700' };
 
   const [project, setProject] = useState<Project | null>(null);
   const [ganttTasks, setGanttTasks] = useState<GanttTask[]>([]);
@@ -309,6 +311,7 @@ export default function ProjectDetailPage() {
               duration: t.duration, progress: t.progress, dependencies: t.dependencies,
               color: t.color, is_critical: t.is_critical, subtasks: t.subtasks,
               assigned_workers: t.assigned_workers || [],
+              ai_hint: t.ai_hint ?? null, phase_id: t.phase_id ?? null,
             })));
             console.log('Gantt tasks migrated to UUID format');
           } catch { /* non-blocking */ }
@@ -330,6 +333,7 @@ export default function ProjectDetailPage() {
             duration: t.duration, progress: t.progress, dependencies: t.dependencies,
             color: t.color, is_critical: t.is_critical, subtasks: t.subtasks,
             assigned_workers: t.assigned_workers || [],
+            ai_hint: t.ai_hint ?? null, phase_id: t.phase_id ?? null,
           })));
         } catch { /* non-blocking */ }
       })();
@@ -348,6 +352,7 @@ export default function ProjectDetailPage() {
           duration: t.duration, progress: t.progress, dependencies: t.dependencies,
           color: t.color, is_critical: t.is_critical, subtasks: t.subtasks,
           assigned_workers: [],
+          ai_hint: t.ai_hint ?? null, phase_id: t.phase_id ?? null,
         }))); } catch { /* non-blocking */ }
       })();
     } else {
@@ -626,6 +631,7 @@ export default function ProjectDetailPage() {
           start_date: t.start_date, end_date: t.end_date, duration: t.duration,
           progress: t.progress, dependencies: t.dependencies, color: t.color,
           is_critical: t.is_critical, subtasks: t.subtasks, assigned_workers: t.assigned_workers || [],
+          ai_hint: t.ai_hint ?? null, phase_id: t.phase_id ?? null,
         })));
       } catch { /* non-blocking */ }
       setGanttSyncedAt(new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }));
@@ -757,6 +763,7 @@ export default function ProjectDetailPage() {
           progress: t.progress, dependencies: t.dependencies, color: t.color,
           is_critical: t.is_critical, subtasks: t.subtasks,
           assigned_workers: t.assigned_workers,
+          ai_hint: t.ai_hint ?? null, phase_id: t.phase_id ?? null,
         }))
       );
       const now = new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
@@ -1924,7 +1931,7 @@ export default function ProjectDetailPage() {
                   id: newId,
                   project_id: id as string,
                   phase_number: prev.length + 1,
-                  label: `第 ${prev.length + 1} 期付款`,
+                  label: `${t.pay.phaseDefault} ${prev.length + 1}`,
                   amount: 0,
                   percentage: 0,
                   status: 'not_due' as PaymentStatus,
@@ -1957,18 +1964,18 @@ export default function ProjectDetailPage() {
                   {/* Summary cards */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                     <div className="bg-white rounded-xl border border-gray-100 p-4">
-                      <div className="text-xs text-gray-500 mb-1">合同总额（含VO）</div>
+                      <div className="text-xs text-gray-500 mb-1">{t.pay.contractWithVO}</div>
                       <div className="text-lg font-bold text-gray-900">{fmtCurrency(totalContract)}</div>
                       {approvedVOTotal > 0 && (
-                        <div className="text-[10px] text-amber-600 mt-0.5">含 VO {fmtCurrency(approvedVOTotal)}</div>
+                        <div className="text-[10px] text-amber-600 mt-0.5">{t.pay.includesVO} {fmtCurrency(approvedVOTotal)}</div>
                       )}
                     </div>
                     <div className="bg-green-50 rounded-xl border border-green-100 p-4">
-                      <div className="text-xs text-green-600 mb-1">已收款</div>
+                      <div className="text-xs text-green-600 mb-1">{t.pay.collected}</div>
                       <div className="text-lg font-bold text-green-700">{fmtCurrency(totalCollected)}</div>
                     </div>
                     <div className="bg-amber-50 rounded-xl border border-amber-100 p-4">
-                      <div className="text-xs text-amber-600 mb-1">未收款</div>
+                      <div className="text-xs text-amber-600 mb-1">{t.pay.outstanding}</div>
                       <div className="text-lg font-bold text-amber-700">{fmtCurrency(totalOutstanding)}</div>
                     </div>
                   </div>
@@ -1977,15 +1984,15 @@ export default function ProjectDetailPage() {
                   <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl mb-4 ${isBalanced ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
                     <div className="flex items-center gap-2">
                       <span className={`text-sm font-semibold ${isBalanced ? 'text-green-700' : 'text-red-600'}`}>
-                        {isBalanced ? '✅ 付款计划与合同金额匹配' : `⚠️ 差额 ${fmtCurrency(Math.abs(diff))} ${diff > 0 ? '（未分配）' : '（超出合同）'}`}
+                        {isBalanced ? t.pay.balanced : `⚠️ ${fmtCurrency(Math.abs(diff))} ${diff > 0 ? `（${t.pay.unallocated}）` : `（${t.pay.overContract}）`}`}
                       </span>
-                      <span className="text-xs text-gray-500">各期合计：{fmtCurrency(phasesTotal)}</span>
+                      <span className="text-xs text-gray-500">{t.pay.phasesTotal} {fmtCurrency(phasesTotal)}</span>
                     </div>
                     <button
                       onClick={savePayments}
                       className="text-xs px-4 py-1.5 bg-[#4F8EF7] text-white rounded-lg hover:bg-[#3B7BE8] font-semibold flex items-center gap-1"
                     >
-                      💾 保存付款计划
+                      {t.pay.savePayment}
                     </button>
                   </div>
 
@@ -1995,11 +2002,11 @@ export default function ProjectDetailPage() {
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 w-8">#</th>
-                          <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">付款说明</th>
-                          <th className="text-right px-4 py-3 text-xs font-medium text-gray-500">金额 (RM)</th>
-                          <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 w-20">占比</th>
-                          <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">截止日期</th>
-                          <th className="text-center px-4 py-3 text-xs font-medium text-gray-500">状态<span className="ml-1 text-[10px] text-gray-400 font-normal">(可点击换状态)</span></th>
+                          <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">{t.pay.description}</th>
+                          <th className="text-right px-4 py-3 text-xs font-medium text-gray-500">{t.pay.amount}</th>
+                          <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 w-20">{t.pay.percentage}</th>
+                          <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">{t.pay.dueDate}</th>
+                          <th className="text-center px-4 py-3 text-xs font-medium text-gray-500">{t.pay.status}<span className="ml-1 text-[10px] text-gray-400 font-normal">({t.pay.clickToChange})</span></th>
                           <th className="w-8 px-2" />
                         </tr>
                       </thead>
@@ -2017,7 +2024,7 @@ export default function ProjectDetailPage() {
                                   value={pay.label}
                                   onChange={e => updatePhase(pay.id, 'label', e.target.value)}
                                   className="w-full text-sm text-gray-800 border-0 bg-transparent focus:outline-none focus:bg-amber-50 focus:px-2 rounded transition-all"
-                                  placeholder="付款说明..."
+                                  placeholder={t.pay.descPlaceholder}
                                 />
                               </td>
                               <td className="px-4 py-2.5">
@@ -2059,7 +2066,7 @@ export default function ProjectDetailPage() {
                                 <button
                                   onClick={() => isOverdue ? cyclePaymentStatusTo(pay.id, 'collected') : cyclePaymentStatus(pay.id)}
                                   className={`px-3 py-1 rounded-full text-xs font-medium transition-opacity hover:opacity-80 cursor-pointer ${cfg.color}`}
-                                  title={isOverdue ? '点击标记为已收款' : '点击切换状态'}
+                                  title={isOverdue ? t.pay.clickMarkCollected : t.pay.clickToggle}
                                 >
                                   {cfg.label}
                                 </button>
@@ -2068,7 +2075,7 @@ export default function ProjectDetailPage() {
                                 <button
                                   onClick={() => deletePhase(pay.id)}
                                   className="opacity-0 group-hover:opacity-100 p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
-                                  title="删除此期"
+                                  title={t.pay.deletePhase}
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -2079,7 +2086,7 @@ export default function ProjectDetailPage() {
                       </tbody>
                       <tfoot className="bg-gray-50 border-t border-gray-100">
                         <tr>
-                          <td colSpan={2} className="px-4 py-2.5 text-xs font-semibold text-gray-600">合计</td>
+                          <td colSpan={2} className="px-4 py-2.5 text-xs font-semibold text-gray-600">{t.pay.total}</td>
                           <td className="px-4 py-2.5 text-right text-sm font-bold text-gray-900">
                             RM {phasesTotal.toLocaleString('en-MY', { minimumFractionDigits: 2 })}
                           </td>
@@ -2094,7 +2101,7 @@ export default function ProjectDetailPage() {
                     onClick={addPhase}
                     className="w-full py-3 rounded-xl border-2 border-dashed border-gray-200 text-sm text-gray-500 hover:border-[#4F8EF7] hover:text-[#4F8EF7] transition-colors flex items-center justify-center gap-2"
                   >
-                    <Plus className="w-4 h-4" /> 添加付款阶段
+                    <Plus className="w-4 h-4" /> {t.pay.addPhase.replace('+ ', '')}
                   </button>
                 </>
               );

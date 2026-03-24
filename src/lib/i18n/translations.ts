@@ -52,6 +52,17 @@ export interface Trans {
     statusActive: string; statusPending: string; statusCompleted: string;
     missingItems: string; more: string;
   };
+  pay: {
+    contractWithVO: string; includesVO: string;
+    collected: string; outstanding: string;
+    balanced: string; unallocated: string; overContract: string; phasesTotal: string;
+    savePayment: string;
+    description: string; amount: string; percentage: string; dueDate: string;
+    status: string; clickToChange: string; descPlaceholder: string;
+    clickMarkCollected: string; clickToggle: string;
+    addPhase: string; total: string; phaseDefault: string; deletePhase: string;
+    statusNotDue: string; statusPending: string; statusCollected: string; statusOverdue: string;
+  };
   cal: {
     today: string; addEvent: string; noEvents: string;
     meetingVisit: string; milestoneMark: string;
@@ -112,6 +123,17 @@ const EN: Trans = {
     viewFullReport: 'View full AI audit report', edit: 'Edit',
     statusActive: 'Active', statusPending: 'Pending', statusCompleted: 'Completed',
     missingItems: 'Missing Items', more: 'more',
+  },
+  pay: {
+    contractWithVO: 'Contract Total (incl. VO)', includesVO: 'incl. VO',
+    collected: 'Collected', outstanding: 'Outstanding',
+    balanced: '✅ Payment plan matches contract amount', unallocated: 'unallocated', overContract: 'over contract',
+    phasesTotal: 'Phases total:', savePayment: '💾 Save Payment Plan',
+    description: 'Description', amount: 'Amount (RM)', percentage: 'Share', dueDate: 'Due Date',
+    status: 'Status', clickToChange: 'click to change', descPlaceholder: 'Payment description...',
+    clickMarkCollected: 'Click to mark as collected', clickToggle: 'Click to toggle status',
+    addPhase: '+ Add Payment Phase', total: 'Total', phaseDefault: 'Phase', deletePhase: 'Delete phase',
+    statusNotDue: 'Not Due', statusPending: 'Pending', statusCollected: 'Collected', statusOverdue: 'Overdue',
   },
   cal: {
     today: 'Today', addEvent: 'Add Event', noEvents: 'No events for this day',
@@ -174,6 +196,17 @@ const BM: Trans = {
     statusActive: 'Aktif', statusPending: 'Menunggu', statusCompleted: 'Selesai',
     missingItems: 'Item Hilang', more: 'lagi',
   },
+  pay: {
+    contractWithVO: 'Jumlah Kontrak (termasuk VO)', includesVO: 'termasuk VO',
+    collected: 'Diterima', outstanding: 'Belum Terima',
+    balanced: '✅ Pelan bayaran sepadan dengan jumlah kontrak', unallocated: 'belum diperuntukkan', overContract: 'melebihi kontrak',
+    phasesTotal: 'Jumlah fasa:', savePayment: '💾 Simpan Pelan Bayaran',
+    description: 'Keterangan', amount: 'Amaun (RM)', percentage: 'Bahagian', dueDate: 'Tarikh Akhir',
+    status: 'Status', clickToChange: 'klik untuk tukar', descPlaceholder: 'Keterangan bayaran...',
+    clickMarkCollected: 'Klik untuk tandakan sebagai diterima', clickToggle: 'Klik untuk tukar status',
+    addPhase: '+ Tambah Fasa Bayaran', total: 'Jumlah', phaseDefault: 'Fasa', deletePhase: 'Padam fasa',
+    statusNotDue: 'Belum Tiba', statusPending: 'Menunggu', statusCollected: 'Diterima', statusOverdue: 'Tamat Tempoh',
+  },
   cal: {
     today: 'Hari ini', addEvent: 'Tambah Acara', noEvents: 'Tiada acara untuk hari ini',
     meetingVisit: 'Mesyuarat/Lawatan', milestoneMark: 'Pencapaian',
@@ -234,6 +267,17 @@ const ZH: Trans = {
     viewFullReport: '查看完整 AI 审核报告', edit: '编辑',
     statusActive: '在施工', statusPending: '待谈', statusCompleted: '已完工',
     missingItems: '缺少项目', more: '更多',
+  },
+  pay: {
+    contractWithVO: '合同总额（含VO）', includesVO: '含 VO',
+    collected: '已收款', outstanding: '未收款',
+    balanced: '✅ 付款计划与合同金额匹配', unallocated: '未分配', overContract: '超出合同',
+    phasesTotal: '各期合计：', savePayment: '💾 保存付款计划',
+    description: '付款说明', amount: '金额 (RM)', percentage: '占比', dueDate: '截止日期',
+    status: '状态', clickToChange: '可点击换状态', descPlaceholder: '付款说明...',
+    clickMarkCollected: '点击标记为已收款', clickToggle: '点击切换状态',
+    addPhase: '+ 添加付款阶段', total: '合计', phaseDefault: '期', deletePhase: '删除此期',
+    statusNotDue: '未到期', statusPending: '待收款', statusCollected: '已收款', statusOverdue: '已到期',
   },
   cal: {
     today: '今天', addEvent: '添加事项', noEvents: '当天无事项',
