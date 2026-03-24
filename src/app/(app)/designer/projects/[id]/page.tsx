@@ -907,6 +907,11 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const cyclePaymentStatusTo = async (payId: string, status: PaymentStatus) => {
+    setPayments(prev => prev.map(p => p.id !== payId ? p : { ...p, status }));
+    await supabase.from('payment_phases').update({ status }).eq('id', payId);
+  };
+
   const handleAddVO = async () => {
     if (!voDescription.trim() || !voAmount) return;
     const { data: { session } } = await supabase.auth.getSession();
@@ -2052,9 +2057,9 @@ export default function ProjectDetailPage() {
                               </td>
                               <td className="px-4 py-2.5 text-center">
                                 <button
-                                  onClick={() => !isOverdue && cyclePaymentStatus(pay.id)}
-                                  className={`px-3 py-1 rounded-full text-xs font-medium transition-opacity hover:opacity-80 ${cfg.color} ${isOverdue ? 'cursor-default' : 'cursor-pointer'}`}
-                                  title={isOverdue ? '截止日期已过' : '点击切换状态'}
+                                  onClick={() => isOverdue ? cyclePaymentStatusTo(pay.id, 'collected') : cyclePaymentStatus(pay.id)}
+                                  className={`px-3 py-1 rounded-full text-xs font-medium transition-opacity hover:opacity-80 cursor-pointer ${cfg.color}`}
+                                  title={isOverdue ? '点击标记为已收款' : '点击切换状态'}
                                 >
                                   {cfg.label}
                                 </button>
