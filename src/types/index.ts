@@ -3,7 +3,7 @@
 export type UserRole = 'designer' | 'owner' | 'worker';
 export type PlanType = 'free' | 'pro' | 'elite';
 export type ProjectStatus = 'pending' | 'active' | 'completed';
-export type PaymentStatus = 'pending' | 'collected' | 'overdue';
+export type PaymentStatus = 'not_due' | 'pending' | 'collected';
 export type AIItemStatus = 'ok' | 'warn' | 'flag' | 'nodata';
 export type AlertLevel = 'critical' | 'warning' | 'info';
 export type Language = 'EN' | 'BM' | 'ZH';

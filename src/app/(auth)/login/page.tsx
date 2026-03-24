@@ -189,6 +189,35 @@ function LoginPageContent() {
             <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
           </div>
 
+          {/* Dev quick-login — localhost only */}
+          {process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_DEV_EMAIL && (
+            <button
+              type="button"
+              onClick={async () => {
+                const devEmail = process.env.NEXT_PUBLIC_DEV_EMAIL!;
+                const devPass = process.env.NEXT_PUBLIC_DEV_PASSWORD!;
+                setLoading(true);
+                try {
+                  const { data, error } = await supabase.auth.signInWithPassword({ email: devEmail, password: devPass });
+                  if (error) throw error;
+                  await getRoleAndRedirect(data.user.id);
+                } catch (err: unknown) {
+                  toast({ variant: 'destructive', title: 'Dev login failed', description: err instanceof Error ? err.message : String(err) });
+                } finally { setLoading(false); }
+              }}
+              disabled={loading}
+              style={{
+                width: '100%', marginBottom: 16, padding: '10px 0', borderRadius: 10,
+                border: '1px dashed rgba(232,163,23,0.4)', background: 'rgba(232,163,23,0.06)',
+                color: '#E8A317', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', gap: 8, letterSpacing: 0.3,
+              }}
+            >
+              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : '⚡'}
+              Dev Quick Login
+            </button>
+          )}
+
           {/* Email login */}
           <form onSubmit={handleEmailLogin}>
             <div style={{ marginBottom: 16 }}>

@@ -23,7 +23,7 @@ import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { useI18n } from '@/lib/i18n/context';
 
-type PaymentStatus = 'pending' | 'collected' | 'overdue';
+type PaymentStatus = 'not_due' | 'pending' | 'collected';
 
 // ─── Local types ──────────────────────────────────────────────────────────────
 type CostRecordLocal = {
@@ -66,15 +66,25 @@ type DesignerOcrResult = {
 };
 
 const STATUS_CYCLE: Record<PaymentStatus, PaymentStatus> = {
+  not_due: 'pending',
   pending: 'collected',
-  collected: 'overdue',
-  overdue: 'pending',
+  collected: 'not_due',
 };
 
 const STATUS_LABELS: Record<PaymentStatus, { label: string; color: string }> = {
-  pending: { label: '未到期', color: 'bg-gray-100 text-gray-600' },
+  not_due:   { label: '未到期', color: 'bg-gray-100 text-gray-600' },
+  pending:   { label: '待收款', color: 'bg-amber-100 text-amber-700' },
   collected: { label: '已收款', color: 'bg-green-100 text-green-700' },
-  overdue: { label: '待收款', color: 'bg-amber-100 text-amber-700' },
+};
+
+const OVERDUE_LABEL = { label: '已到期', color: 'bg-red-100 text-red-700' };
+
+// Maps old status values (overdue/due/paid/pending) to new schema
+const normalizePaymentStatus = (s: string): PaymentStatus => {
+  if (s === 'overdue' || s === 'due') return 'pending';
+  if (s === 'paid') return 'collected';
+  if (s === 'not_due' || s === 'pending' || s === 'collected') return s as PaymentStatus;
+  return 'not_due';
 };
 
 export default function ProjectDetailPage() {
@@ -359,14 +369,14 @@ export default function ProjectDetailPage() {
     }
 
     const { data: pay } = await supabase.from('payment_phases').select('*').eq('project_id', id).order('phase_number');
-    if (pay) setPayments(pay);
+    if (pay) setPayments(pay.map(p => ({ ...p, status: normalizePaymentStatus(p.status) })));
     else {
       const contractAmount = p?.contract_amount || 0;
       setPayments([
-        { id: '1', project_id: id as string, phase_number: 1, label: 'Deposit (20%)', amount: contractAmount * 0.2, percentage: 20, status: 'pending' },
-        { id: '2', project_id: id as string, phase_number: 2, label: 'Second Payment (30%)', amount: contractAmount * 0.3, percentage: 30, status: 'pending' },
-        { id: '3', project_id: id as string, phase_number: 3, label: 'Third Payment (30%)', amount: contractAmount * 0.3, percentage: 30, status: 'pending' },
-        { id: '4', project_id: id as string, phase_number: 4, label: 'Final Payment (20%)', amount: contractAmount * 0.2, percentage: 20, status: 'pending' },
+        { id: '1', project_id: id as string, phase_number: 1, label: 'Deposit (20%)', amount: contractAmount * 0.2, percentage: 20, status: 'not_due' },
+        { id: '2', project_id: id as string, phase_number: 2, label: 'Second Payment (30%)', amount: contractAmount * 0.3, percentage: 30, status: 'not_due' },
+        { id: '3', project_id: id as string, phase_number: 3, label: 'Third Payment (30%)', amount: contractAmount * 0.3, percentage: 30, status: 'not_due' },
+        { id: '4', project_id: id as string, phase_number: 4, label: 'Final Payment (20%)', amount: contractAmount * 0.2, percentage: 20, status: 'not_due' },
       ] as PaymentPhase[]);
     }
 
@@ -893,7 +903,7 @@ export default function ProjectDetailPage() {
     const payment = payments.find(p => p.id === payId);
     if (payment) {
       const next = STATUS_CYCLE[payment.status as PaymentStatus];
-      await supabase.from('payment_phases').update({ status: next, updated_at: new Date().toISOString() }).eq('id', payId);
+      await supabase.from('payment_phases').update({ status: next }).eq('id', payId);
     }
   };
 
@@ -973,7 +983,7 @@ export default function ProjectDetailPage() {
         label: `${vo.vo_number}: ${vo.description}`,
         amount: vo.amount,
         percentage: 0,
-        status: 'pending',
+        status: 'not_due',
       }).select().single();
       if (newPay) setPayments(prev => [...prev, newPay]);
     } else if (newStatus === 'rejected') {
@@ -1870,34 +1880,36 @@ export default function ProjectDetailPage() {
 
               const savePayments = async () => {
                 try {
-                  // Delete existing phases
-                  const { error: delErr } = await supabase.from('payment_phases').delete().eq('project_id', id);
-                  if (delErr) throw delErr;
+                  // Get live user id — don't rely on sessionUserId state (may be null on first render)
+                  const { data: { session: liveSession } } = await supabase.auth.getSession();
+                  const userId = liveSession?.user?.id;
+                  if (!userId) throw new Error('Not authenticated');
 
-                  // Build insert rows — omit id for newly added phases (fake "new-..." ids)
-                  const rows = payments.map((p, idx) => {
-                    const isNew = !p.id || p.id.startsWith('new-');
-                    return {
-                      ...(isNew ? {} : { id: p.id }),
+                  // Delete existing phases — RLS requires user_id match, so also wipe null-user_id orphans
+                  await supabase.from('payment_phases').delete().eq('project_id', id).eq('user_id', userId);
+                  await supabase.from('payment_phases').delete().eq('project_id', id).is('user_id', null);
+
+                  // Always omit id so Supabase generates fresh UUIDs — avoids duplicate-key on re-insert
+                  const rows = payments.map((p, idx) => ({
                       project_id: id as string,
-                      user_id: sessionUserId,
+                      user_id: userId,
                       phase_number: idx + 1,
                       label: p.label,
                       amount: p.amount,
-                      percentage: totalContract > 0 ? Math.round((p.amount / totalContract) * 1000) / 10 : 0,
-                      status: p.status,
+                      percentage: p.percentage ?? 0,
+                      status: normalizePaymentStatus(p.status),
                       due_date: p.due_date || null,
                       notes: p.notes || null,
-                    };
-                  });
+                  }));
                   const { data: saved, error: insErr } = await supabase.from('payment_phases').insert(rows).select();
                   if (insErr) throw insErr;
                   // Refresh state with DB-generated ids
                   if (saved) setPayments(saved as PaymentPhase[]);
                   toast({ title: '✅ 付款计划已保存', description: `共 ${rows.length} 期，合计 ${fmtCurrency(phasesTotal)}` });
-                } catch (err) {
+                } catch (err: unknown) {
                   console.error('Payment save error:', err);
-                  toast({ title: '保存失败，请重试', variant: 'destructive' });
+                  const msg = err instanceof Error ? err.message : (err as {message?: string})?.message ?? JSON.stringify(err);
+                  toast({ title: '保存失败', description: msg, variant: 'destructive' });
                 }
               };
 
@@ -1910,7 +1922,7 @@ export default function ProjectDetailPage() {
                   label: `第 ${prev.length + 1} 期付款`,
                   amount: 0,
                   percentage: 0,
-                  status: 'pending',
+                  status: 'not_due' as PaymentStatus,
                 }]);
               };
 
@@ -1918,10 +1930,19 @@ export default function ProjectDetailPage() {
                 setPayments(prev => prev.filter(p => p.id !== payId));
               };
 
-              const updatePhase = (payId: string, field: 'label' | 'amount' | 'due_date', value: string) => {
+              const updatePhase = (payId: string, field: 'label' | 'amount' | 'percentage' | 'due_date', value: string) => {
                 setPayments(prev => prev.map(p => {
                   if (p.id !== payId) return p;
-                  if (field === 'amount') return { ...p, amount: parseFloat(value) || 0 };
+                  if (field === 'amount') {
+                    const amt = parseFloat(value) || 0;
+                    const pct = totalContract > 0 ? Math.round(amt / totalContract * 1000) / 10 : 0;
+                    return { ...p, amount: amt, percentage: pct };
+                  }
+                  if (field === 'percentage') {
+                    const pct = parseFloat(value) || 0;
+                    const amt = Math.round(totalContract * pct / 100);
+                    return { ...p, percentage: pct, amount: amt };
+                  }
                   return { ...p, [field]: value };
                 }));
               };
@@ -1979,8 +2000,9 @@ export default function ProjectDetailPage() {
                       </thead>
                       <tbody className="divide-y divide-gray-50">
                         {payments.map((pay, idx) => {
-                          const cfg = STATUS_LABELS[pay.status as PaymentStatus] || STATUS_LABELS.pending;
-                          const pct = totalContract > 0 ? ((pay.amount / totalContract) * 100).toFixed(1) : '0.0';
+                          const today = new Date().toISOString().split('T')[0];
+                          const isOverdue = pay.status !== 'collected' && !!pay.due_date && pay.due_date < today;
+                          const cfg = isOverdue ? OVERDUE_LABEL : (STATUS_LABELS[pay.status as PaymentStatus] || STATUS_LABELS.not_due);
                           return (
                             <tr key={pay.id} className="hover:bg-gray-50 group">
                               <td className="px-4 py-2.5 text-xs text-gray-400 font-medium">{idx + 1}</td>
@@ -2006,8 +2028,19 @@ export default function ProjectDetailPage() {
                                   />
                                 </div>
                               </td>
-                              <td className="px-4 py-2.5 text-center">
-                                <span className="text-xs font-medium text-gray-500">{pct}%</span>
+                              <td className="px-4 py-2.5">
+                                <div className="flex items-center justify-end gap-0.5">
+                                  <input
+                                    type="number"
+                                    value={pay.percentage ?? ''}
+                                    onChange={e => updatePhase(pay.id, 'percentage', e.target.value)}
+                                    className="w-16 text-sm text-right text-gray-600 border border-transparent hover:border-gray-200 focus:border-[#4F8EF7] focus:outline-none rounded-lg px-2 py-1 bg-transparent"
+                                    step="0.1"
+                                    min="0"
+                                    max="100"
+                                  />
+                                  <span className="text-xs text-gray-400">%</span>
+                                </div>
                               </td>
                               <td className="px-4 py-2.5">
                                 <input
@@ -2019,8 +2052,9 @@ export default function ProjectDetailPage() {
                               </td>
                               <td className="px-4 py-2.5 text-center">
                                 <button
-                                  onClick={() => cyclePaymentStatus(pay.id)}
-                                  className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-opacity hover:opacity-80 ${cfg.color}`}
+                                  onClick={() => !isOverdue && cyclePaymentStatus(pay.id)}
+                                  className={`px-3 py-1 rounded-full text-xs font-medium transition-opacity hover:opacity-80 ${cfg.color} ${isOverdue ? 'cursor-default' : 'cursor-pointer'}`}
+                                  title={isOverdue ? '截止日期已过' : '点击切换状态'}
                                 >
                                   {cfg.label}
                                 </button>
