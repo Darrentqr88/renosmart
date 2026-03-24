@@ -1999,7 +1999,7 @@ export default function ProjectDetailPage() {
                           <th className="text-right px-4 py-3 text-xs font-medium text-gray-500">金额 (RM)</th>
                           <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 w-20">占比</th>
                           <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">截止日期</th>
-                          <th className="text-center px-4 py-3 text-xs font-medium text-gray-500">状态</th>
+                          <th className="text-center px-4 py-3 text-xs font-medium text-gray-500">状态<span className="ml-1 text-[10px] text-gray-400 font-normal">(可点击换状态)</span></th>
                           <th className="w-8 px-2" />
                         </tr>
                       </thead>
