@@ -1303,6 +1303,16 @@ export function getPhaseById(phaseId: string) {
   return CONSTRUCTION_PHASES.find(p => p.id === phaseId);
 }
 
+/** Fallback: find phase by task name when phase_id is missing (old data) */
+export function getPhaseByName(taskName: string): typeof CONSTRUCTION_PHASES[0] | undefined {
+  const lower = taskName.toLowerCase();
+  return CONSTRUCTION_PHASES.find(p =>
+    p.name.toLowerCase() === lower || p.name_zh === taskName
+  ) || CONSTRUCTION_PHASES.find(p =>
+    lower.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(lower)
+  );
+}
+
 // ─── Item deduplication & floor-aware grouping ─────────────────────────────────
 
 function extractFloor(section: string): string {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { GanttTask, QuotationItem, TradeHint } from '@/types';
-import { getPhaseChecklist, getPhaseById, classifyItemTrade, tradeMatches } from '@/lib/utils/gantt-rules';
+import { getPhaseChecklist, getPhaseById, getPhaseByName, classifyItemTrade, tradeMatches } from '@/lib/utils/gantt-rules';
 import { useI18n } from '@/lib/i18n/context';
 import { format, parseISO, differenceInDays } from 'date-fns';
 
@@ -41,8 +41,9 @@ export function TaskDetailPanel({
   const [showAllItems, setShowAllItems] = useState(false);
 
   const effectivePhaseId = task.phase_id || phaseId;
-  const phase = getPhaseById(effectivePhaseId);
-  const staticChecklist = getPhaseChecklist(effectivePhaseId);
+  const phase = getPhaseById(effectivePhaseId) || getPhaseByName(task.name);
+  const resolvedPhaseId = phase?.id || effectivePhaseId;
+  const staticChecklist = getPhaseChecklist(resolvedPhaseId);
 
   // Find related quotation items — prefer source_items (exact match), fallback to regex + AI overrides
   const relatedItems = (() => {
