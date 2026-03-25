@@ -131,6 +131,7 @@ export default function ProjectDetailPage() {
   const [isDirty, setIsDirty] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isGeneratingGantt, setIsGeneratingGantt] = useState(false);
 
   // ── Worker assignment ─────────────────────────────────────────────────────
   const [designerWorkers, setDesignerWorkers] = useState<GanttWorkerInfo[]>([]);
@@ -1561,6 +1562,41 @@ export default function ProjectDetailPage() {
                 </div>
               );
             })()}
+
+            {/* ── Empty state: no Gantt yet ── */}
+            {ganttTasks.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 gap-4">
+                <div className="text-5xl">📅</div>
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-gray-700">尚未生成进度表</p>
+                  <p className="text-xs text-gray-400 mt-1">点击按钮，根据已上传的报价单自动生成施工进度表</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    const activeQ = quotationVersions.find(q => q.is_active);
+                    setIsGeneratingGantt(true);
+                    try {
+                      await regenerateAndSaveGantt(
+                        activeQ?.parsed_items,
+                        ganttStartDate || undefined,
+                        activeQ?.analysis_result?.ganttParams,
+                      );
+                      toast({ title: '✅ 进度表已生成' });
+                    } finally {
+                      setIsGeneratingGantt(false);
+                    }
+                  }}
+                  disabled={isGeneratingGantt}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#4F8EF7] text-white text-sm font-semibold rounded-xl hover:bg-[#3B7BE8] transition-colors shadow-sm disabled:opacity-60"
+                >
+                  {isGeneratingGantt ? (
+                    <><span className="animate-spin">⏳</span> 生成中…</>
+                  ) : (
+                    <>📅 点击生成进度表</>
+                  )}
+                </button>
+              </div>
+            )}
 
             {/* ── Gantt chart ── */}
             <GanttChart

@@ -314,46 +314,6 @@ export default function QuotationPage() {
       toast({ title: '✅ 分析完成', description: parsed.summary?.slice(0, 80) });
       setProgress(100);
 
-      // ── Background: parallel gantt params generation ──
-      if (parsed.items?.length > 0) {
-        const ganttPrompt = buildGanttParamsPrompt(
-          parsed.items.map(i => ({ name: i.name, section: i.section, unit: i.unit, qty: i.qty, supplyType: i.supplyType || 'supply_install' })),
-          parsed.projectType || 'landed_terrace',
-          parsed.projectSqft || 1200,
-          outputLang,
-        );
-        fetch('/api/claude/stream', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeaders },
-          body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 4000, skipQuota: true, messages: [{ role: 'user', content: ganttPrompt }] }),
-        }).then(async (ganttRes) => {
-          if (!ganttRes.ok) return;
-          const gr = ganttRes.body?.getReader();
-          if (!gr) return;
-          const gd = new TextDecoder();
-          let ganttContent = '';
-          while (true) {
-            const { done, value } = await gr.read();
-            if (done) break;
-            const chunk = gd.decode(value, { stream: true });
-            for (const line of chunk.split('\n')) {
-              if (line.startsWith('data: ')) {
-                const d = line.slice(6).trim();
-                if (d === '[DONE]') break;
-                try { const p = JSON.parse(d); if (p.text) ganttContent += p.text; } catch {}
-              }
-            }
-          }
-          const gMatch = ganttContent.match(/\{[\s\S]*\}/);
-          if (gMatch) {
-            try {
-              const ganttParams = JSON.parse(gMatch[0]) as GanttParams;
-              setAnalysis(prev => prev ? { ...prev, ganttParams } : prev);
-            } catch { /* gantt params parse failed — Gantt will use fallback */ }
-          }
-        }).catch(() => {});
-      }
-
       // ── Detect effective region for price scoring + DB update ──
       const effectiveRegion = region === 'SG' ? 'SG' : detectMYRegion(parsed.client?.address, text);
 

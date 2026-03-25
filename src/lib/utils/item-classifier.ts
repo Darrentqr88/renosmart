@@ -359,3 +359,105 @@ export function classifyItem(
 
   return { category, subcategory, materialMethod };
 }
+
+// ============================================
+// Supply type extraction from item name prefix
+// ============================================
+export function extractSupplyType(raw: string): 'supply_install' | 'labour_only' | 'supply_only' | null {
+  const s = raw.trim().toLowerCase();
+
+  // Labour only patterns (check before supply patterns to avoid false matches)
+  if (
+    /^(supply\s+)?labour\s+(only\s+)?to\s+install/i.test(s) ||
+    /^labour\s+(only\s+)?to\s+install/i.test(s) ||
+    /^supply\s+labour\s+(only\s+)?/i.test(s)
+  ) {
+    return 'labour_only';
+  }
+
+  // Supply only patterns
+  if (/^supply\s+only(\s+to\s+)?/i.test(s)) {
+    return 'supply_only';
+  }
+
+  // Supply & install patterns — including generic "Supply To [any verb]"
+  if (
+    /^supply\s*(to\s+install|&\s*install|and\s+install)/i.test(s) ||
+    /^to\s+(supply\s+and\s+install|install|lay)/i.test(s) ||
+    /^supply\s+to\s+/i.test(s) // catch-all: "Supply To Paint/Hack/Build-up/Lay/etc."
+  ) {
+    return 'supply_install';
+  }
+
+  return null; // prefix not recognised — defer to AI-detected value
+}
+
+// ============================================
+// Item name normalizer — strips prefix/suffix noise,
+// extracts secondary specs into productNote
+// ============================================
+export function normalizeItemName(raw: string): { name: string; productNote: string } {
+  let name = raw.trim();
+  const notes: string[] = [];
+
+  // 1. Strip supply/labour/install prefix
+  // Order matters: labour_only and supply_only before the generic supply_to catch-all
+  name = name.replace(
+    /^(supply\s+labour\s+(only\s+)?to\s+install|labour\s+(only\s+)?to\s+install|supply\s+only(\s+to\s+install)?|supply\s*(&|and)\s*install|to\s+(supply\s+and\s+install|install|lay|supply)|supply\s+to)\s+/i,
+    '',
+  );
+
+  // 2. Strip trailing location/room context
+  // Matches "For Kitchen And Dining Area", "For Entrance And Pool Side Area", "At Living Room", etc.
+  name = name.replace(
+    /\s+(for|at)\s+[\w\s&/()]+?(area|zone|side|level|block|floor|entrance|porch|kitchen|bedroom|bathroom|living|dining|store|storeroom|pool|room|hall|foyer|balcony|garden|yard|toilet|wc|carpark|car\s*park)\s*$/i,
+    '',
+  );
+  // Also strip bare "For [location phrase]" when no area keyword — catch-all for room names like "For Master Bedroom"
+  name = name.replace(
+    /\s+for\s+(master\s+)?(bedroom|bathroom|toilet|kitchen|dining|living|store|balcony|foyer|hall|carpark)\s*\d*\s*$/i,
+    '',
+  );
+
+  // 3. Extract productNote candidates (secondary/installation specs)
+
+  // Cable gauge: "2.5mm Cable", "4mm Cable"
+  name = name.replace(/\b(\d+(?:\.\d+)?\s*mm\s+cable)\b/gi, (_, m) => {
+    notes.push(m.trim());
+    return ' ';
+  });
+
+  // Price tier reference: "RM15.00/pcs", "RM15/sqft"
+  name = name.replace(/\s*RM\s*[\d,]+(?:\.\d+)?\/\w+/gi, (m) => {
+    notes.push(m.trim());
+    return ' ';
+  });
+
+  // Parenthetical specs: "(ACP Product)", "(18mm)", "(bedroom 4)"
+  name = name.replace(/\(([^)]+)\)/g, (_, m) => {
+    notes.push(m.trim());
+    return ' ';
+  });
+
+  // Surface treatment words → note (NOT product identity)
+  name = name.replace(/\b(anti[- ]?fall|anti[- ]?slip|non[- ]?slip|outdoor\s+surface)\b/gi, (m) => {
+    notes.push(m.trim());
+    return ' ';
+  });
+
+  // Verbose dimension strings: "900mm H x 380mm W x 2550mm L" → note
+  name = name.replace(/\b\d+\s*mm\s+[HWLhwl](\s*[xX×]\s*\d+\s*mm\s+[HWLhwl])*/g, (m) => {
+    notes.push(m.trim());
+    return ' ';
+  });
+
+  // Strip leading connectors/prepositions left over: "Using", "c/w", "with", "Using Tiles Range"
+  name = name.replace(/\s+using\s+(tiles?\s+range\s*|tiles?\s*)?$/i, '');
+  name = name.replace(/\s+(c\/w|with)\s*$/i, '');
+
+  // Clean up: multiple spaces, trailing punctuation
+  name = name.replace(/\s{2,}/g, ' ').replace(/\s*[-–,]+\s*$/, '').trim();
+
+  const productNote = [...new Set(notes.filter(Boolean))].join(', ');
+  return { name, productNote };
+}

@@ -185,8 +185,9 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
       { icon: '📐', text: 'Template/measurement taken', text_zh: '现场模板已测量', type: 'check' },
     ],
     subItems: [
+      { name: 'Stone wall cladding', name_zh: '石材墙面' },
+      { name: 'Marble/granite flooring', name_zh: '大理石/花岗岩地面' },
       { name: 'Kitchen backsplash stone', name_zh: '厨房石材背景' },
-      { name: 'Bathroom vanity top', name_zh: '浴室台面石材' },
       { name: 'Feature wall stone', name_zh: '背景墙石材' },
     ],
   },
@@ -350,8 +351,10 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     hint_zh: '石英石和人造石台面需5-7天加工。必须在柜体安装完成后才能测量模板。水槽开孔位置必须与水管对应。',
     trade: 'Tabletop', baseDays: 2, deps: ['carpentry_install'],
     prepChecklist: [
+      { icon: '⚠️', text: 'Template measurement AFTER carpentry installed', text_zh: '必须在柜体安装完成后才能测量模板', type: 'warn' },
       { icon: '📐', text: 'Countertop template measured', text_zh: '台面模板已测量', type: 'check' },
-      { icon: '📦', text: 'Material fabricated & ready', text_zh: '台面材料已加工完成', type: 'order' },
+      { icon: '📦', text: 'Material fabricated & ready (5-7 days)', text_zh: '台面材料已加工完成（需5-7天）', type: 'order' },
+      { icon: '🔧', text: 'Sink cutout matches plumbing point', text_zh: '水槽开孔与水管位置对应', type: 'check' },
     ],
     subItems: [
       { name: 'Kitchen countertop', name_zh: '厨房台面' },
@@ -967,7 +970,7 @@ const PHASE_TRADE_REQUIRED: Record<string, string[]> = {
   plumbing2:         ['plumbing'],
   ac_install:        ['aircon'],
   painting2:         ['painting'],
-  stone_marble:      ['stonework', 'stone'],
+  stone_marble:      ['stonework'],
   glass_work:        ['glass'],
   metal_work:        ['metalwork'],
   tabletop:          ['tabletop'],
@@ -1485,6 +1488,7 @@ export function generateGanttFromQuotation(
   if (tradeSections.landscape)     tradeScope.landscape     = { estimatedDays: sc(10), ...makeName('landscape', 'Landscape Works', '景观工程') };
   if (tradeSections.metalwork)     tradeScope.metalwork     = { estimatedDays: sc(7), ...makeName('metalwork', 'Metal Work', '金属工程') };
   if (tradeSections.stonework)     tradeScope.stonework     = { estimatedDays: sc(5), ...makeName('stonework', 'Stone & Marble Work', '石材工程') };
+  if (tradeSections.tabletop)      tradeScope.tabletop      = { estimatedDays: sc(3), ...makeName('tabletop', 'Table Top / Countertop', '台面工程') };
   if (tradeSections.curtain)       tradeScope.curtain       = { estimatedDays: 1, ...makeName('curtain', 'Curtain & Blinds', '窗帘安装') };
   if (tradeSections.delivery)      tradeScope.delivery      = { estimatedDays: 2, ...makeName('delivery', 'Appliance & Furniture Delivery', '电器家具交付') };
 
@@ -1516,21 +1520,21 @@ export function generateGanttFromQuotation(
 // Exported so GanttAutoGenerator can enrich AI ganttParams with itemNames
 const TRADE_PATTERNS_SHARED: Record<string, RegExp[]> = {
   demolition:     [/\bdemol/, /\bhack(?:ing)?\b/, /\bbreak/, /strip.?out/, /chipping/, /\bremov(?:e|al)\b.*(?:wall|tile|floor|door)/, /\bdismantle/, /\btear\s*down/, /\bknock\s*down/, /\brip\s*out/, /\bcut\s*out/, /\b拆/, /\b打石/, /\b破拆/, /拆旧/, /拆除/],
-  masonry:        [/\bbrick/, /\bplaster(?!.*ceil)/, /\bscreed/, /\brender/, /\bnew\s*wall/, /\bbrickwork/, /\brc\s/, /reinforc/, /\bconstruct/, /\bextension/, /\braise\s*floor/, /\bmasonry/, /\bfooting/, /\bbeam\b/, /\bcolumn\b/, /ground\s*beam/, /rc\s*staircase/, /rc\s*slab/, /rc\s*floor/, /rc\s*roof/, /cement\s*work/, /\bkerb\b/, /\b混凝土/, /\b砌砖/, /\b扩建/],
+  masonry:        [/\bbrick/, /brick\s*wall/, /\bplaster(?!.*ceil)/, /\bscreed/, /\brender/, /\bnew\s*wall/, /\bbrickwork/, /\brc\s/, /reinforc/, /\bconstruct/, /\bextension/, /\braise\s*floor/, /\bmasonry/, /\bfooting/, /\bbeam\b/, /\bcolumn\b/, /ground\s*beam/, /rc\s*staircase/, /rc\s*slab/, /rc\s*floor/, /rc\s*roof/, /cement\s*work/, /\bkerb\b/, /\bconceal/, /\b混凝土/, /\b砌砖/, /\b扩建/],
   waterproofing:  [/water.?proof/, /\bmembrane/, /\bponding/, /kalis\s*air/, /\b防水/, /torch.?on/],
   alarm:          [/\bcctv\b/, /\balarm\b/, /\bcamera\b/, /auto.?gate/, /\brecorder\b/, /smart\s*home/, /access\s*control/, /security\s*system/, /\bip\s*cam/, /\bintercom/],
   aircon:         [/air.?con/, /\baircon/, /\bdaikin/, /\bmidea/, /\byork\b/, /\bmitsubishi/, /split\s*unit/, /\bac\s/, /\b1\.?5\s*hp/, /\b2\s*hp/, /\b3\s*hp/, /\bhorse\s*power/, /\bcompressor/, /cassette\s*type/, /ceiling\s*type.*unit|unit.*ceiling\s*type/, /\b冷气/, /\b空调/],
-  falseCeiling:   [/false\s*ceil/, /\bgypsum/, /\bpartition/, /plaster\s*ceil/, /cove\s*light/, /\bcornice/, /\bL.box\b/, /\bbulkhead/, /\bsiling/, /\b石膏板/],
+  falseCeiling:   [/false\s*ceil/, /\bgypsum/, /\bpartition/, /plaster\s*ceil/, /cove\s*light/, /\bcornice/, /\bL.box\b/, /[uU].?box/, /\bbulkhead/, /false\s*wall/, /\bsiling/, /\b石膏板/],
   plumbing:       [/\bplumb/, /\bpipe\b/, /\bwc\b/, /\btoilet/, /\btap\b/, /\bdrain/, /\bshower/, /\bsanit/, /floor\s*trap/, /\bbidet/, /\binlet/, /\boutlet\s*pipe/, /\bbasin\b/, /\bfaucet/, /bi.?tap/, /water\s*heater/, /\bpaip\b/, /\bkran\b/, /pvc.*pipe/, /toilet\s*bowl/, /\b洗手盆/],
-  electrical:     [/\belectr/, /\bwir(?:ing|e)\b/, /\bswitch\b/, /\bsocket\b/, /\bdb\s*box/, /\bdb\b.*(?:rewir|box)/, /\bmcb\b/, /\blight\s*point/, /\bdownlight/, /\bpendant/, /\bpower\s*point/, /\bcircuit/, /\bfan\s*point/, /\bconduit/, /\b13a\b/, /\b15a\b/, /\b20a\b/, /cable\s*tray/, /\bwifi\s*point/, /internet\s*point/, /\btel(?:ephone)?\s*point/, /tv\s*point/, /\bcctv\s*point/],
-  tiling:         [/\btil(?:e[sd]?|ing)\b/, /\bceram/, /\bporcel/, /\bmosaic/, /\bhomogeneous/, /anti.?slip/, /\bjubin/, /floor\s*tile/, /wall\s*tile/, /\d{3}.?x.?\d{3}/, /homogenous/],
-  flooring:       [/\bvinyl/, /timber\s*floor/, /\bparquet/, /laminate\s*floor/, /\bspc\b/, /\blvt\b/, /engineered.*floor/, /\bcarpet\s*floor/, /\b木地板/, /composite\s*deck/],
+  electrical:     [/\belectr/, /\bwir(?:ing|e)\b/, /\bswitch\b/, /\bsocket\b/, /\bdb\s*box/, /\bdb\b.*(?:rewir|box)/, /\bmcb\b/, /\blight\s*point/, /\bdownlight/, /\bpendant/, /\bpower\s*point/, /\bcircuit/, /\bfan\s*point/, /\bconduit/, /\b13a\b/, /\b15a\b/, /\b20a\b/, /cable\s*tray/, /\bwifi\s*point/, /internet\s*point/, /\btel(?:ephone)?\s*point/, /tv\s*point/, /\bcctv\s*point/, /\bcat\s*5\b/, /\bcat\s*6\b/, /\bcat5\b/, /\bcat6\b/, /conceal.*wir/],
+  tiling:         [/\btil(?:e[sd]?|ing)\b/, /\bceram/, /\bporcel/, /\bceramic/, /\bporcelain/, /\bmosaic/, /\bhomogeneous/, /anti.?slip/, /\bjubin/, /floor\s*tile/, /wall\s*tile/, /\d{3}.?x.?\d{3}/, /homogenous/],
+  flooring:       [/\bvinyl/, /timber\s*floor/, /\bparquet/, /laminate\s*floor/, /\bspc\b/, /\blvt\b/, /engineered.*floor/, /\bcarpet\s*floor/, /\bmerbau/, /\b木地板/, /composite\s*deck/],
   painting:       [/\bpaint(?:ing)?\b/, /\bprimer/, /skim.?coat/, /\bputty/, /\bemulsion/, /\bsealer/, /\bnippon/, /\bdulux/, /\bjotun/, /texture.*paint/, /\b油漆/, /\b漆\b/, /\btopcoat/],
-  carpentry:      [/\bcabinet/, /\bcarpent/, /\bwardrobe/, /\bjoiner/, /\bshelf\b|\bshelv/, /\bvanity/, /\bbasin\s*cabinet/, /\bcupboard/, /\bsolid\s*plywood/, /\bhob\b/, /\bhood\b/, /tv\s*console/, /feature\s*wall/, /built.?in/, /shoe\s*rack/, /\bisland\b/, /bar\s*counter/, /\bpanel\b.*(?:wall|cabinet)/, /mirror\s*cabinet/, /\b衣柜/, /\b衣橱/, /\b厨房\s*(?:柜|家具)/, /\b客厅\s*(?:柜|背景)/, /\b背景墙/, /\b木工/],
-  tabletop:       [/\bcountertop/, /\bcounter\s*top/, /table\s*top/, /\btabletop/, /\bsolid\s*surface/, /\bquartz\s*top/, /\bpostform/, /\bsintered/, /\bdekton/, /\bneolith/, /worktop/, /marble.*top/, /granite.*top/, /\bcorian/],
-  aluminium:      [/\balumi?n/, /\bwindow\b.*(?:frame|instal|replac)/, /sliding\s*door/, /door\s*frame/, /\bcasement/, /bi.?fold.*door/, /folding.*door/, /fixed\s*glass.*door/, /\bupvc/, /\bwindow\s*frame/],
-  glass:          [/\bglass\b/, /shower\s*screen/, /\bmirror\b/, /\btempered/, /glass\s*panel/, /\b玻璃/],
-  stonework:      [/\bmarble/, /\bgranite/, /\bquartz(?!\s*top)/, /\bstone\b/],
+  carpentry:      [/\bcabinet/, /\bcarpent/, /\bwardrobe/, /\bjoiner/, /\bshelf\b|\bshelv/, /\bvanity/, /\bbasin\s*cabinet/, /base\s*cabinet/, /wall\s*cabinet/, /tall\s*cabinet/, /kitchen.*cabinet/, /\bcupboard/, /\bsolid\s*plywood/, /\bhob\b/, /\bhood\b/, /tv\s*console/, /feature\s*wall/, /built.?in/, /shoe\s*rack/, /\bisland\b/, /bar\s*counter/, /\bpanel\b.*(?:wall|cabinet)/, /mirror\s*cabinet/, /\blaminated\b/, /\bmelamine\b/, /\b衣柜/, /\b衣橱/, /\b厨房\s*(?:柜|家具)/, /\b客厅\s*(?:柜|背景)/, /\b背景墙/, /\b木工/],
+  tabletop:       [/\bcountertop/, /\bcounter\s*top/, /table\s*top/, /\btabletop/, /\bsolid\s*surface/, /\bquartz\s*top/, /\bpostform/, /\bsintered/, /\bdekton/, /\bneolith/, /worktop/, /marble.*top/, /granite.*top/, /\bcorian/, /vanity\s*top/, /basin\s*top/, /kitchen\s*top/, /bar.*top/, /island.*top/],
+  aluminium:      [/\balumi?n/, /\baluminum/, /\bwindow\b.*(?:frame|instal|replac)/, /sliding\s*door/, /door\s*frame/, /\bcasement/, /casement\s*door/, /bi.?fold.*door/, /folding.*door/, /fixed\s*glass.*door/, /fix(?:ed)?\s*window/, /\bupvc/, /\bwindow\s*frame/, /powder\s*coat/, /\bpcw\b/, /toilet\s*door/],
+  glass:          [/\bglass\b/, /shower\s*screen/, /\bmirror\b/, /\btempered/, /glass\s*panel/, /fix(?:ed)?\s*glass(?!\s*door)/, /\b玻璃/],
+  stonework:      [/\bmarble/, /\bgranite/, /\bquartz(?!\s*top)/, /\bstone\b/, /natural\s*stone/],
   metalwork:      [/metal\s*work/, /iron\s*work/, /\bwrought/, /stainless\s*steel/, /\bmetal\s*(gate|fence|railing|roof)/, /\bms\s*(gate|fence|railing)/, /mild\s*steel/, /\bgrille\b/, /\bgate\b/, /\bawning/, /metal.*roof/, /polycarbonate/, /composite\s*panel/, /pu\s*metal/, /\bdeck.*steel/, /\brailing/],
   landscape:      [/\blandscap/, /\bgarden\b/, /\bturf\b/, /\bplanting/, /\bpaving\b/, /\bfenc(?:e|ing)\b/, /\bgrassturf/, /\bdecking\b/, /\b植草/],
   curtain:        [/\bcurtain/, /\bblind\b/, /roller\s*blind/, /\bsheer/, /\bdrape/],
@@ -1556,10 +1560,22 @@ export function tradeMatches(taskTrade: string, classifiedTrade: string): boolea
     'alarm & cctv': ['alarm'],
     'electrical': ['alarm'],
     'window & door': ['aluminium'],
+    'aluminium': ['window & door'],
     'metal work': ['metalwork'],
+    'metal work / ironwork': ['metalwork'],
+    'metalwork': ['metal work'],
     'stone': ['stonework'],
     'stonework': ['stone'],
-    'aircon': ['aircon'],
+    'stone & marble works': ['stonework'],
+    'glass': ['glass work'],
+    'glass work': ['glass'],
+    'tabletop': ['table top', 'countertop'],
+    'table top / countertop': ['tabletop'],
+    'tiling': ['flooring'],
+    'flooring': ['tiling'],
+    'landscape': ['landscape works'],
+    'aircon': ['aircon', 'ac'],
+    'ac': ['aircon'],
   };
   return ALIASES[t]?.includes(c) ?? false;
 }
@@ -1576,6 +1592,12 @@ export function classifyItemTrade(section: string, name: string): string | null 
       bestTrade = trade;
     }
   }
+  // Priority: tabletop wins over stonework when both match (countertop/table top with marble/granite)
+  if (bestTrade === 'stonework' && bestScore > 0) {
+    let tabletopScore = 0;
+    for (const p of TRADE_PATTERNS_SHARED.tabletop || []) { if (p.test(text)) tabletopScore++; }
+    if (tabletopScore > 0) bestTrade = 'tabletop';
+  }
   return bestTrade;
 }
 
@@ -1583,12 +1605,13 @@ export function classifyItemTrade(section: string, name: string): string | null 
 // Trade key → display name mapping for VO tasks
 const TRADE_DISPLAY_NAMES: Record<string, string> = {
   demolition: 'Demolition', masonry: 'Construction', electrical: 'Electrical',
-  plumbing: 'Plumbing', tiling: 'Tiling', flooring: 'Tiling',
+  plumbing: 'Plumbing', tiling: 'Tiling', flooring: 'Flooring',
   painting: 'Painting', carpentry: 'Carpentry', tabletop: 'Tabletop',
-  falseCeiling: 'False Ceiling',
-  waterproofing: 'Waterproofing', aluminium: 'Aluminium', glass: 'Glass',
-  aircon: 'AC', stonework: 'Stone', metalwork: 'Metal Work',
+  falseCeiling: 'False Ceiling', waterproofing: 'Waterproofing',
+  aluminium: 'Aluminium', glass: 'Glass', aircon: 'AC',
+  stonework: 'Stone & Marble', metalwork: 'Metal Work',
   landscape: 'Landscape', curtain: 'Curtain', delivery: 'Delivery',
+  alarm: 'Alarm & CCTV', preliminary: 'Preliminary', cleaning: 'Cleaning',
 };
 
 export function detectTradeForVO(text: string): string {

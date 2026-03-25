@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createRawClient } from '@supabase/supabase-js';
-import { classifyItem } from '@/lib/utils/item-classifier';
+import { classifyItem, normalizeItemName, extractSupplyType } from '@/lib/utils/item-classifier';
 
 // Use untyped client to avoid Database schema constraint on new tables
 function getRawDb() {
@@ -103,13 +103,28 @@ export async function POST(request: Request) {
       }
 
       const unit = item.unit || 'unit';
-      const supplyType = item.supplyType || 'supply_install';
+      // extractSupplyType reads the prefix from the raw name; fall back to AI-detected value
+      const supplyType = extractSupplyType(item.name) || item.supplyType || 'supply_install';
+      const { name: cleanName, productNote } = normalizeItemName(item.name);
+
+      // Deduplicate: skip if same project already has this item at the same price
+      if (projectId) {
+        const { data: existing } = await db
+          .from('price_data_points')
+          .select('id')
+          .eq('project_id', projectId)
+          .eq('item_name', cleanName)
+          .eq('unit_price', item.unitPrice)
+          .maybeSingle();
+        if (existing) { skipped++; continue; }
+      }
 
       await db.from('price_data_points').insert({
         category: classification.category,
         subcategory: classification.subcategory,
         material_method: classification.materialMethod,
-        item_name: item.name,
+        item_name: cleanName,
+        product_note: productNote || null,
         unit,
         unit_price: item.unitPrice,
         supply_type: supplyType,

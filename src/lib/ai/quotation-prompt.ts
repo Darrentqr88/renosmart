@@ -1,175 +1,7 @@
-export const PRICE_REFERENCE = `
-MY/SG Designer Quotation Price Reference (2025-2026):
-IMPORTANT: These are DESIGNER-TO-HOMEOWNER prices (retail quotation prices), NOT contractor costs or wholesale prices.
-"Supply & Install" = material + labour included. "Labour Only" = workmanship only, material by owner.
-
-=== TILING (per sqft) ===
-LABOUR ONLY:
-- Floor & Wall Tiles 300x300 Labour Only: RM 4.5-10/sqft | SG $8-15/sqft
-- Floor & Wall Tiles 300x600 Labour Only: RM 5-10/sqft | SG $10-18/sqft
-- Floor & Wall Tiles 600x600 Labour Only: RM 6-12/sqft | SG $12-20/sqft
-- Floor & Wall Tiles 800x800 Labour Only: RM 6-12/sqft | SG $12-20/sqft
-- Floor & Wall Tiles 900x900 Labour Only: RM 7-14/sqft | SG $12-20/sqft
-- Floor & Wall Tiles 600x1200 Labour Only: RM 7-14/sqft | SG $12-20/sqft
-- Mosaic Tiles Labour Only: RM 9-18/sqft | SG $12-20/sqft
-SUPPLY & INSTALL Floor:
-- Floor 300x300 S&I: RM 13-22/sqft
-- Floor 300x600 S&I: RM 13-22/sqft
-- Floor 600x600 S&I: RM 15-26/sqft
-- Floor 800x800 S&I: RM 16-28/sqft
-- Floor 900x900 S&I: RM 17-32/sqft
-- Floor 600x1200 S&I: RM 18-35/sqft
-SUPPLY & INSTALL Wall:
-- Wall 300x300 S&I: RM 13-22/sqft
-- Wall 300x600 S&I: RM 13-22/sqft
-- Wall 600x600 S&I: RM 15-26/sqft
-- Wall 800x800 S&I: RM 16-28/sqft
-- Wall 900x900 S&I: RM 17-32/sqft
-- Wall 600x1200 S&I: RM 18-38/sqft
-- Feature/mosaic S&I: RM 25-45/sqft
-
-=== CONSTRUCTION (per sqft) ===
-- Build-up brick wall c/w plastering S&I: RM 22-35/sqft | SG $30-50/sqft
-- Build-up brick wall S&I: RM 22-35/sqft
-- Build-up brick wall w/o Plastering S&I: RM 15-25/sqft | SG $18-30/sqft
-- RC floor slab 150mm G25 S&I: RM 20-40/sqft | SG $50-75/sqft
-- RC floor slab 150mm G30 S&I: RM 28-55/sqft | SG $55-80/sqft
-- RC slab extension S&I: RM 145-190/sqft
-- Extension using Roofing S&I: RM 135-185/sqft
-- Concrete flooring c/w BRC S&I: RM 18-35/sqft | SG $22-48/sqft
-- Screed/Re-leveling S&I: RM 8-15/sqft | SG $12-22/sqft
-- Plastering finish S&I: RM 5-10/sqft | SG $8-15/sqft
-- Kerb (brick/concrete) S&I: RM 40-80/ft | SG $55-100/ft
-
-=== WATERPROOFING (per sqft) ===
-- Water proofing S&I: RM 12-35/sqft
-- Membrane S&I: RM 15-40/sqft
-- Water proofing For Roofing S&I: RM 25-70/sqft
-- 3 Layer water proofing S&I: RM 25-70/sqft
-- Bathroom (cementitious) S&I: RM 8-18/sqft | SG $12-25/sqft
-- Flat roof (torch-on membrane) S&I: RM 12-25/sqft | SG $18-35/sqft
-- Balcony/patio S&I: RM 10-20/sqft | SG $15-28/sqft
-
-=== ELECTRICAL (per point/unit) ===
-- Lighting point S&I (new wiring + cable): RM 60-110/pt | SG $80-150/pt
-- Lighting point S&I (>12ft height): RM 80-130/pt | SG $90-180/pt
-- 13A socket power point S&I: RM 85-150/pt | SG $100-220/pt
-- 15A socket power point S&I: RM 100-170/pt | SG $130-250/pt
-- 20A socket power point S&I: RM 150-300/pt | SG $150-300/pt
-- USB socket point S&I: RM 120-200/pt | SG $180-280/pt
-- Ceiling fan point S&I: RM 100-200/pt | SG $150-280/pt
-- Exhaust fan point S&I: RM 80-150/pt | SG $120-220/pt
-- Cove light point S&I: RM 120-250/pt | SG $180-350/pt
-- Downlight cutout + wiring: RM 35-60/pt | SG $50-85/pt
-- Re-locate existing point: RM 150-300/pt | SG $200-400/pt
-- Data/internet point (Cat5e/6): RM 200-400/pt | SG $300-600/pt
-- TV point S&I: RM 150-300/pt | SG $200-450/pt
-- Electrical labour only (install fitting): RM 15-35/pt | SG $25-50/pt
-- DB box upgrade (18-way): RM 800-1500/unit | SG $1200-2000/unit
-- DB box upgrade (36-way): RM 1200-2200/unit | SG $1800-3000/unit
-- DB box upgrade (48-way): RM 1800-2600/unit | SG $2200-3500/unit
-
-=== PAINTING (per sqft or L/sum) ===
-- Painting (interior 2-coat) S&I: RM 2.50-5.00/sqft | SG $3.50-7/sqft
-- Painting (skim coat + paint) S&I: RM 4-8/sqft | SG $6-12/sqft
-- Painting (exterior weather-shield) S&I: RM 3-6/sqft | SG $5-9/sqft
-- Re-paint existing roofing S&I: RM 2-4/sqft | SG $3-6/sqft
-- Touch-up Painting S&I: RM 1200-6500/L-sum
-
-=== FALSE CEILING (per sqft) ===
-- False ceiling (flat plasterboard) S&I: RM 4-8/sqft | SG $15-25/sqft
-- False ceiling c/w cove light S&I: RM 14-25/sqft | SG $20-32/sqft
-- False ceiling (L-box/design) S&I: RM 12-35/sqft | SG $25-50/sqft
-- False ceiling (calcium silicate) S&I: RM 12-20/sqft | SG $18-28/sqft
-- Partition wall (single layer) S&I: RM 10-22/sqft | SG $7-12/sqft
-
-=== CARPENTRY (per ft-run, Supply & Install) ===
-- Kitchen cabinet Solid plywood + laminated: RM 350-580/ft
-- Kitchen cabinet Solid plywood + Aluminum Glass: RM 420-700/ft
-- Kitchen cabinet Solid plywood + veneer: RM 435-685/ft
-- Kitchen cabinet (solid plywood + veneer premium): RM 550-1200/ft | SG $800-1800/ft
-- Kitchen cabinet (aluminium honeycomb/ACP): RM 450-900/ft | SG $600-1300/ft
-- Kitchen cabinet (solid nyatoh/rubber wood): RM 550-1800/ft | SG $1200-2500/ft
-- Kitchen cabinet Aluminum: RM 550-750/ft
-- Kitchen cabinet Aluminum & Glass: RM 550-750/ft
-- Kitchen cabinet Composite: RM 480-650/ft
-- Kitchen cabinet Aluminium Honeycomb: RM 580-920/ft
-- Wardrobe Aluminium Honeycomb: RM 1580-1880/ft
-- Kitchen Tall Cabinet: RM 780-1250/ft
-- Kitchen Tall Cabinet Honeycomb: RM 1350-1950/ft
-- Kitchen Tall Cabinet Aluminum: RM 950-1350/ft
-- Wardrobe (laminated swing door): RM 700-1200/ft | SG $1000-1800/ft
-- Wardrobe (laminated sliding): RM 800-1400/ft | SG $1200-2000/ft
-- Wardrobe (solid plywood): RM 900-1600/ft | SG $1300-2300/ft
-- TV console/feature wall: RM 320-500/ft | SG $300-750/ft
-- Shoe cabinet: RM 320-550/ft | SG $400-800/ft
-- Feature wall: RM 55-95/sqft
-- Display Cabinet: RM 680-1250/ft
-- Vanity cabinet: RM 350-700/ft | SG $500-1000/ft
-
-=== TABLE TOP (per ft-run, Supply & Install) ===
-- Quartz table top: RM 180-320/ft
-- Sintered Stone table top: RM 165-330/ft
-- Marble / Granite table top: RM 260-800/ft
-- Wood Postform top: RM 120-300/ft
-- Compressed table top: RM 250-650/ft
-
-=== PLUMBING (per unit) ===
-- Basin + mixer tap install S&I: RM 300-600/unit | SG $500-900/unit
-- WC floor-mount S&I: RM 400-800/unit | SG $600-1200/unit
-- WC wall-hung S&I: RM 800-1500/unit | SG $1200-2200/unit
-- Water heater install S&I: RM 200-500/unit | SG $350-700/unit
-- Rain shower set S&I: RM 400-900/unit | SG $600-1300/unit
-- Toilet bowl outlet piping S&I: RM 800-2000/L-sum | SG $1200-3000/L-sum
-- Inlet/outlet pipe for basin/tap S&I: RM 400-1000/L-sum | SG $600-1500/L-sum
-
-=== DEMOLITION (per sqft) ===
-- Hacking floor S&I: RM 3-8/sqft | SG $5-12/sqft
-- Hacking wall S&I: RM 5-12/sqft | SG $8-18/sqft
-- Hacking + re-leveling S&I: RM 12-22/sqft | SG $12-22/sqft
-- Dismantle Roofing S&I: RM 5-15/sqft
-
-=== ROOFING (per sqft) ===
-- Metal roofing (PU metal deck) S&I: RM 22-34/sqft | SG $30-48/sqft
-- Polycarbonate roof (twinwall) S&I: RM 25-35/sqft | SG $25-42/sqft
-- Glass roofing (tempered) S&I: RM 55-90/sqft | SG $75-125/sqft
-
-=== ALUMINIUM & GLASS (per sqft) ===
-- Aluminium casement window S&I: RM 40-95/sqft | SG $150-350/sqft
-- Aluminium sliding door S&I: RM 60-150/sqft | SG $180-400/sqft
-- Glass shower screen (10mm) S&I: RM 35-90/sqft | SG $65-130/sqft
-- Tempered glass fix panel S&I: RM 40-100/sqft | SG $75-140/sqft
-- Mirror (standard) S&I: RM 18-40/sqft | SG $30-55/sqft
-- Aluminium Folding door S&I: RM 110-175/sqft | SG $110-175/sqft
-
-=== FLOORING (per sqft) ===
-- Vinyl SPC click-lock S&I: RM 6-12/sqft | SG $8-18/sqft
-- Laminated Floor S&I: RM 7-18/sqft
-- Timber engineered S&I: RM 15-28/sqft | SG $18-40/sqft
-- Composite decking S&I: RM 45-90/sqft | SG $60-120/sqft
-
-=== LANDSCAPE (per sqft) ===
-- Carpet grass (artificial turf) S&I: RM 8-18/sqft | SG $12-25/sqft
-- Landscape soil + carpet grass S&I: RM 8-18/sqft | SG $12-25/sqft
-- Artificial grass S&I: RM 11-25/sqft | SG $22-48/sqft
-
-=== OTHERS ===
-- Air conditioning 1.5HP split inverter S&I: RM 1800-3500/unit | SG $2500-4500/unit
-- Metal railing mild steel powder coated S&I: RM 180-350/ft | SG $120-250/ft
-- Metal steel fencing S&I: RM 50-80/sqft | SG $50-110/sqft
-- PVC wall panel S&I: RM 20-50/sqft | SG $30-70/sqft
-- Staircase (metal I-beam structure) S&I: RM 15000-35000/L-sum | SG $22000-50000/L-sum
-- Staircase (wood step + handrail) S&I: RM 30000-60000/L-sum | SG $45000-85000/L-sum
-`;
-
 export function buildQuotationPrompt(textForAI: string, outputLang: string, dbPriceRef?: string): string {
-  // Always include the hardcoded PRICE_REFERENCE baseline.
-  // If live price_database data is available (≥10 samples), append it as higher-confidence supplement.
-  const priceSection = `
-Market price reference — MY/SG designer quotation prices 2025-2026 (retail to homeowner):
-${PRICE_REFERENCE}
-${dbPriceRef ? `\nLive market data (from price_database — higher confidence, use these over above when available):\n${dbPriceRef}` : ''}
-`;
+  const priceSection = dbPriceRef
+    ? `Market price reference (MY/SG 2025-2026, verified market data):\n${dbPriceRef}`
+    : `Market price reference (baseline): Tiling S&I RM15-35/sqft | Electrical pt RM80-180 | Painting RM2.5-5/sqft | Carpentry RM350-1800/ft | Plumbing RM300-800/unit`;
 
   return `You are a senior Quantity Surveyor (QS) AI for Malaysia and Singapore renovation projects.
 Audit the quotation below — parse ALL items AND catch problems. Return ONLY valid JSON. No markdown.
@@ -181,46 +13,62 @@ ${textForAI}
 \`\`\`
 
 RULES:
-1. CLIENT vs CONTRACTOR: "client" = property OWNER paying (look for "To:", "Attn:", "Bill To:"). The issuing company is the contractor — do NOT put in client. Leave client fields empty if unclear.
-2. Section totals → subtotals array only (not items).
-3. Copy item names VERBATIM. Do NOT translate English names.
-4. warn/flag items: add "note" (max 20 chars) on price issue.
-5. Items: include ALL line items in ORIGINAL order. Do NOT sort by value. Do NOT skip items. Include "page" field (1-based integer) from "--- Page N ---" markers.
-6. status: "ok"|"warn"|"flag"|"nodata"
-7. supplyType per item: "supply_install"|"labour_only"|"supply_only"
-8. projectType: detect from address/content/amount. Values: "condo"|"apartment"|"landed_terrace"|"landed_semid"|"landed_bungalow"|"shop_lot"|"commercial"|"mall"|"factory". Default "landed_terrace".
-9. projectSqft: estimate from context.
-10. QS AUDIT alerts (max 8 critical + 6 warnings + 4 tips, each desc under 150 chars):
-    MISSING: waterproofing for wet areas, DB upgrade, painting primer, door hardware, water heater; gate/fence (landed); fire suppression (commercial); M&E first fix, false ceiling, cleaning, site management preliminaries.
-    WATERPROOFING RULES (IMPORTANT):
-      - Landed property Ground Floor (GF): waterproofing is NOT required for ground-level wet areas (bathroom/kitchen) — ground slabs sit on soil with natural drainage. Do NOT flag missing waterproofing for GF wet areas in landed houses.
-      - Landed property Upper Floors (1F, 2F, etc.): waterproofing IS required for bathrooms/wet areas above ground level.
-      - Condo / Apartment (ALL floors): waterproofing IS required — concrete slab over occupied unit below.
-      - Balcony / Roof terrace / RC slab extension: waterproofing IS required regardless of property type.
-    PRICE: flag >50% above market; warn 20-50% above or >30% below. Cite exactly: "Market RM X-Y/unit, Quoted RM Z/unit".
-    PRICE COMPARISON RULES (IMPORTANT):
-      - Match unit types: compare sqft prices with sqft references, per-point with per-point, per-unit with per-unit. Never compare different unit types.
-      - Consider supplyType: "supply_install" prices include material — compare with S&I reference. "labour_only" is cheaper — compare with labour-only reference.
-      - Consider material grade: basic tiles vs premium tiles have very different ranges. Use subcategory/materialMethod to pick the right reference range.
-      - RC slab / structural concrete items are specialty pricing — use Construction reference (RM 35-65/sqft for RC slab), not general construction rates.
-      - If unit is "lot" or "set" (lump sum), derive per-sqft or per-unit price from qty before comparing.
-    CALC ERRORS: qty×unitPrice≠total by >1% → flag as critical.
-    COORDINATION: tiling without waterproofing on upper floors or condo → critical. GF landed is exempt.
+1. CLIENT vs CONTRACTOR: "client" = property OWNER paying (To:/Attn:/Bill To:/业主:). The issuing company is the contractor — do NOT put in client.
+2. Section totals → subtotals array only. Never as items.
+3. Copy item names VERBATIM. Never translate English names to Chinese or vice versa.
+4. warn/flag items: add "note" ≤20 chars describing the price issue. Empty string if ok.
+5. Items: include ALL line items in ORIGINAL document order. Do NOT sort. Do NOT skip. Include "page" (1-based integer from "--- Page N ---" markers).
+6. status: "ok"=price normal | "warn"=20-50% above or >30% below | "flag"=>50% above | "nodata"=no reference found
+7. supplyType detection:
+   "supply_install" = "Supply and Install"/"S&I"/"Supply to "/"包工包料"/"连安装"/no supply mention (default)
+   "labour_only"    = "Labour Only"/"工人费"/"人工"/"安装费 only"/"不含材料"
+   "supply_only"    = "Supply Only"/"Material Only"/"供料"/"不含安装"
+   DEFAULT: if no supply type is mentioned, assume "supply_install"
+8. projectType: "condo"|"apartment"|"landed_terrace"|"landed_semid"|"landed_bungalow"|"shop_lot"|"commercial"|"mall"|"factory". Default "landed_terrace".
+9. projectSqft: estimate from floor plan references, item quantities, or address context.
+10. QS AUDIT — Malaysia / Singapore Professional QS Audit:
+    MISSING ITEMS: The examples below are not exhaustive — use professional QS judgement to identify any serious missing scope in the quotation.
+    Common critical missing: waterproofing (wet areas), DB upgrade, water heater, site prelims/management fee, cleaning, M&E first fix (roughin wiring/piping).
+    CONSTRUCTION MISSING (flag if renovation scope implies but not quoted):
+    - Demolition/hacking (if floors/walls replaced but no hacking item)
+    - Debris disposal / lorry skip bin
+    - Structural support / beam / column (if load-bearing wall removal mentioned)
+    - Protective hoarding (commercial/mall projects)
+    WATERPROOFING:
+    - Landed GF wet areas: NOT required. Do NOT flag.
+    - Landed upper floors (1F+): REQUIRED for bathrooms, balcony, laundry.
+    - Condo/apartment ALL floors: REQUIRED for all wet areas.
+    - RC slab roof / Balcony / Extension / water feature: ALWAYS required.
+    PRICE: flag >50% above; warn 20-50% above or >30% below.
+    Cite: "Market RM X-Y/unit, Quoted RM Z/unit". Match unit types. Consider supplyType + material grade.
+    CALC ERROR: qty × unitPrice ≠ total by >1% → flag critical.
+    COORDINATION: tiling + no waterproofing (condo/upper floor) → critical.
+    ALERTS: max 8 critical + 6 warning + 4 info. Each desc ≤150 chars.
 11. paymentTerms: extract if present, else [].
-12. subcategory + materialMethod: classify each item per its trade. Examples:
-    Tiling: "Floor Tiles"+"600x600", "Wall Tiles"+"300x600"
-    Carpentry: "Kitchen Cabinet"+"Laminated", "Vanity Cabinet"+"Laminated", "Wardrobe"+"Sliding Door"
-    Tabletop: "Kitchen Countertop"+"Quartz Surface", "Bathroom Countertop"+"Solid Surface", "Bar Countertop"+"Sintered Stone"
-    NOTE: Vanity cabinet / basin cabinet = CARPENTRY (not Plumbing). Table top / countertop = TABLETOP (not Carpentry).
-    Tabletop materials: Solid Surface | Quartz Surface | Marble & Granite | Wooden Postform | Compressed | Sintered Stone | Stainless Steel
-13. estMinPrice, estMaxPrice: estimate MY/SG DESIGNER QUOTATION price range per the SAME unit as the quoted item (what designers typically charge homeowners, NOT contractor cost/wholesale).
-    - MUST match the item's unit type (sqft, point, unit, ft, lot, set, etc.)
-    - Consider supplyType: S&I includes material cost; labour_only is significantly cheaper
-    - Consider material grade and specifications from the item name/description
-    - For lump-sum items (lot/set), estimate the per-unit equivalent if possible, or give a reasonable range for the whole lot
-    - Reference the PRICE_REFERENCE data above — pick the closest matching category, size, and supply type
-    - These are critical for price scoring. Never leave as 0.
-14. missingCritical: array of up to 6 critical missing items. Each MUST have an estimated cost range based on PRICE_REFERENCE and projectSqft. Only include items truly absent from the quotation.
+12. subcategory + materialMethod per item:
+    Tiling:        "Floor Tiles"+"600x600" | "Floor Tiles"+"300x300" | "Wall Tiles"+"300x600" | "Mosaic"+"Feature" | "Marble"+"Floor" | "Marble"+"Wall" | "Granite"+"Floor" | "Natural Stone"+"Floor" | "Artificial Stone"+"Floor"
+    Carpentry:     "Kitchen Cabinet"+"Laminated" | "Wardrobe"+"Sliding Door" | "Vanity Cabinet"+"Laminated" | "TV Console"+"Laminated"
+    Tabletop:      "Kitchen Countertop"+"Quartz Surface" | "Bathroom Countertop"+"Solid Surface" | "Bar Countertop"+"Sintered Stone"
+    Plumbing:      "Basin"+"Mixer Tap" | "WC"+"Wall Hung" | "WC"+"Floor Mount" | "Rain Shower"+"Set" | "Water Heater"+"Instant"
+    Electrical:    "Power Point"+"13A" | "Lighting Point"+"Standard" | "DB Box"+"18-way" | "Ceiling Fan"+"Point"
+    Painting:      "Interior Wall"+"2-Coat" | "Skim Coat"+"+ Paint" | "Exterior"+"Weather Shield"
+    False Ceiling: "Flat Plasterboard"+"Standard" | "L-Box"+"Cove Light" | "Design Ceiling"+"Premium"
+    Flooring:      "SPC Vinyl"+"Click Lock" | "Timber Engineered"+"Standard" | "Laminated Floor"+"Standard"
+    Glass:         "Shower Screen"+"10mm Tempered" | "Fix Panel"+"Tempered" | "Mirror"+"Standard"
+    Aluminium:     "Casement Window"+"Standard" | "Sliding Door"+"Standard" | "Folding Door"+"Standard"
+    AC:            "Split Unit"+"1.5HP" | "Split Unit"+"2.5HP" | "Cassette Unit"+"Standard"
+    Demolition:    "Hacking Floor"+"Standard" | "Hacking Wall"+"Standard"
+    Waterproofing: "Bathroom"+"Cementitious" | "Flat Roof"+"Torch-On" | "Balcony"+"Standard"
+    Construction:  "Brick Wall"+"With Plastering" | "RC Slab"+"150mm G25" | "Screed"+"Re-leveling" | "Extension"+"RC Slab" | "Construct"+"Standard" | "Conceal"+"Window"
+    Landscape:     "Artificial Turf"+"Roll" | "Carpet Grass"+"Natural" | "Planting"+"Standard" | "Landscape"+"General"
+    CCTV & Alarm:  "CCTV Camera"+"Indoor" | "CCTV Camera"+"Outdoor" | "Alarm System"+"Standard" | "Access Control"+"Standard"
+    Metal Work:    "Mild Steel Gate"+"Powder Coated" | "Metal Railing"+"Standard" | "Metal Grille"+"Standard" | "Steel Door"+"Standard" | "Roofing"+"Polycarbonate" | "Roofing"+"Zinc" | "Roofing"+"PU Metal" | "Roofing"+"Aluminium Panel" | "Roofing"+"Composite"
+    Cleaning:      "Post-renovation Cleaning"+"Standard" | "Deep Cleaning"+"Standard"
+    Curtain:       "Curtain"+"Day Night" | "Curtain Track"+"Standard" | "Roller Blind"+"Standard" | "Sheer Curtain"+"Standard"
+    NOTE: Vanity/basin cabinet = Carpentry. Countertop/tabletop = Tabletop (not Carpentry).
+13. estMinPrice + estMaxPrice: designer-to-homeowner quote price in MY/SG. NOT contractor cost. Match item's unit + supplyType + material grade. Never leave as 0.
+14. missingCritical: ≤6 critical absent items. Each: item, reason, estimatedCost (use price reference + projectSqft), urgency.
+15. Unit normalization: "lot"/"set" with qty>1 → derive per-unit. Lump-sum → qty=1, unitPrice=total, unitPriceDerived=true.
 
 IMPORTANT: Output missing/missingCritical/alerts BEFORE items array to ensure they are not truncated.
 
@@ -467,8 +315,8 @@ export async function fetchDbPriceReference(
 
     return lines.join('\n');
   } catch {
-    // On error, return '' — PRICE_REFERENCE baseline is already included in buildQuotationPrompt
-    return '';
+    // On error, return minimal fallback so AI still has basic price context
+    return 'Tiling S&I RM15-35/sqft | Electrical pt RM80-180 | Painting RM2.5-5/sqft | Carpentry RM350-1800/ft | Plumbing RM300-800/unit';
   }
 }
 
