@@ -4,11 +4,10 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useI18n } from '@/lib/i18n/context';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { BarChart2, FileText, CreditCard, Camera, Bell, LogOut } from 'lucide-react';
+import { BarChart2, FileText, CreditCard, Camera, CheckSquare, LogOut, CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { VariationOrder, VOItem } from '@/types';
 
 export default function OwnerDashboard() {
   const { t } = useI18n();
@@ -16,22 +15,64 @@ export default function OwnerDashboard() {
   const supabase = createClient();
   const [project, setProject] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [variationOrders, setVariationOrders] = useState<VariationOrder[]>([]);
+  const [voLoading, setVoLoading] = useState(false);
+  const [expandedVOId, setExpandedVOId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      // Owner sees project linked to them
       const { data } = await supabase.from('projects').select('*').eq('owner_email', session.user.email).single();
       setProject(data);
+      if (data?.id) {
+        const { data: vos } = await supabase
+          .from('variation_orders')
+          .select('*')
+          .eq('project_id', data.id)
+          .order('created_at', { ascending: false });
+        if (vos) setVariationOrders(vos as VariationOrder[]);
+      }
       setLoading(false);
     })();
   }, []);
+
+  const handleVOAction = async (voId: string, action: 'approved' | 'rejected') => {
+    setVoLoading(true);
+    try {
+      const updates = {
+        status: action,
+        ...(action === 'approved' ? { approved_at: new Date().toISOString() } : {}),
+      };
+      let { error } = await supabase
+        .from('variation_orders')
+        .update(updates)
+        .eq('id', voId);
+      // Fallback: approved_at column may not exist yet (migration pending)
+      if (error?.message?.includes('approved_at')) {
+        const { error: retryErr } = await supabase
+          .from('variation_orders')
+          .update({ status: action })
+          .eq('id', voId);
+        error = retryErr ?? null;
+      }
+      if (error) {
+        console.error('VO action error:', error);
+        return;
+      }
+      setVariationOrders(prev => prev.map(v => v.id === voId ? { ...v, ...updates } : v));
+    } finally {
+      setVoLoading(false);
+    }
+  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push('/login');
   };
+
+  const pendingVOs = variationOrders.filter(v => v.status === 'pending');
+  const historyVOs = variationOrders.filter(v => v.status !== 'pending');
 
   return (
     <div className="min-h-screen bg-[#E8ECF0] flex items-center justify-center p-4">
@@ -86,12 +127,17 @@ export default function OwnerDashboard() {
                 { value: 'docs', icon: FileText, label: '文件' },
                 { value: 'payments', icon: CreditCard, label: '付款' },
                 { value: 'photos', icon: Camera, label: '照片' },
-                { value: 'notifications', icon: Bell, label: '通知' },
-              ].map(({ value, icon: Icon, label }) => (
+                { value: 'approvals', icon: CheckSquare, label: '审批', badge: pendingVOs.length },
+              ].map(({ value, icon: Icon, label, badge }) => (
                 <TabsTrigger key={value} value={value}
-                  className="flex flex-col items-center gap-0.5 rounded-none text-xs data-[state=active]:text-[#4F8EF7] data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#4F8EF7] h-full">
+                  className="flex flex-col items-center gap-0.5 rounded-none text-xs data-[state=active]:text-[#4F8EF7] data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#4F8EF7] h-full relative">
                   <Icon className="w-4 h-4" />
                   {label}
+                  {badge != null && badge > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center font-bold">
+                      {badge}
+                    </span>
+                  )}
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -154,11 +200,137 @@ export default function OwnerDashboard() {
               </div>
             </TabsContent>
 
-            <TabsContent value="notifications" className="flex-1 p-4 overflow-y-auto mt-0">
-              <div className="text-center py-8 text-gray-400 text-sm">
-                <Bell className="w-8 h-8 mx-auto mb-2 text-gray-200" />
-                No notifications yet.
-              </div>
+            {/* ── Approvals Tab ── */}
+            <TabsContent value="approvals" className="flex-1 p-4 overflow-y-auto mt-0">
+              {loading ? (
+                <div className="text-center text-gray-400 py-8">Loading...</div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Pending VOs */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-amber-500" />
+                      待审批 ({pendingVOs.length})
+                    </h3>
+                    {pendingVOs.length === 0 ? (
+                      <div className="text-center py-6 bg-gray-50 rounded-xl text-gray-400 text-sm">
+                        <CheckCircle2 className="w-6 h-6 mx-auto mb-1 text-gray-200" />
+                        暂无待审批变更单
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {pendingVOs.map(vo => {
+                          const voItemList: VOItem[] = (vo.items as VOItem[] | undefined) || [];
+                          const isExpanded = expandedVOId === vo.id;
+                          return (
+                            <div key={vo.id} className="bg-white rounded-xl border border-amber-200 border-l-4 border-l-amber-400 p-4 shadow-sm">
+                              <div className="flex items-start justify-between gap-3 mb-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs font-mono font-bold text-gray-500">{vo.vo_number}</span>
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">待审批</span>
+                                  </div>
+                                  <p className="text-sm font-medium text-gray-900">{vo.description}</p>
+                                  <p className="text-xs text-gray-400 mt-0.5">{formatDate(vo.created_at)}</p>
+                                </div>
+                                <div className="text-right flex-shrink-0">
+                                  <div className="text-base font-bold text-gray-900">
+                                    {vo.amount > 0 ? '+' : ''}{formatCurrency(vo.amount)}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Items expand */}
+                              {voItemList.length > 0 && (
+                                <div className="mb-3">
+                                  <button
+                                    onClick={() => setExpandedVOId(isExpanded ? null : vo.id)}
+                                    className="flex items-center gap-1 text-xs text-[#4F8EF7] hover:underline"
+                                  >
+                                    {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                    {isExpanded ? '收起明细' : `查看明细 (${voItemList.length} 项)`}
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="mt-2 overflow-x-auto rounded-lg border border-gray-100">
+                                      <table className="w-full text-xs">
+                                        <thead>
+                                          <tr className="bg-gray-50 text-gray-500">
+                                            <th className="px-2 py-1.5 text-left w-6">#</th>
+                                            <th className="px-2 py-1.5 text-left">说明</th>
+                                            <th className="px-2 py-1.5 text-right">小计</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {voItemList.map((item, idx) => (
+                                            <tr key={idx} className="border-t border-gray-100">
+                                              <td className="px-2 py-1.5 text-gray-400">{item.no || idx + 1}</td>
+                                              <td className="px-2 py-1.5 text-gray-700">{item.description}</td>
+                                              <td className="px-2 py-1.5 text-right font-medium">RM {Number(item.total || 0).toFixed(2)}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Action buttons */}
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleVOAction(vo.id, 'approved')}
+                                  disabled={voLoading}
+                                  className="flex-1 py-2 rounded-lg bg-green-500 text-white text-sm font-semibold hover:bg-green-600 disabled:opacity-50 flex items-center justify-center gap-1.5 transition-colors"
+                                >
+                                  <CheckCircle2 className="w-4 h-4" /> 接受变更
+                                </button>
+                                <button
+                                  onClick={() => handleVOAction(vo.id, 'rejected')}
+                                  disabled={voLoading}
+                                  className="flex-1 py-2 rounded-lg bg-red-50 text-red-600 border border-red-200 text-sm font-semibold hover:bg-red-100 disabled:opacity-50 flex items-center justify-center gap-1.5 transition-colors"
+                                >
+                                  <XCircle className="w-4 h-4" /> 拒绝
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* History VOs */}
+                  {historyVOs.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-2">审批记录</h3>
+                      <div className="space-y-2">
+                        {historyVOs.map(vo => (
+                          <div key={vo.id} className={`bg-white rounded-xl border p-3 border-l-4 ${vo.status === 'approved' ? 'border-l-green-500 border-green-100' : 'border-l-red-400 border-red-100'}`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="text-xs font-mono text-gray-500">{vo.vo_number}</span>
+                                  {vo.status === 'approved'
+                                    ? <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-50 text-green-600">✓ 已接受</span>
+                                    : <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-50 text-red-500">✗ 已拒绝</span>
+                                  }
+                                </div>
+                                <p className="text-xs text-gray-700 truncate">{vo.description}</p>
+                                {vo.approved_at && (
+                                  <p className="text-xs text-gray-400">{formatDate(vo.approved_at)}</p>
+                                )}
+                              </div>
+                              <div className={`text-sm font-bold flex-shrink-0 ${vo.status === 'rejected' ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                                +{formatCurrency(vo.amount)}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </div>

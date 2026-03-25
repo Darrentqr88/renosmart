@@ -12,12 +12,12 @@ import { GanttChart, GanttWorkerInfo } from '@/components/gantt/GanttChart';
 import { TaskDetailPanel } from '@/components/gantt/TaskDetailPanel';
 import { generateGanttTasks, generateGanttFromQuotation, generateGanttFromAIParams, appendVOTask, addWorkdays, detectTradeForVO, forwardReschedule, fullReschedule } from '@/lib/utils/gantt-rules';
 import { isWorkday, preloadHolidays } from '@/lib/utils/dates';
-import { Project, PaymentPhase, GanttTask, GanttTaskStatus, VariationOrder, GanttParams } from '@/types';
+import { Project, PaymentPhase, GanttTask, GanttTaskStatus, VariationOrder, VOItem, GanttParams } from '@/types';
 import {
   ArrowLeft, BarChart2, CreditCard, User, Camera, FileText, GitBranch,
   Plus, TrendingUp, TrendingDown, Star, Trash2, GitCompare,
   CheckCircle2, XCircle, Clock, AlertTriangle,
-  Upload, Receipt, Printer, Eye, Loader2, X, Search, UserCheck, Send,
+  Upload, Receipt, Printer, Eye, Loader2, X, Search, UserCheck, Send, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
@@ -152,9 +152,13 @@ export default function ProjectDetailPage() {
   const [viewingQuotation, setViewingQuotation] = useState<QuotationVersionLocal | null>(null);
   const [quotationViewTab, setQuotationViewTab] = useState<'items' | 'audit'>('items');
 
-  // VO document OCR
+  // VO document OCR + form state
   const [voScanState, setVoScanState] = useState<'idle' | 'scanning' | 'done'>('idle');
   const voFileRef = useRef<HTMLInputElement>(null);
+  const [voItems, setVoItems] = useState<VOItem[]>([]);
+  const [voFileName, setVoFileName] = useState('');
+  const [voItemsExpanded, setVoItemsExpanded] = useState(false);
+  const [expandedVOId, setExpandedVOId] = useState<string | null>(null);
 
   // Designer receipt upload
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -862,17 +866,20 @@ export default function ProjectDetailPage() {
       const resp = await fetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: base64, mimeType }),
+        body: JSON.stringify({ imageBase64: base64, mimeType, type: 'vo' }),
       });
       const data = await resp.json();
-      if (data.supplier || data.total_amount) {
-        // Auto-fill VO form
-        const desc = data.items?.[0]?.description || data.supplier || '变更内容';
-        const amt = data.total_amount || 0;
-        setVoDescription(desc);
+      if (data.items || data.total_amount) {
+        const allItems: VOItem[] = data.items || [];
+        const amt = data.total_amount || allItems.reduce((s: number, i: VOItem) => s + (i.total || 0), 0);
+        const title = data.title || allItems[0]?.description || '变更内容';
+        setVoItems(allItems);
+        setVoFileName(file.name);
+        setVoDescription(title);
         setVoAmount(String(amt));
+        setVoItemsExpanded(false);
         setShowAddVO(true);
-        toast({ title: '✅ OCR 识别成功', description: `已提取金额 RM ${amt}` });
+        toast({ title: '✅ OCR 识别成功', description: `已提取 ${allItems.length} 项，金额 RM ${amt}` });
       }
     } catch {
       toast({ title: 'OCR 识别失败', variant: 'destructive' });
@@ -898,6 +905,71 @@ export default function ProjectDetailPage() {
       <tbody>${rows}</tbody></table>
       <p class="total">Total: RM ${(qv.total_amount || 0).toLocaleString('en-MY', { minimumFractionDigits: 2 })}</p>
       <script>window.onload=function(){window.print();}</script>
+      </body></html>`);
+    win.document.close();
+  };
+
+  const printVO = (vo: VariationOrder) => {
+    const win = window.open('', '_blank');
+    if (!win) return;
+    const items = vo.items || [];
+    const rows = items.map(i =>
+      `<tr>
+        <td>${i.no || ''}</td>
+        <td>${i.description}</td>
+        <td style="text-align:right">${i.qty != null ? i.qty : ''} ${i.unit || ''}</td>
+        <td style="text-align:right">${i.unit_price != null ? 'RM ' + Number(i.unit_price).toFixed(2) : ''}</td>
+        <td style="text-align:right">RM ${Number(i.total || 0).toFixed(2)}</td>
+      </tr>`
+    ).join('');
+    const fallbackRow = items.length === 0
+      ? `<tr><td colspan="5" style="text-align:center;color:#999">${vo.description}</td></tr>`
+      : '';
+    win.document.write(`
+      <html><head><title>${vo.vo_number} — ${project?.name || ''}</title>
+      <style>
+        body{font-family:Arial,sans-serif;padding:32px;font-size:12px;color:#222}
+        h2{font-size:16px;margin-bottom:4px}
+        .meta{color:#666;font-size:11px;margin-bottom:16px}
+        .status{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;margin-left:8px}
+        .status-pending{background:#fef9c3;color:#854d0e}
+        .status-approved{background:#dcfce7;color:#166534}
+        .status-rejected{background:#fee2e2;color:#991b1b}
+        table{width:100%;border-collapse:collapse;margin-top:12px}
+        th,td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left}
+        th{background:#f9fafb;font-weight:600;font-size:11px}
+        .total-row{font-weight:700;background:#f0fdf4}
+        .total-row td{font-size:13px}
+      </style></head>
+      <body>
+        <h2>${project?.name || 'Project'} — ${vo.vo_number}</h2>
+        <div class="meta">
+          ${vo.description}
+          &nbsp;·&nbsp; ${vo.created_at.slice(0, 10)}
+          &nbsp;·&nbsp; ${project?.address || ''}
+          <span class="status status-${vo.status}">${vo.status === 'approved' ? '✓ Approved' : vo.status === 'rejected' ? '✗ Rejected' : '⏳ Pending'}</span>
+          ${vo.approved_at ? `<span style="margin-left:8px;color:#666">Approved: ${vo.approved_at.slice(0, 10)}</span>` : ''}
+          ${vo.file_name ? `<span style="margin-left:8px;color:#666">Source: ${vo.file_name}</span>` : ''}
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:40px">#</th>
+              <th>Description</th>
+              <th style="text-align:right;width:100px">Qty / Unit</th>
+              <th style="text-align:right;width:100px">Unit Price</th>
+              <th style="text-align:right;width:110px">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}${fallbackRow}
+            <tr class="total-row">
+              <td colspan="4" style="text-align:right">Total</td>
+              <td style="text-align:right">RM ${Number(vo.amount).toLocaleString('en-MY', { minimumFractionDigits: 2 })}</td>
+            </tr>
+          </tbody>
+        </table>
+        <script>window.onload = function(){ window.print(); };</script>
       </body></html>`);
     win.document.close();
   };
@@ -929,21 +1001,42 @@ export default function ProjectDetailPage() {
     const voNumber = `VO-${String(variationOrders.length + 1).padStart(3, '0')}`;
     const amount = parseFloat(voAmount) || 0;
 
-    const { data, error } = await supabase.from('variation_orders').insert({
+    // Try insert with items+file_name; if column doesn't exist yet, fallback without
+    let insertPayload: Record<string, unknown> = {
       project_id: id,
+      user_id: session.user.id,
       vo_number: voNumber,
       description: voDescription,
       amount,
       status: 'pending',
-    }).select().single();
+      items: voItems,
+      file_name: voFileName || null,
+    };
+
+    let { data, error } = await supabase.from('variation_orders').insert(insertPayload).select().single();
+
+    // Fallback: if items/file_name columns don't exist yet (migration pending), retry without them
+    if (error && (error.message?.includes('items') || error.message?.includes('file_name') || error.code === '42703')) {
+      const { items: _i, file_name: _f, ...fallbackPayload } = insertPayload;
+      const fallback = await supabase.from('variation_orders').insert(fallbackPayload).select().single();
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (!error && data) {
-      setVariationOrders(prev => [data, ...prev]);
+      // Merge voItems into the returned record (in case fallback was used)
+      const voRecord = { ...data, items: voItems, file_name: voFileName || null } as VariationOrder;
+      setVariationOrders(prev => [voRecord, ...prev]);
       setVoDescription('');
       setVoAmount('');
       setVoNotes('');
+      setVoItems([]);
+      setVoFileName('');
+      setVoItemsExpanded(false);
       setShowAddVO(false);
-      toast({ title: 'Variation order added', description: `${voNumber} pending approval` });
+      toast({ title: 'Variation order added', description: `${voNumber} pending owner approval` });
+    } else if (error) {
+      toast({ title: '保存失败', description: error.message, variant: 'destructive' });
     }
   };
 
@@ -951,57 +1044,148 @@ export default function ProjectDetailPage() {
     const vo = variationOrders.find(v => v.id === voId);
     if (!vo) return;
 
+    // ── Guard: no-op if already in target status ──────────────────────────
+    if (vo.status === newStatus) return;
+
     const updates: Partial<VariationOrder> & { approved_at?: string } = {
       status: newStatus,
       ...(newStatus === 'approved' ? { approved_at: new Date().toISOString() } : {}),
     };
 
-    await supabase.from('variation_orders').update(updates).eq('id', voId);
+    let { error: voUpdateErr } = await supabase
+      .from('variation_orders')
+      .update(updates)
+      .eq('id', voId);
+
+    // Fallback: if approved_at column doesn't exist yet (migration pending), retry with status only
+    if (voUpdateErr?.message?.includes('approved_at')) {
+      const { error: retryErr } = await supabase
+        .from('variation_orders')
+        .update({ status: newStatus })
+        .eq('id', voId);
+      voUpdateErr = retryErr ?? null;
+    }
+
+    if (voUpdateErr) {
+      console.error('variation_orders update error:', voUpdateErr);
+      toast({ title: '状态保存失败', description: voUpdateErr.message, variant: 'destructive' });
+      return;
+    }
     setVariationOrders(prev => prev.map(v => v.id === voId ? { ...v, ...updates } : v));
 
     if (newStatus === 'approved' && project) {
-      // Update contract amount
-      const newContractAmount = (project.contract_amount || 0) + (vo.status !== 'approved' ? vo.amount : 0);
+      // ── 1. Contract amount (only add if not already approved) ─────────────
+      const newContractAmount = (project.contract_amount || 0) + vo.amount;
       await supabase.from('projects').update({ contract_amount: newContractAmount }).eq('id', id);
       setProject(prev => prev ? { ...prev, contract_amount: newContractAmount } : prev);
       setContractDirty(true);
-      toast({ title: 'VO Approved', description: `Contract updated to ${fmtCurrency(newContractAmount)}` });
+      toast({ title: 'VO 已批准', description: `合同总额更新为 ${fmtCurrency(newContractAmount)}` });
 
-      // Append VO task to Gantt (auto insert before handover)
+      // ── 2. Gantt: append VO tasks ─────────────────────────────────────────
       const region: 'MY' | 'SG' = (() => {
         const addr = (project?.address || '').toLowerCase();
         return addr.includes('singapore') || addr.includes(', sg') ? 'SG' : 'MY';
       })();
-      const newTasksWithVO = appendVOTask(ganttTasks, vo.id, vo.description, vo.amount, id as string, region);
+      const newTasksWithVO = appendVOTask(ganttTasks, vo.id, vo.description, vo.amount, id as string, region, false, false, vo.items);
       setGanttTasks(newTasksWithVO);
       setIsDirty(false);
-      // Save updated tasks to DB
-      await supabase.from('gantt_tasks').delete().eq('project_id', id);
-      await supabase.from('gantt_tasks').insert(
+      const { error: upsertErr } = await supabase.from('gantt_tasks').upsert(
         newTasksWithVO.map(t => ({
           id: t.id, project_id: t.project_id, name: t.name, name_zh: t.name_zh,
           trade: t.trade, start_date: t.start_date, end_date: t.end_date,
           duration: t.duration, progress: t.progress, dependencies: t.dependencies,
           color: t.color, is_critical: t.is_critical,
           subtasks: t.subtasks, assigned_workers: t.assigned_workers,
-        }))
+        })),
+        { onConflict: 'id' }
       );
-      toast({ title: '📋 进度表已更新', description: `VO「${vo.description}」已加入施工排程` });
+      if (upsertErr) console.error('gantt_tasks upsert error:', upsertErr);
+      else toast({ title: '📋 进度表已更新', description: `VO「${vo.description}」已加入施工排程` });
 
-      // Auto-add VO as payment phase
-      const voPhaseNumber = payments.length + 1;
-      const { data: newPay } = await supabase.from('payment_phases').insert({
-        project_id: id,
-        phase_number: voPhaseNumber,
-        label: `${vo.vo_number}: ${vo.description}`,
-        amount: vo.amount,
-        percentage: 0,
-        status: 'not_due',
-      }).select().single();
-      if (newPay) setPayments(prev => [...prev, newPay]);
+      // ── 3. Payment phase — only insert if none exists for this VO ─────────
+      const voLabel = `${vo.vo_number}: ${vo.description}`;
+      const alreadyExists = payments.some(p => p.label === voLabel);
+      if (!alreadyExists) {
+        // Double-check in DB to prevent race conditions
+        const { data: existingPhase } = await supabase
+          .from('payment_phases')
+          .select('id')
+          .eq('project_id', id)
+          .eq('label', voLabel)
+          .maybeSingle();
+        if (!existingPhase) {
+          const voPhaseNumber = payments.length + 1;
+          const { data: newPay } = await supabase.from('payment_phases').insert({
+            project_id: id,
+            phase_number: voPhaseNumber,
+            label: voLabel,
+            amount: vo.amount,
+            percentage: 0,
+            status: 'not_due',
+          }).select().single();
+          if (newPay) setPayments(prev => [...prev, newPay]);
+        }
+      }
     } else if (newStatus === 'rejected') {
-      toast({ title: 'VO Rejected', description: vo.vo_number + ' has been rejected' });
+      // ── Reverse contract amount if was previously approved ────────────────
+      if (vo.status === 'approved' && project) {
+        const newContractAmount = (project.contract_amount || 0) - vo.amount;
+        await supabase.from('projects').update({ contract_amount: newContractAmount }).eq('id', id);
+        setProject(prev => prev ? { ...prev, contract_amount: newContractAmount } : prev);
+        // Remove payment phase
+        const voPayment = payments.find(p => p.label?.startsWith(vo.vo_number));
+        if (voPayment) {
+          await supabase.from('payment_phases').delete().eq('id', voPayment.id);
+          setPayments(prev => prev.filter(p => p.id !== voPayment.id));
+        }
+      }
+      // Remove VO Gantt tasks
+      const voTaskIds = ganttTasks
+        .filter(t => t.phase_id?.startsWith(`vo-${voId}`))
+        .map(t => t.id);
+      if (voTaskIds.length > 0) {
+        setGanttTasks(prev => prev.filter(t => !t.phase_id?.startsWith(`vo-${voId}`)));
+        await supabase.from('gantt_tasks').delete().in('id', voTaskIds);
+      }
+      toast({ title: 'VO 已拒绝', description: `${vo.vo_number} 已被拒绝` });
     }
+  };
+
+  // ─── Delete a VO (removes VO record + reverses contract amount + removes Gantt tasks) ──
+  const handleDeleteVO = async (voId: string) => {
+    const vo = variationOrders.find(v => v.id === voId);
+    if (!vo) return;
+    if (!window.confirm(`确定要删除 ${vo.vo_number}「${vo.description}」吗？此操作无法撤销。`)) return;
+
+    // 1. Remove VO record from DB
+    await supabase.from('variation_orders').delete().eq('id', voId);
+
+    // 2. Reverse contract amount if it was approved
+    if (vo.status === 'approved' && project) {
+      const newContractAmount = (project.contract_amount || 0) - vo.amount;
+      await supabase.from('projects').update({ contract_amount: newContractAmount }).eq('id', id);
+      setProject(prev => prev ? { ...prev, contract_amount: newContractAmount } : prev);
+    }
+
+    // 3. Remove associated payment phase (if auto-added on approval)
+    const voPayment = payments.find(p => p.label?.startsWith(vo.vo_number));
+    if (voPayment) {
+      await supabase.from('payment_phases').delete().eq('id', voPayment.id);
+      setPayments(prev => prev.filter(p => p.id !== voPayment.id));
+    }
+
+    // 4. Remove VO Gantt tasks
+    const voTaskIds = ganttTasks
+      .filter(t => t.phase_id?.startsWith(`vo-${voId}`))
+      .map(t => t.id);
+    if (voTaskIds.length > 0) {
+      await supabase.from('gantt_tasks').delete().in('id', voTaskIds);
+      setGanttTasks(prev => prev.filter(t => !t.phase_id?.startsWith(`vo-${voId}`)));
+    }
+
+    // 5. Update local state
+    setVariationOrders(prev => prev.filter(v => v.id !== voId));
+    toast({ title: 'VO 已删除', description: `${vo.vo_number} 已成功删除` });
   };
 
   // ─── Helper: detect trade from text keywords ──
@@ -1920,8 +2104,10 @@ export default function ProjectDetailPage() {
           <TabsContent value="payments" className="flex-1 p-6 overflow-y-auto mt-0">
             {(() => {
               // Total contract = quotation + approved VOs
-              const approvedVOTotal = variationOrders.filter(v => v.status === 'approved').reduce((s, v) => s + v.amount, 0);
-              const totalContract = (project?.contract_amount || 0) + approvedVOTotal;
+              const approvedVOs = variationOrders.filter(v => v.status === 'approved');
+              const approvedVOTotal = approvedVOs.reduce((s, v) => s + v.amount, 0);
+              const baseQuotationAmount = (project?.contract_amount || 0) - approvedVOTotal;
+              const totalContract = (project?.contract_amount || 0);
               const phasesTotal = payments.reduce((s, p) => s + (p.amount || 0), 0);
               const diff = totalContract - phasesTotal;
               const isBalanced = Math.abs(diff) < 1;
@@ -2002,8 +2188,23 @@ export default function ProjectDetailPage() {
                     <div className="bg-white rounded-xl border border-gray-100 p-4">
                       <div className="text-xs text-gray-500 mb-1">{t.pay.contractWithVO}</div>
                       <div className="text-lg font-bold text-gray-900">{fmtCurrency(totalContract)}</div>
-                      {approvedVOTotal > 0 && (
-                        <div className="text-[10px] text-amber-600 mt-0.5">{t.pay.includesVO} {fmtCurrency(approvedVOTotal)}</div>
+                      {approvedVOs.length > 0 && (
+                        <div className="mt-2 text-[11px] space-y-0.5">
+                          <div className="flex justify-between text-gray-400">
+                            <span>原报价</span>
+                            <span>{fmtCurrency(baseQuotationAmount)}</span>
+                          </div>
+                          {approvedVOs.map(vo => (
+                            <div key={vo.id} className="flex justify-between text-amber-600">
+                              <span className="truncate mr-2 max-w-[120px]">+{vo.vo_number}</span>
+                              <span>{fmtCurrency(vo.amount)}</span>
+                            </div>
+                          ))}
+                          <div className="flex justify-between text-gray-700 font-semibold border-t border-gray-100 pt-0.5 mt-0.5">
+                            <span>合同总额</span>
+                            <span>{fmtCurrency(totalContract)}</span>
+                          </div>
+                        </div>
                       )}
                     </div>
                     <div className="bg-green-50 rounded-xl border border-green-100 p-4">
@@ -2573,8 +2774,62 @@ export default function ProjectDetailPage() {
                         <Input value={voNotes} onChange={e => setVoNotes(e.target.value)} placeholder="可选备注…" />
                       </div>
                     </div>
+
+                    {/* OCR items preview — collapsed by default */}
+                    {voItems.length > 0 && (
+                      <div className="mt-3">
+                        {/* First item preview */}
+                        <div className="flex items-center justify-between text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+                          <span className="truncate mr-2">
+                            <span className="text-gray-400">OCR: </span>
+                            {voItems[0].description}
+                            {voItems[0].total ? ` · RM ${Number(voItems[0].total).toFixed(2)}` : ''}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setVoItemsExpanded(v => !v)}
+                            className="flex items-center gap-1 text-[#4F8EF7] hover:underline whitespace-nowrap flex-shrink-0"
+                          >
+                            {voItemsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            {voItemsExpanded ? '收起' : `展开所有明细 (${voItems.length} 项)`}
+                          </button>
+                        </div>
+
+                        {voItemsExpanded && (
+                          <div className="mt-2 overflow-x-auto rounded-lg border border-gray-100">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="bg-gray-50 text-gray-500">
+                                  <th className="px-2 py-1.5 text-left w-6">#</th>
+                                  <th className="px-2 py-1.5 text-left">说明</th>
+                                  <th className="px-2 py-1.5 text-right">数量</th>
+                                  <th className="px-2 py-1.5 text-right">单价</th>
+                                  <th className="px-2 py-1.5 text-right">小计</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {voItems.map((item, idx) => (
+                                  <tr key={idx} className="border-t border-gray-100">
+                                    <td className="px-2 py-1.5 text-gray-400">{item.no || idx + 1}</td>
+                                    <td className="px-2 py-1.5 text-gray-700">{item.description}</td>
+                                    <td className="px-2 py-1.5 text-right text-gray-500">{item.qty != null ? `${item.qty} ${item.unit || ''}` : ''}</td>
+                                    <td className="px-2 py-1.5 text-right text-gray-500">{item.unit_price != null ? `RM ${Number(item.unit_price).toFixed(2)}` : ''}</td>
+                                    <td className="px-2 py-1.5 text-right font-medium text-gray-800">RM {Number(item.total || 0).toFixed(2)}</td>
+                                  </tr>
+                                ))}
+                                <tr className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+                                  <td colSpan={4} className="px-2 py-1.5 text-right text-gray-700">合计</td>
+                                  <td className="px-2 py-1.5 text-right text-gray-900">RM {voItems.reduce((s, i) => s + (i.total || 0), 0).toFixed(2)}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex gap-2 mt-4">
-                      <Button variant="outline" size="sm" onClick={() => setShowAddVO(false)}>取消</Button>
+                      <Button variant="outline" size="sm" onClick={() => { setShowAddVO(false); setVoItems([]); setVoFileName(''); setVoItemsExpanded(false); }}>取消</Button>
                       <Button variant="gold" size="sm" onClick={handleAddVO} disabled={!voDescription.trim() || !voAmount}>
                         ✓ 确认添加
                       </Button>
@@ -2597,34 +2852,98 @@ export default function ProjectDetailPage() {
                         rejected: { icon: XCircle, color: 'text-red-500', bg: 'bg-red-50', border: 'border-red-200', label: '已拒绝' },
                       }[vo.status] || { icon: Clock, color: 'text-gray-500', bg: 'bg-gray-50', border: 'border-gray-200', label: vo.status };
                       const StatusIcon = statusCfg.icon;
+                      const voExpanded = expandedVOId === vo.id;
+                      const voItemList: VOItem[] = (vo.items as VOItem[] | undefined) || [];
                       return (
-                        <div key={vo.id} className={`bg-white rounded-xl border-l-4 border border-gray-100 p-4 ${vo.status === 'approved' ? 'border-l-green-500' : vo.status === 'rejected' ? 'border-l-red-400' : 'border-l-amber-400'}`}>
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs font-mono font-bold text-gray-500">{vo.vo_number}</span>
-                                <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${statusCfg.bg} ${statusCfg.color} ${statusCfg.border} border`}>
-                                  <StatusIcon className="w-3 h-3" />{statusCfg.label}
-                                </span>
-                              </div>
-                              <p className="text-sm font-medium text-gray-900">{vo.description}</p>
-                              <p className="text-xs text-gray-400 mt-0.5">
-                                {formatDate(vo.created_at)}{vo.approved_at && ` · 批准 ${formatDate(vo.approved_at)}`}
-                              </p>
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <div className={`text-base font-bold ${vo.status === 'rejected' ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
-                                {vo.amount > 0 ? '+' : ''}{fmtCurrency(vo.amount)}
-                              </div>
-                              {vo.status === 'pending' && (
-                                <div className="flex gap-1.5 mt-1.5">
-                                  <button onClick={() => handleVOStatusChange(vo.id, 'approved')}
-                                    className="text-xs px-2.5 py-1 rounded-lg bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors">✓ 批准</button>
-                                  <button onClick={() => handleVOStatusChange(vo.id, 'rejected')}
-                                    className="text-xs px-2.5 py-1 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors">✗ 拒绝</button>
+                        <div key={vo.id} className={`bg-white rounded-xl border-l-4 border border-gray-100 ${vo.status === 'approved' ? 'border-l-green-500' : vo.status === 'rejected' ? 'border-l-red-400' : 'border-l-amber-400'}`}>
+                          <div className="p-4">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-xs font-mono font-bold text-gray-500">{vo.vo_number}</span>
+                                  <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${statusCfg.bg} ${statusCfg.color} ${statusCfg.border} border`}>
+                                    <StatusIcon className="w-3 h-3" />{statusCfg.label}
+                                  </span>
+                                  {vo.file_name && (
+                                    <span className="text-xs text-gray-400 truncate max-w-[120px]" title={vo.file_name}>📎 {vo.file_name}</span>
+                                  )}
                                 </div>
-                              )}
+                                <p className="text-sm font-medium text-gray-900">{vo.description}</p>
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                  {formatDate(vo.created_at)}{vo.approved_at && ` · 批准 ${formatDate(vo.approved_at)}`}
+                                </p>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <div className={`text-base font-bold ${vo.status === 'rejected' ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                                  {vo.amount > 0 ? '+' : ''}{fmtCurrency(vo.amount)}
+                                </div>
+                                <div className="flex gap-1.5 mt-1.5 justify-end">
+                                  {/* Print button */}
+                                  <button onClick={() => printVO(vo)}
+                                    title="打印 VO"
+                                    className="text-xs px-2 py-1 rounded-lg bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100 transition-colors">
+                                    <Printer className="w-3 h-3" />
+                                  </button>
+                                  {/* Delete button */}
+                                  <button onClick={() => handleDeleteVO(vo.id)}
+                                    title="删除 VO"
+                                    className="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-400 border border-red-200 hover:bg-red-100 hover:text-red-600 transition-colors">
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                  {vo.status === 'pending' && (
+                                    <>
+                                      <button onClick={() => handleVOStatusChange(vo.id, 'approved')}
+                                        className="text-xs px-2.5 py-1 rounded-lg bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors">✓ 批准</button>
+                                      <button onClick={() => handleVOStatusChange(vo.id, 'rejected')}
+                                        className="text-xs px-2.5 py-1 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors">✗ 拒绝</button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
                             </div>
+
+                            {/* Expand/collapse items */}
+                            {voItemList.length > 0 && (
+                              <div className="mt-2">
+                                <button
+                                  onClick={() => setExpandedVOId(voExpanded ? null : vo.id)}
+                                  className="flex items-center gap-1 text-xs text-[#4F8EF7] hover:underline"
+                                >
+                                  {voExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                  {voExpanded ? '收起明细' : `展开明细 (${voItemList.length} 项)`}
+                                </button>
+                                {voExpanded && (
+                                  <div className="mt-2 overflow-x-auto rounded-lg border border-gray-100">
+                                    <table className="w-full text-xs">
+                                      <thead>
+                                        <tr className="bg-gray-50 text-gray-500">
+                                          <th className="px-2 py-1.5 text-left w-6">#</th>
+                                          <th className="px-2 py-1.5 text-left">说明</th>
+                                          <th className="px-2 py-1.5 text-right">数量</th>
+                                          <th className="px-2 py-1.5 text-right">单价</th>
+                                          <th className="px-2 py-1.5 text-right">小计</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {voItemList.map((item, idx) => (
+                                          <tr key={idx} className="border-t border-gray-100">
+                                            <td className="px-2 py-1.5 text-gray-400">{item.no || idx + 1}</td>
+                                            <td className="px-2 py-1.5 text-gray-700">{item.description}</td>
+                                            <td className="px-2 py-1.5 text-right text-gray-500">{item.qty != null ? `${item.qty} ${item.unit || ''}` : ''}</td>
+                                            <td className="px-2 py-1.5 text-right text-gray-500">{item.unit_price != null ? `RM ${Number(item.unit_price).toFixed(2)}` : ''}</td>
+                                            <td className="px-2 py-1.5 text-right font-medium">RM {Number(item.total || 0).toFixed(2)}</td>
+                                          </tr>
+                                        ))}
+                                        <tr className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+                                          <td colSpan={4} className="px-2 py-1.5 text-right text-gray-700">合计</td>
+                                          <td className="px-2 py-1.5 text-right text-gray-900">RM {voItemList.reduce((s, i) => s + (i.total || 0), 0).toFixed(2)}</td>
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );

@@ -19,11 +19,32 @@ Extract the following information and return ONLY valid JSON with no markdown:
 Categories: tiling_material / electrical_material / plumbing_material / carpentry_material / paint / cement / steel / general_labour / other
 Always return valid JSON even if the content is unclear.`;
 
+const VO_PROMPT = `You are parsing a Variation Order (VO) document for a renovation project in Malaysia/Singapore.
+Extract ALL line items (no limit) and return ONLY valid JSON with no markdown:
+{
+  "title": "brief VO title or description summary",
+  "items": [
+    {"no": "1", "description": "VERBATIM item name", "qty": 50, "unit": "sqft", "unit_price": 8, "total": 400, "trade": "tiling"},
+    {"no": "2", "description": "Extra carpentry shelving unit", "qty": 1, "unit": "lump", "unit_price": 1200, "total": 1200, "trade": "carpentry"}
+  ],
+  "total_amount": 1600,
+  "notes": ""
+}
+
+Trade values (use exactly one): tiling / electrical / plumbing / carpentry / painting / falseCeiling / demolition / waterproofing / aluminium / glass / aircon / cleaning / general
+Rules:
+- Copy item names VERBATIM from the document. Never translate English names.
+- Extract ALL items — do not truncate or summarize.
+- If qty or unit_price are not shown, estimate from total or leave as null.
+- Always return valid JSON even if some fields are unclear.`;
+
 const VALID_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
 
 export async function POST(request: Request) {
   try {
-    const { imageBase64, mimeType } = await request.json();
+    const { imageBase64, mimeType, type } = await request.json();
+    const isVOMode = type === 'vo';
+    const activePrompt = isVOMode ? VO_PROMPT : OCR_PROMPT;
 
     if (!imageBase64 || !mimeType) {
       return NextResponse.json({ error: 'Missing imageBase64 or mimeType' }, { status: 400 });
@@ -58,7 +79,7 @@ export async function POST(request: Request) {
               type: 'document',
               source: { type: 'base64', media_type: 'application/pdf', data: imageBase64 },
             },
-            { type: 'text', text: OCR_PROMPT },
+            { type: 'text', text: activePrompt },
           ],
         }],
       });
@@ -79,7 +100,7 @@ export async function POST(request: Request) {
                 data: imageBase64,
               },
             },
-            { type: 'text', text: OCR_PROMPT },
+            { type: 'text', text: activePrompt },
           ],
         }],
       });

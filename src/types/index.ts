@@ -252,6 +252,16 @@ export interface PaymentPhase {
   notes?: string;
 }
 
+export interface VOItem {
+  no?: string;
+  description: string;
+  qty?: number;
+  unit?: string;
+  unit_price?: number;
+  total: number;
+  trade?: string;
+}
+
 export interface VariationOrder {
   id: string;
   project_id: string;
@@ -261,6 +271,8 @@ export interface VariationOrder {
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
   approved_at?: string;
+  items?: VOItem[];
+  file_name?: string;
 }
 
 export interface Worker {

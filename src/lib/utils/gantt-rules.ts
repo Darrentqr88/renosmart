@@ -1,4 +1,4 @@
-import { GanttTask, GanttSubtask, GanttParams, PhaseGroup, SiteType } from '@/types';
+import { GanttTask, GanttSubtask, GanttParams, PhaseGroup, SiteType, VOItem } from '@/types';
 import { addDays, format, parseISO } from 'date-fns';
 import { isWorkday, MY_HOLIDAYS } from './dates';
 
@@ -1620,8 +1620,13 @@ export function detectTradeForVO(text: string): string {
 }
 
 /**
- * Append a VO-derived task into the existing Gantt task list.
- * The new task is inserted before the final Handover task.
+ * Append VO-derived tasks/subtasks into the existing Gantt task list.
+ *
+ * Strategy per trade group in voItems:
+ *  - If a matching trade task exists AND progress < 100 → append items as subtasks
+ *  - Otherwise (completed or no match) → create a new "<Trade> VO" task after anchor
+ *
+ * Fallback (no voItems): original single-task behaviour.
  */
 export function appendVOTask(
   tasks: GanttTask[],
@@ -1632,19 +1637,100 @@ export function appendVOTask(
   region: 'MY' | 'SG' = 'MY',
   workOnSaturday = false,
   workOnSunday = false,
+  voItems?: VOItem[],
 ): GanttTask[] {
+  const result: GanttTask[] = tasks.map(t => ({ ...t, subtasks: t.subtasks ? [...t.subtasks] : [] }));
+
+  // ── Helper: classify trade from VOItem ────────────────────────────────────
+  const itemTrade = (item: VOItem): string => {
+    if (item.trade && TRADE_DISPLAY_NAMES[item.trade]) return item.trade;
+    const key = classifyItemTrade('', item.description);
+    return (key && TRADE_DISPLAY_NAMES[key]) ? key : 'general';
+  };
+
+  // ── Helper: build a new VO GanttTask for a trade group ────────────────────
+  const buildVOTask = (tradeKey: string, items: VOItem[], anchorTask: GanttTask): GanttTask => {
+    const tradeName = TRADE_DISPLAY_NAMES[tradeKey] || tradeKey;
+    const totalAmt = items.reduce((s, i) => s + (i.total || 0), 0) || voAmount;
+    const duration = Math.max(1, Math.min(14, Math.ceil(totalAmt / 1500)));
+    const anchorEnd = new Date(anchorTask.end_date + 'T00:00:00');
+    const voStart = nextWorkday(anchorEnd, region, workOnSaturday, workOnSunday);
+    const voEnd = addWorkdays(voStart, duration - 1, region, workOnSaturday, workOnSunday);
+    return {
+      id: deterministicUUID(`${projectId}-vo-${voId}-${tradeKey}`),
+      phase_id: `vo-${voId}-${tradeKey}`,
+      project_id: projectId,
+      name: `${tradeName} VO`,
+      name_zh: `${tradeName} 变更`,
+      trade: tradeKey,
+      start_date: format(voStart, 'yyyy-MM-dd'),
+      end_date: format(voEnd, 'yyyy-MM-dd'),
+      duration,
+      progress: 0,
+      dependencies: [anchorTask.id],
+      color: TRADE_COLORS[tradeKey] || '#f59e0b',
+      is_critical: false,
+      subtasks: items.map((item, i) => ({
+        id: `vo-${voId}-${tradeKey}-${i}`,
+        name: item.description,
+        name_zh: item.description,
+        completed: false,
+      })),
+      assigned_workers: [],
+    };
+  };
+
+  // ── Path A: voItems provided — one new VO task per trade, inserted right after its trade task ──
+  if (voItems && voItems.length > 0) {
+    // Group items by trade
+    const byTrade: Record<string, VOItem[]> = {};
+    for (const item of voItems) {
+      const key = itemTrade(item);
+      if (!byTrade[key]) byTrade[key] = [];
+      byTrade[key].push(item);
+    }
+
+    // Collect (anchorId, voTask) pairs — resolve anchors BEFORE any insertions to avoid shifting
+    const inserts: { anchorId: string | null; voTask: GanttTask }[] = [];
+    for (const [tradeKey, items] of Object.entries(byTrade)) {
+      const existingTask = result.find(t =>
+        t.trade.toLowerCase() === tradeKey.toLowerCase() && t.phase_id !== 'handover');
+      const anchor = existingTask
+        || result.filter(t => t.phase_id !== 'handover').slice(-1)[0]
+        || result[0];
+      if (anchor) {
+        inserts.push({ anchorId: existingTask?.id ?? null, voTask: buildVOTask(tradeKey, items, anchor) });
+      }
+    }
+
+    // Insert in reverse anchor-index order so earlier inserts don't shift later indices
+    inserts.sort((a, b) => {
+      const ia = a.anchorId ? result.findIndex(t => t.id === a.anchorId) : result.length;
+      const ib = b.anchorId ? result.findIndex(t => t.id === b.anchorId) : result.length;
+      return ib - ia; // descending
+    });
+    for (const { anchorId, voTask } of inserts) {
+      const anchorIdx = anchorId ? result.findIndex(t => t.id === anchorId) : -1;
+      // Insert immediately after anchor; fall back to before handover; fall back to end
+      const insertIdx = anchorIdx >= 0
+        ? anchorIdx + 1
+        : (() => { const hi = result.findIndex(t => t.phase_id === 'handover'); return hi >= 0 ? hi : result.length; })();
+      result.splice(insertIdx, 0, voTask);
+    }
+
+    return result;
+  }
+
+  // ── Path B: no items — single VO task inserted right after matching trade task ──────────────
   const trade = detectTradeForVO(voDescription);
+  const anchorIdx = result.findIndex(t =>
+    t.trade.toLowerCase() === trade.toLowerCase() && t.phase_id !== 'handover');
+  const anchorTask = anchorIdx >= 0
+    ? result[anchorIdx]
+    : result.filter(t => t.phase_id !== 'handover').slice(-1)[0] || result[0];
 
-  // Find latest end date among tasks for this trade (or last non-handover task)
-  const tradeTasks = tasks.filter(t =>
-    t.trade.toLowerCase() === trade.toLowerCase() && !t.id.endsWith('-handover'));
-  const anchorTask = tradeTasks.length > 0
-    ? tradeTasks[tradeTasks.length - 1]
-    : tasks.filter(t => !t.id.endsWith('-handover')).slice(-1)[0] || tasks[0];
+  if (!anchorTask) return result;
 
-  if (!anchorTask) return tasks;
-
-  // Duration: rough 1 day per RM 1,500 of VO value, min 1 max 14
   const duration = Math.max(1, Math.min(14, Math.ceil(voAmount / 1500)));
   const anchorEnd = new Date(anchorTask.end_date + 'T00:00:00');
   const voStart = nextWorkday(anchorEnd, region, workOnSaturday, workOnSunday);
@@ -1668,14 +1754,11 @@ export function appendVOTask(
     assigned_workers: [],
   };
 
-  // Insert before handover task
-  const handoverIdx = tasks.findIndex(t => t.id.endsWith('-handover'));
-  const result = [...tasks];
-  if (handoverIdx >= 0) {
-    result.splice(handoverIdx, 0, voTask);
-  } else {
-    result.push(voTask);
-  }
+  // Insert immediately after the anchor trade task
+  const insertIdx = anchorIdx >= 0
+    ? anchorIdx + 1
+    : (() => { const hi = result.findIndex(t => t.phase_id === 'handover'); return hi >= 0 ? hi : result.length; })();
+  result.splice(insertIdx, 0, voTask);
   return result;
 }
 
