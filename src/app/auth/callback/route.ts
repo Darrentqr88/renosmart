@@ -57,6 +57,37 @@ export async function GET(request: Request) {
       const userEmail = data.user.email!;
       const userId = data.user.id;
 
+      // Helper: activate a pending invite and set elite plan on profile
+      const activateInvite = async (inviteId: string, teamId: string) => {
+        await supabaseAdmin.from('team_members').update({
+          user_id: userId,
+          status: 'active',
+          joined_at: new Date().toISOString(),
+        }).eq('id', inviteId);
+
+        // Try to update profile — if it doesn't exist yet (new user), upsert a minimal one
+        const { data: existingProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('user_id')
+          .eq('user_id', userId)
+          .single();
+
+        if (existingProfile) {
+          await supabaseAdmin.from('profiles').update({
+            team_id: teamId,
+            plan: 'elite',
+          }).eq('user_id', userId);
+        } else {
+          // Create minimal profile with team info — registration will fill the rest
+          await supabaseAdmin.from('profiles').insert({
+            user_id: userId,
+            email: userEmail,
+            team_id: teamId,
+            plan: 'elite',
+          });
+        }
+      };
+
       if (teamJoin) {
         // Explicit team_join param (from invite link)
         const { data: invite } = await supabaseAdmin
@@ -68,16 +99,7 @@ export async function GET(request: Request) {
           .single();
 
         if (invite) {
-          await supabaseAdmin.from('team_members').update({
-            user_id: userId,
-            status: 'active',
-            joined_at: new Date().toISOString(),
-          }).eq('id', invite.id);
-
-          await supabaseAdmin.from('profiles').update({
-            team_id: teamJoin,
-            plan: 'elite',
-          }).eq('user_id', userId);
+          await activateInvite(invite.id, teamJoin);
         }
       } else {
         // Auto-detect: check if user has any pending team invite
@@ -90,16 +112,7 @@ export async function GET(request: Request) {
           .single();
 
         if (invite) {
-          await supabaseAdmin.from('team_members').update({
-            user_id: userId,
-            status: 'active',
-            joined_at: new Date().toISOString(),
-          }).eq('id', invite.id);
-
-          await supabaseAdmin.from('profiles').update({
-            team_id: invite.team_id,
-            plan: 'elite',
-          }).eq('user_id', userId);
+          await activateInvite(invite.id, invite.team_id);
         }
       }
 
@@ -111,8 +124,22 @@ export async function GET(request: Request) {
         .single();
 
       // No profile yet → send to finish registration
+      // If user was auto-joined to a team, pass that context to the register page
       if (!profile?.role) {
-        return NextResponse.redirect(`${origin}/register?step=2`);
+        // Check if user was just joined to a team (from the invite auto-join above)
+        const { data: memberRecord } = await supabaseAdmin
+          .from('team_members')
+          .select('team_id')
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .limit(1)
+          .single();
+
+        const registerParams = new URLSearchParams({ step: '2' });
+        if (memberRecord?.team_id) {
+          registerParams.set('team_id', memberRecord.team_id);
+        }
+        return NextResponse.redirect(`${origin}/register?${registerParams.toString()}`);
       }
 
       // Existing profile → send to correct dashboard

@@ -42,11 +42,68 @@ function RegisterPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const inviteId = searchParams.get('invite');
+  const teamIdParam = searchParams.get('team_id'); // from auth callback when invite auto-joined
   const preselectedRole = searchParams.get('role') as UserRole | null;
   const supabase = createClient();
 
   const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
+  const [isInvitedUser, setIsInvitedUser] = useState(false);
+  const [inviteTeamId, setInviteTeamId] = useState<string | null>(teamIdParam);
+  const [inviteTeamName, setInviteTeamName] = useState('');
+
+  // Fetch invite info (team owner's company/address) for pre-filling
+  const fetchInviteInfo = async (userEmail: string) => {
+    try {
+      const res = await fetch(`/api/team/invite-info?email=${encodeURIComponent(userEmail)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.found) {
+          setIsInvitedUser(true);
+          setInviteTeamId(data.teamId);
+          setInviteTeamName(data.teamName || '');
+          // Pre-fill company name and address from team owner
+          if (data.company) setCompany(data.company);
+          if (data.companyAddress) setCompanyAddress(data.companyAddress);
+        }
+      }
+    } catch { /* non-critical */ }
+  };
+
+  // If team_id was passed from auth callback, fetch owner info for pre-fill
+  const fetchTeamOwnerInfo = async (teamId: string) => {
+    try {
+      // We can use the auto-join endpoint info, but let's query the invite-info
+      // which only needs the team_id. For now, call a simpler approach:
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.email) return;
+      // The user was already auto-joined in the callback, so we need to get
+      // the owner's company info from the team
+      const res = await fetch(`/api/team/invite-info?email=${encodeURIComponent(session.user.email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.found) {
+          setIsInvitedUser(true);
+          setInviteTeamName(data.teamName || '');
+          if (data.company) setCompany(data.company);
+          if (data.companyAddress) setCompanyAddress(data.companyAddress);
+        } else if (teamId) {
+          // Already joined (status changed from 'pending' to 'active'),
+          // so invite-info won't find it. Fetch owner info directly.
+          setIsInvitedUser(true);
+          try {
+            const teamRes = await fetch(`/api/team/owner-info?team_id=${encodeURIComponent(teamId)}`);
+            if (teamRes.ok) {
+              const teamData = await teamRes.json();
+              if (teamData.company) setCompany(teamData.company);
+              if (teamData.companyAddress) setCompanyAddress(teamData.companyAddress);
+              if (teamData.teamName) setInviteTeamName(teamData.teamName);
+            }
+          } catch { /* fallback */ }
+        }
+      }
+    } catch { /* non-critical */ }
+  };
 
   // Auth state check on mount
   useEffect(() => {
@@ -56,7 +113,7 @@ function RegisterPageContent() {
       // User has a session — check if they already have a profile
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, plan, team_id')
         .eq('user_id', session.user.id)
         .single();
 
@@ -68,7 +125,21 @@ function RegisterPageContent() {
         return;
       }
 
-      // Has session but no profile (e.g. Google OAuth new user, or ?step=2 return)
+      // If profile exists with team_id/plan already set (from auth callback), use those
+      if (profile?.team_id) {
+        setInviteTeamId(profile.team_id);
+        setIsInvitedUser(true);
+      }
+
+      // Has session but no profile role (e.g. Google OAuth new user, or ?step=2 return)
+      // Check for pending team invite to pre-fill company info
+      if (session.user.email) {
+        if (teamIdParam || profile?.team_id) {
+          await fetchTeamOwnerInfo(teamIdParam || profile?.team_id);
+        } else {
+          await fetchInviteInfo(session.user.email);
+        }
+      }
       setStep(2);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -125,6 +196,7 @@ function RegisterPageContent() {
       if (!userId) throw new Error('Not authenticated. Please try signing in again.');
 
       if (!session) {
+        const pendingPlan = isInvitedUser || inviteTeamId ? 'elite' : 'free';
         localStorage.setItem('pending_profile', JSON.stringify({
           user_id: userId, email: userEmail, role,
           phone: `${phonePrefix}${phone}`,
@@ -133,14 +205,26 @@ function RegisterPageContent() {
           company: role === 'designer' ? company : null,
           company_address: role === 'designer' ? companyAddress : null,
           trades: role === 'worker' ? trades : null,
-          plan: 'free',
+          plan: pendingPlan,
+          team_id: inviteTeamId || null,
         }));
         toast({ title: 'Check your email!', description: 'Please confirm your email address to complete registration.' });
         router.push('/login?message=check-email');
         return;
       }
 
-      const profileData = {
+      // Check if profile already exists with team/plan set (from auth callback auto-join)
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('plan, team_id')
+        .eq('user_id', userId)
+        .single();
+
+      // Preserve elite plan and team_id if already set by auth callback
+      const plan = (isInvitedUser || inviteTeamId || existingProfile?.plan === 'elite') ? 'elite' : 'free';
+      const teamId = inviteTeamId || existingProfile?.team_id || null;
+
+      const profileData: Record<string, unknown> = {
         user_id: userId, email: userEmail, role,
         phone: `${phonePrefix}${phone}`,
         region: phonePrefix === '+65' ? 'SG' : 'MY',  // ← auto-detect from phone prefix
@@ -148,15 +232,37 @@ function RegisterPageContent() {
         company: role === 'designer' ? company : null,
         company_address: role === 'designer' ? companyAddress : null,
         trades: role === 'worker' ? trades : null,
-        plan: 'free',
+        plan,
         updated_at: new Date().toISOString(),
       };
+
+      // Only set team_id if we have one (avoid overwriting with null)
+      if (teamId) {
+        profileData.team_id = teamId;
+      }
 
       const { error } = await supabase.from('profiles').upsert(profileData, { onConflict: 'user_id' });
       if (error) throw new Error(error.message);
 
       // Sync role into auth user_metadata so it's available without DB lookup
       await supabase.auth.updateUser({ data: { role } });
+
+      // Auto-join team if there's a pending invite
+      if (!inviteTeamId && userEmail) {
+        try {
+          const joinRes = await fetch('/api/team/auto-join', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, email: userEmail }),
+          });
+          if (joinRes.ok) {
+            const joinData = await joinRes.json();
+            if (joinData.joined) {
+              toast({ title: `Joined team: ${joinData.teamName}`, description: 'Elite plan activated.' });
+            }
+          }
+        } catch { /* non-critical */ }
+      }
 
       if (inviteId && role === 'worker') {
         await supabase.from('designer_workers').insert({
@@ -165,7 +271,10 @@ function RegisterPageContent() {
         });
       }
 
-      toast({ title: 'Welcome to RenoSmart!', description: 'Account created successfully.' });
+      const welcomeMsg = isInvitedUser || inviteTeamId
+        ? 'Account created and joined team with Elite plan!'
+        : 'Account created successfully.';
+      toast({ title: 'Welcome to RenoSmart!', description: welcomeMsg });
       if (role === 'designer') router.push('/designer');
       else if (role === 'owner') router.push('/owner');
       else router.push('/worker');
@@ -345,11 +454,47 @@ function RegisterPageContent() {
           {/* Step 2: Phone */}
           {step === 2 && (
             <div className="reg-fade">
-              <button onClick={() => setStep(1)} style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94A3B8', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20 }}>
-                <ArrowLeft size={14} /> Back
-              </button>
-              <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6, color: '#F1F5F9' }}>Phone number</h1>
-              <p style={{ fontSize: 14, color: '#94A3B8', marginBottom: 28 }}>For project notifications and team communication</p>
+              {!isInvitedUser && (
+                <button onClick={() => setStep(1)} style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94A3B8', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20 }}>
+                  <ArrowLeft size={14} /> Back
+                </button>
+              )}
+
+              {/* Team invite banner */}
+              {isInvitedUser && (
+                <div style={{
+                  marginBottom: 20, padding: 16, borderRadius: 14,
+                  background: 'rgba(232,163,23,0.08)', border: '1px solid rgba(232,163,23,0.2)',
+                  display: 'flex', gap: 12, alignItems: 'flex-start',
+                }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(232,163,23,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E8A317" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 14, fontWeight: 600, color: '#E8A317' }}>
+                      Team Invitation
+                    </p>
+                    <p style={{ fontSize: 12, color: '#D4940F', marginTop: 4, lineHeight: 1.5 }}>
+                      You&apos;ve been invited to join {inviteTeamName || 'a team'}. Complete your profile to get started with Elite access.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6, color: '#F1F5F9' }}>
+                {isInvitedUser ? 'Complete your profile' : 'Phone number'}
+              </h1>
+              <p style={{ fontSize: 14, color: '#94A3B8', marginBottom: 28 }}>
+                {isInvitedUser ? 'Just a few details to get started' : 'For project notifications and team communication'}
+              </p>
+
+              {/* For invited users, also show name field in this step */}
+              {isInvitedUser && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Full Name</label>
+                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name" className="reg-input" required />
+                </div>
+              )}
 
               <div style={{ marginBottom: 24 }}>
                 <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Mobile Number</label>
@@ -362,7 +507,7 @@ function RegisterPageContent() {
                   <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="123456789" className="reg-input" style={{ flex: 1 }} />
                 </div>
               </div>
-              <Button onClick={() => setStep(4)} variant="gold" className="w-full h-11 rounded-xl" disabled={!phone}>Continue</Button>
+              <Button onClick={() => setStep(4)} variant="gold" className="w-full h-11 rounded-xl" disabled={!phone || (isInvitedUser && !name)}>Continue</Button>
             </div>
           )}
 
@@ -374,25 +519,36 @@ function RegisterPageContent() {
                 <ArrowLeft size={14} /> Back
               </button>
               <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6, color: '#F1F5F9' }}>Your design firm</h1>
-              <p style={{ fontSize: 14, color: '#94A3B8', marginBottom: 28 }}>One last step to complete your profile</p>
+              <p style={{ fontSize: 14, color: '#94A3B8', marginBottom: 28 }}>
+                {isInvitedUser ? 'Review your company details (pre-filled from team)' : 'One last step to complete your profile'}
+              </p>
+
+              {/* Only show name field here for non-invited users (invited users already entered it in step 2) */}
+              {!isInvitedUser && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Full Name</label>
+                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name" className="reg-input" required />
+                </div>
+              )}
 
               <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Full Name</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name" className="reg-input" required />
-              </div>
-
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Company Name</label>
+                <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>
+                  Company Name
+                  {isInvitedUser && <span style={{ color: '#E8A317', fontSize: 11, marginLeft: 8 }}>(from team)</span>}
+                </label>
                 <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Elegant Spaces Sdn Bhd" className="reg-input" />
               </div>
               <div style={{ marginBottom: 24 }}>
-                <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Company Address</label>
+                <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>
+                  Company Address
+                  {isInvitedUser && <span style={{ color: '#E8A317', fontSize: 11, marginLeft: 8 }}>(from team)</span>}
+                </label>
                 <input value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} placeholder="Business address" className="reg-input" />
               </div>
 
               <Button onClick={handleCompleteProfile} variant="gold" className="w-full h-11 rounded-xl" disabled={loading || !name}>
                 {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                Create Account
+                {isInvitedUser ? 'Join Team & Create Account' : 'Create Account'}
               </Button>
             </div>
           )}

@@ -33,7 +33,7 @@ function LoginPageContent() {
   };
 
   // Auto-join team if user has a pending invite
-  const autoJoinTeam = async (userId: string, userEmail: string) => {
+  const autoJoinTeam = async (userId: string, userEmail: string): Promise<boolean> => {
     try {
       const res = await fetch('/api/team/auto-join', {
         method: 'POST',
@@ -43,10 +43,15 @@ function LoginPageContent() {
       if (res.ok) {
         const data = await res.json();
         if (data.joined) {
-          console.log('Auto-joined team:', data.teamName);
+          toast({
+            title: `Joined team: ${data.teamName}`,
+            description: 'Your account has been upgraded to Elite plan.',
+          });
+          return true;
         }
       }
     } catch { /* non-critical */ }
+    return false;
   };
 
   const getRoleAndRedirect = async (userId: string) => {
@@ -54,7 +59,8 @@ function LoginPageContent() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user?.email) await autoJoinTeam(userId, user.email);
 
-    // Always read role from profiles table (user_metadata.role not set for Google users)
+    // Read role from profiles table AFTER auto-join has completed
+    // (auto-join may have updated plan/team_id on the profile)
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
