@@ -32,7 +32,28 @@ function LoginPageContent() {
     } catch { /* non-critical */ }
   };
 
+  // Auto-join team if user has a pending invite
+  const autoJoinTeam = async (userId: string, userEmail: string) => {
+    try {
+      const res = await fetch('/api/team/auto-join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, email: userEmail }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.joined) {
+          console.log('Auto-joined team:', data.teamName);
+        }
+      }
+    } catch { /* non-critical */ }
+  };
+
   const getRoleAndRedirect = async (userId: string) => {
+    // Auto-join team if pending invite exists
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email) await autoJoinTeam(userId, user.email);
+
     // Always read role from profiles table (user_metadata.role not set for Google users)
     const { data: profile } = await supabase
       .from('profiles')

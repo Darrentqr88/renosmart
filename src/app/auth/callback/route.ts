@@ -54,11 +54,11 @@ export async function GET(request: Request) {
 
     if (!error && data.user) {
       // Handle team join: activate the pending team_members record
-      if (teamJoin) {
-        const userEmail = data.user.email!;
-        const userId = data.user.id;
+      const userEmail = data.user.email!;
+      const userId = data.user.id;
 
-        // Find pending invite for this email + team
+      if (teamJoin) {
+        // Explicit team_join param (from invite link)
         const { data: invite } = await supabaseAdmin
           .from('team_members')
           .select('id')
@@ -68,16 +68,36 @@ export async function GET(request: Request) {
           .single();
 
         if (invite) {
-          // Activate member
           await supabaseAdmin.from('team_members').update({
             user_id: userId,
             status: 'active',
             joined_at: new Date().toISOString(),
           }).eq('id', invite.id);
 
-          // Set team_id on profile + ensure plan is elite
           await supabaseAdmin.from('profiles').update({
             team_id: teamJoin,
+            plan: 'elite',
+          }).eq('user_id', userId);
+        }
+      } else {
+        // Auto-detect: check if user has any pending team invite
+        const { data: invite } = await supabaseAdmin
+          .from('team_members')
+          .select('id, team_id')
+          .eq('email', userEmail)
+          .eq('status', 'pending')
+          .limit(1)
+          .single();
+
+        if (invite) {
+          await supabaseAdmin.from('team_members').update({
+            user_id: userId,
+            status: 'active',
+            joined_at: new Date().toISOString(),
+          }).eq('id', invite.id);
+
+          await supabaseAdmin.from('profiles').update({
+            team_id: invite.team_id,
             plan: 'elite',
           }).eq('user_id', userId);
         }

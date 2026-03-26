@@ -303,9 +303,8 @@ export default function SettingsPage() {
       });
       const data = await res.json();
       if (!res.ok) { toast({ title: s.inviteFailed, description: data.error, variant: 'destructive' }); return; }
-      if (data.existingUser && data.magicLink) {
-        setJoinLink(data.magicLink);
-        toast({ title: s.linkGenerated, description: s.linkGenDesc });
+      if (data.existingUser) {
+        toast({ title: s.inviteSent, description: data.message });
       } else {
         toast({ title: s.inviteSent, description: data.message });
       }

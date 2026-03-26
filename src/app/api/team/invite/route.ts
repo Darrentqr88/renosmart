@@ -94,22 +94,11 @@ export async function POST(req: NextRequest) {
 
     if (inviteError) {
       if (inviteError.message.includes('already registered') || inviteError.message.includes('already been registered')) {
-        // Existing user — generate a magic link they can click to join
-        const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-          type: 'magiclink',
-          email,
-          options: { redirectTo },
-        });
-        if (linkError) {
-          console.error('generateLink error:', linkError);
-          return NextResponse.json({ error: '无法生成邀请链接，请稍后再试' }, { status: 500 });
-        }
-        // Return the magic link so the owner can share it directly
+        // Existing user — they'll be auto-joined on their next login
         return NextResponse.json({
           success: true,
           existingUser: true,
-          magicLink: linkData.properties?.action_link,
-          message: `${email} 已有账号，请将以下链接发送给他们加入团队`,
+          message: `${email} 已有账号，对方下次登入时将自动加入团队`,
         });
       }
       console.error('inviteUserByEmail error:', inviteError);
