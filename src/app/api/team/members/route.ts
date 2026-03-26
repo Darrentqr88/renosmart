@@ -15,14 +15,52 @@ export async function GET(req: NextRequest) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const userId = session.user.id;
 
-    // Get team owned by this user
-    const { data: team } = await supabase
+    // First, check if user OWNS a team
+    const { data: ownedTeam } = await supabase
       .from('teams')
-      .select('id, name, elite_slots')
+      .select('id, name, elite_slots, owner_user_id')
       .eq('owner_user_id', userId)
       .single();
 
-    if (!team) return NextResponse.json({ team: null, members: [], usage: {} });
+    // If not owner, check if user is a MEMBER of a team (via profile.team_id)
+    let team = ownedTeam;
+    let isOwner = !!ownedTeam;
+    let ownerEmail = '';
+    let ownerName = '';
+
+    if (!team) {
+      // Check profile for team_id
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('team_id')
+        .eq('user_id', userId)
+        .single();
+
+      if (profile?.team_id) {
+        const { data: memberTeam } = await supabase
+          .from('teams')
+          .select('id, name, elite_slots, owner_user_id')
+          .eq('id', profile.team_id)
+          .single();
+
+        if (memberTeam) {
+          team = memberTeam;
+          isOwner = false;
+
+          // Get owner info
+          const { data: ownerProfile } = await supabase
+            .from('profiles')
+            .select('name, email')
+            .eq('user_id', memberTeam.owner_user_id)
+            .single();
+
+          ownerEmail = ownerProfile?.email || '';
+          ownerName = ownerProfile?.name || '';
+        }
+      }
+    }
+
+    if (!team) return NextResponse.json({ team: null, members: [], usageMap: {}, isOwner: false });
 
     // Get all non-removed members
     const { data: members } = await supabase
@@ -39,7 +77,10 @@ export async function GET(req: NextRequest) {
       .map((m: { user_id: string }) => m.user_id);
 
     // Include owner's own usage
-    activeIds.push(userId);
+    const ownerUserId = team.owner_user_id;
+    if (!activeIds.includes(ownerUserId)) {
+      activeIds.push(ownerUserId);
+    }
 
     const { data: usageRows } = await supabase
       .from('ai_usage')
@@ -57,10 +98,18 @@ export async function GET(req: NextRequest) {
     const teamMonthlyLimit = (team.elite_slots ?? 1) * 250;
     const maxMembers = (team.elite_slots ?? 1) * 5;
 
+    // Get owner email if this is owner viewing
+    if (isOwner) {
+      ownerEmail = session.user.email || '';
+    }
+
     return NextResponse.json({
       team: { ...team, maxMembers, teamMonthlyLimit, teamUsage },
       members: members || [],
       usageMap,
+      isOwner,
+      ownerEmail,
+      ownerName,
     });
   } catch (err) {
     console.error('Team members error:', err);

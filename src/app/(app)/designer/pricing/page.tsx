@@ -44,6 +44,8 @@ function PricingPageContent() {
   const [billingInterval, setBillingInterval] = useState<Interval>('monthly');
   const [checkoutLoading, setCheckoutLoading] = useState('');
   const [portalLoading, setPortalLoading] = useState(false);
+  const [isTeamMember, setIsTeamMember] = useState(false);
+  const [ownerName, setOwnerName] = useState('');
 
   const r = region === 'SG' ? 'SG' : 'MY';
   const stackMode = searchParams.get('stack') === 'elite';
@@ -55,12 +57,31 @@ function PricingPageContent() {
       if (session) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('plan')
+          .select('plan, team_id')
           .eq('user_id', session.user.id)
           .single();
         if (profile) setCurrentPlan(profile.plan || 'free');
 
-        // If in stack mode, fetch current elite_slots
+        // Check if user is a team MEMBER (not owner)
+        if (profile?.team_id) {
+          const { data: team } = await supabase
+            .from('teams')
+            .select('owner_user_id')
+            .eq('id', profile.team_id)
+            .single();
+          if (team && team.owner_user_id !== session.user.id) {
+            setIsTeamMember(true);
+            // Get owner name
+            const { data: ownerProfile } = await supabase
+              .from('profiles')
+              .select('name, email')
+              .eq('user_id', team.owner_user_id)
+              .single();
+            setOwnerName(ownerProfile?.name || ownerProfile?.email || '');
+          }
+        }
+
+        // If in stack mode, fetch current elite_slots (only relevant for owners)
         if (stackMode) {
           const { data: team } = await supabase
             .from('teams')
@@ -226,7 +247,7 @@ function PricingPageContent() {
           <p className="text-gray-500">
             {lang === 'ZH' ? '无合约束缚，随时可取消。' : lang === 'BM' ? 'Tiada kontrak. Batal bila-bila masa.' : 'No contracts. Cancel anytime.'}
           </p>
-          {currentPlan !== 'free' && (
+          {currentPlan !== 'free' && !isTeamMember && (
             <div className="flex items-center justify-center gap-3 mt-3">
               <Badge className="bg-[#F0B90B]/20 text-[#F0B90B] border-[#F0B90B]/30">
                 Current plan: {currentPlan.toUpperCase()}
@@ -243,6 +264,21 @@ function PricingPageContent() {
                   : <CreditCard className="w-3 h-3 mr-1" />}
                 Manage Subscription
               </Button>
+            </div>
+          )}
+          {isTeamMember && (
+            <div className="mt-4 max-w-lg mx-auto bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm">
+              <p className="font-medium text-blue-700 mb-1">
+                {lang === 'ZH' ? '您的套餐由团队所有者管理' : lang === 'BM' ? 'Pelan anda diuruskan oleh pemilik pasukan' : 'Your plan is managed by the team owner'}
+              </p>
+              <p className="text-blue-600 text-xs">
+                {lang === 'ZH'
+                  ? '如需更改套餐或购买更多配套，请联系团队所有者。'
+                  : lang === 'BM'
+                  ? 'Hubungi pemilik pasukan untuk menukar pelan atau membeli lebih banyak bundle.'
+                  : 'Contact the team owner to change your plan or buy more bundles.'}
+                {ownerName && ` (${ownerName})`}
+              </p>
             </div>
           )}
         </div>
@@ -271,8 +307,8 @@ function PricingPageContent() {
           </div>
         </div>
 
-        {/* Stack mode: show only Elite card with upgrade info */}
-        {stackMode ? (
+        {/* Stack mode: show only Elite card with upgrade info — NOT available for team members */}
+        {stackMode && !isTeamMember ? (
           <div className="max-w-lg mx-auto">
             <div className="rounded-2xl border-2 border-purple-400 bg-white p-7">
               <div className="text-center mb-6">
@@ -373,7 +409,18 @@ function PricingPageContent() {
                   ))}
                 </ul>
 
-                {currentPlan === plan.id ? (
+                {isTeamMember ? (
+                  /* Team members cannot upgrade — show current plan or disabled state */
+                  currentPlan === plan.id ? (
+                    <Button disabled className="w-full bg-gray-100 text-gray-500">
+                      {'\u2713'} {lang === 'ZH' ? '当前套餐' : lang === 'BM' ? 'Pelan Semasa' : 'Current Plan'}
+                    </Button>
+                  ) : (
+                    <Button disabled className="w-full bg-gray-100 text-gray-400">
+                      {lang === 'ZH' ? '由团队管理' : lang === 'BM' ? 'Diurus oleh pasukan' : 'Managed by team'}
+                    </Button>
+                  )
+                ) : currentPlan === plan.id ? (
                   <Button disabled className="w-full bg-gray-100 text-gray-500">
                     {'\u2713'} {lang === 'ZH' ? '当前套餐' : lang === 'BM' ? 'Pelan Semasa' : 'Current Plan'}
                   </Button>

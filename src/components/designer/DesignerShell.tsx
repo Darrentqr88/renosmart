@@ -14,10 +14,11 @@ interface DesignerShellProps {
   profile: Profile | null;
   aiUsed: number;
   aiLimit: number;
+  isTeamMember?: boolean;
   children: React.ReactNode;
 }
 
-export function DesignerShell({ profile, aiUsed, aiLimit, children }: DesignerShellProps) {
+export function DesignerShell({ profile, aiUsed, aiLimit, isTeamMember, children }: DesignerShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const { t } = useI18n();

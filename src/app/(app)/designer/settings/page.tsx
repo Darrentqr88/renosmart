@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
-import { Loader2, User, Building2, CreditCard, Crown, Users, UserPlus, UserMinus, Star } from 'lucide-react';
+import { Loader2, User, Building2, CreditCard, Crown, Users, UserPlus, UserMinus, Star, Shield } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 type SettingsTab = 'profile' | 'company' | 'plan' | 'team';
@@ -98,6 +98,15 @@ const settingsI18n = {
     copied: 'Copied',
     existingAcctNote: 'This email already has an account. Share the link below:',
     copy: 'Copy',
+    // New member-facing strings
+    yourRole: 'Your Role',
+    member: 'Member',
+    owner: 'Owner',
+    teamOwner: 'Team Owner',
+    sharedQuota: 'Shared AI Quota',
+    planManagedByOwner: 'Your plan is managed by the team owner.',
+    contactOwnerToChange: 'Contact the team owner to change your plan or buy more bundles.',
+    managedByTeam: 'Managed by Team',
   },
   BM: {
     settings: 'Tetapan',
@@ -162,6 +171,14 @@ const settingsI18n = {
     copied: 'Disalin',
     existingAcctNote: 'E-mel ini sudah mempunyai akaun. Kongsi pautan di bawah:',
     copy: 'Salin',
+    yourRole: 'Peranan Anda',
+    member: 'Ahli',
+    owner: 'Pemilik',
+    teamOwner: 'Pemilik Pasukan',
+    sharedQuota: 'Kuota AI Dikongsi',
+    planManagedByOwner: 'Pelan anda diuruskan oleh pemilik pasukan.',
+    contactOwnerToChange: 'Hubungi pemilik pasukan untuk menukar pelan atau membeli lebih banyak bundle.',
+    managedByTeam: 'Diurus oleh Pasukan',
   },
   ZH: {
     settings: '设置',
@@ -226,6 +243,14 @@ const settingsI18n = {
     copied: '已复制',
     existingAcctNote: '该邮箱已有账号，请将以下链接发送给对方：',
     copy: '复制',
+    yourRole: '您的角色',
+    member: '成员',
+    owner: '所有者',
+    teamOwner: '团队所有者',
+    sharedQuota: '共享 AI 额度',
+    planManagedByOwner: '您的套餐由团队所有者管理。',
+    contactOwnerToChange: '如需更改套餐或购买更多配套，请联系团队所有者。',
+    managedByTeam: '由团队管理',
   },
 };
 
@@ -250,6 +275,7 @@ export default function SettingsPage() {
   // Plan info
   const [currentPlan, setCurrentPlan] = useState('free');
   const [userId, setUserId] = useState('');
+  const [teamId, setTeamId] = useState<string | null>(null);
 
   // Team state
   const [teamInfo, setTeamInfo] = useState<TeamInfo | null>(null);
@@ -258,6 +284,9 @@ export default function SettingsPage() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [teamLoading, setTeamLoading] = useState(false);
   const [joinLink, setJoinLink] = useState<string | null>(null);
+  const [isTeamOwner, setIsTeamOwner] = useState(false);
+  const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerName, setOwnerName] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -274,6 +303,7 @@ export default function SettingsPage() {
         setCompanyAddress(data.company_address || '');
         setCurrentPlan(data.plan || 'free');
         setAvatarUrl(data.avatar_url || '');
+        setTeamId(data.team_id || null);
       }
     })();
   }, []);
@@ -285,9 +315,13 @@ export default function SettingsPage() {
       setTeamInfo(data.team);
       setTeamMembers(data.members || []);
       setUsageMap(data.usageMap || {});
+      setIsTeamOwner(data.isOwner ?? false);
+      setOwnerEmail(data.ownerEmail || '');
+      setOwnerName(data.ownerName || '');
     }
   }, []);
 
+  // Load team when Team tab is active AND user is elite (either owner or member)
   useEffect(() => {
     if (activeTab === 'team' && currentPlan === 'elite') loadTeam();
   }, [activeTab, currentPlan, loadTeam]);
@@ -358,10 +392,13 @@ export default function SettingsPage() {
     }
   };
 
+  // Determine if user is a team member (not owner) — has team_id but is not the team owner
+  const isTeamMember = currentPlan === 'elite' && teamId && !isTeamOwner && teamInfo !== null;
+
   const PLAN_CONFIG = {
     free:  { label: 'Free', color: 'bg-gray-100 text-gray-600', border: 'border-gray-200' },
-    pro:   { label: 'Pro ✦', color: 'bg-[#4F8EF7]/15 text-[#2563EB]', border: 'border-[#4F8EF7]/30' },
-    elite: { label: 'Elite ⚡', color: 'bg-purple-50 text-purple-700', border: 'border-purple-200' },
+    pro:   { label: 'Pro \u2726', color: 'bg-[#4F8EF7]/15 text-[#2563EB]', border: 'border-[#4F8EF7]/30' },
+    elite: { label: 'Elite \u26A1', color: 'bg-purple-50 text-purple-700', border: 'border-purple-200' },
   };
   const planCfg = PLAN_CONFIG[currentPlan as keyof typeof PLAN_CONFIG] || PLAN_CONFIG.free;
 
@@ -411,10 +448,19 @@ export default function SettingsPage() {
               <div>
                 <p className="font-medium text-gray-800">{name || 'Designer'}</p>
                 <p className="text-sm text-gray-500">{email}</p>
-                <Badge className={`${planCfg.color} border ${planCfg.border} text-xs mt-1`}>
-                  <Crown className="w-3 h-3 mr-1" />
-                  {planCfg.label}
-                </Badge>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge className={`${planCfg.color} border ${planCfg.border} text-xs`}>
+                    <Crown className="w-3 h-3 mr-1" />
+                    {planCfg.label}
+                  </Badge>
+                  {/* Show Member badge for team members instead of letting them think they're the owner */}
+                  {isTeamMember && (
+                    <Badge className="bg-blue-50 text-blue-600 border border-blue-200 text-xs">
+                      <Users className="w-3 h-3 mr-1" />
+                      {s.member}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -468,8 +514,8 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Team Tab */}
-        {activeTab === 'team' && currentPlan === 'elite' && (
+        {/* Team Tab — OWNER VIEW */}
+        {activeTab === 'team' && currentPlan === 'elite' && isTeamOwner && (
           <div className="space-y-4">
             {/* Header card */}
             <div className="bg-white rounded-2xl border-2 border-purple-200 p-6">
@@ -487,7 +533,10 @@ export default function SettingsPage() {
                     </p>
                   </div>
                 </div>
-                <Badge className="bg-purple-50 text-purple-700 border border-purple-200">Elite ⚡</Badge>
+                <Badge className="bg-purple-50 text-purple-700 border border-purple-200">
+                  <Crown className="w-3 h-3 mr-1" />
+                  {s.owner}
+                </Badge>
               </div>
 
               {/* Usage bar */}
@@ -506,7 +555,7 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {/* Buy more slots */}
+              {/* Buy more slots — OWNER ONLY */}
               <Button
                 variant="outline"
                 size="sm"
@@ -534,7 +583,7 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-2">
                     <Star className="w-4 h-4 text-purple-500" />
                     <span className="text-sm font-medium text-gray-800">{email}</span>
-                    <Badge className="text-xs bg-purple-100 text-purple-700 border-0">Owner</Badge>
+                    <Badge className="text-xs bg-purple-100 text-purple-700 border-0">{s.owner}</Badge>
                   </div>
                   <span className="text-xs text-gray-500">{usageMap[userId] ?? 0} {s.usesPerMonth}</span>
                 </div>
@@ -565,7 +614,7 @@ export default function SettingsPage() {
                         onClick={() => handleRemove(member.id)}
                         disabled={teamLoading}
                         className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="移除成员"
+                        title="Remove member"
                       >
                         <UserMinus className="w-4 h-4" />
                       </button>
@@ -579,7 +628,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Invite form */}
+            {/* Invite form — OWNER ONLY */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
               <h3 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
                 <UserPlus className="w-4 h-4" />
@@ -620,11 +669,120 @@ export default function SettingsPage() {
                     <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(joinLink); toast({ title: s.copied }); }}>
                       {s.copy}
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setJoinLink(null)}>✕</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setJoinLink(null)}>X</Button>
                   </div>
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Team Tab — MEMBER VIEW (read-only) */}
+        {activeTab === 'team' && currentPlan === 'elite' && !isTeamOwner && teamInfo && (
+          <div className="space-y-4">
+            {/* Team info card */}
+            <div className="bg-white rounded-2xl border-2 border-blue-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                    <Users className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-gray-900">
+                      {teamInfo.name || s.eliteTeam}
+                    </h2>
+                    <p className="text-xs text-gray-500">
+                      {teamInfo.maxMembers} {s.maxMembers} · {teamInfo.teamMonthlyLimit} {s.perMonthShared}
+                    </p>
+                  </div>
+                </div>
+                <Badge className="bg-blue-50 text-blue-600 border border-blue-200">
+                  <Shield className="w-3 h-3 mr-1" />
+                  {s.member}
+                </Badge>
+              </div>
+
+              {/* Your role */}
+              <div className="bg-blue-50/50 rounded-xl p-4 mb-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">{s.yourRole}</span>
+                  <span className="font-medium text-blue-600">{s.member}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm mt-2">
+                  <span className="text-gray-600">{s.teamOwner}</span>
+                  <span className="font-medium text-gray-800">{ownerName || ownerEmail}</span>
+                </div>
+              </div>
+
+              {/* Shared usage bar */}
+              <div className="mb-2">
+                <div className="flex justify-between text-xs text-gray-500 mb-1">
+                  <span>{s.sharedQuota}</span>
+                  <span>{teamInfo.teamUsage} / {teamInfo.teamMonthlyLimit} {s.times}</span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-2">
+                  <div
+                    className="bg-blue-500 h-2 rounded-full transition-all"
+                    style={{ width: `${Math.min(100, (teamInfo.teamUsage / teamInfo.teamMonthlyLimit) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Members list — read-only for members */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+              <h3 className="font-medium text-gray-800 mb-4 flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                {s.memberList}
+              </h3>
+
+              <div className="space-y-2">
+                {/* Owner row */}
+                <div className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-purple-50">
+                  <div className="flex items-center gap-2">
+                    <Star className="w-4 h-4 text-purple-500" />
+                    <span className="text-sm font-medium text-gray-800">{ownerEmail}</span>
+                    <Badge className="text-xs bg-purple-100 text-purple-700 border-0">{s.owner}</Badge>
+                  </div>
+                </div>
+
+                {/* Member rows — no remove button */}
+                {teamMembers.map(member => (
+                  <div key={member.id} className={`flex items-center justify-between py-2.5 px-3 rounded-lg ${
+                    member.email === email ? 'bg-blue-50' : 'hover:bg-gray-50'
+                  }`}>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                        member.status === 'active' ? 'bg-green-400' : 'bg-yellow-400'
+                      }`} />
+                      <span className="text-sm text-gray-700 truncate">{member.email}</span>
+                      {member.email === email && (
+                        <Badge className="text-xs bg-blue-100 text-blue-600 border-0">
+                          {lang === 'ZH' ? '你' : lang === 'BM' ? 'Anda' : 'You'}
+                        </Badge>
+                      )}
+                      <Badge className={`text-xs border-0 flex-shrink-0 ${
+                        member.status === 'active'
+                          ? 'bg-green-50 text-green-700'
+                          : 'bg-yellow-50 text-yellow-700'
+                      }`}>
+                        {member.status === 'active' ? 'Active' : 'Pending'}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* No invite form for members */}
+          </div>
+        )}
+
+        {/* Team Tab — loading state when team data hasn't loaded yet for members */}
+        {activeTab === 'team' && currentPlan === 'elite' && !isTeamOwner && !teamInfo && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 flex items-center justify-center">
+            <Loader2 className="w-5 h-5 animate-spin text-gray-400 mr-2" />
+            <span className="text-sm text-gray-500">Loading team...</span>
           </div>
         )}
 
@@ -635,27 +793,51 @@ export default function SettingsPage() {
             <div className={`bg-white rounded-2xl border-2 ${planCfg.border} p-6`}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold text-gray-900">{s.currentPlan}</h2>
-                <Badge className={`${planCfg.color} border ${planCfg.border} text-sm px-3 py-1`}>
-                  <Crown className="w-4 h-4 mr-1.5" />
-                  {planCfg.label}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge className={`${planCfg.color} border ${planCfg.border} text-sm px-3 py-1`}>
+                    <Crown className="w-4 h-4 mr-1.5" />
+                    {planCfg.label}
+                  </Badge>
+                  {isTeamMember && (
+                    <Badge className="bg-blue-50 text-blue-600 border border-blue-200 text-sm px-3 py-1">
+                      <Users className="w-4 h-4 mr-1.5" />
+                      {s.member}
+                    </Badge>
+                  )}
+                </div>
               </div>
-              {currentPlan === 'free' && (
-                <p className="text-sm text-gray-500 mb-4">{s.freePlanDesc}</p>
-              )}
-              {currentPlan === 'pro' && (
-                <p className="text-sm text-gray-500 mb-4">{s.proPlanDesc}</p>
-              )}
-              {currentPlan === 'elite' && (
-                <p className="text-sm text-gray-500 mb-4">{s.elitePlanDesc}</p>
-              )}
-              {currentPlan !== 'elite' && (
-                <Button variant="gold" onClick={() => router.push('/designer/pricing')} className="w-full">
-                  {currentPlan === 'free' ? s.upgradeToPro : s.upgradeToElite}
-                </Button>
-              )}
-              {currentPlan === 'elite' && (
-                <div className="text-center text-sm text-gray-500">{s.highestPlan} ⚡</div>
+
+              {/* Team MEMBER: show "managed by owner" message */}
+              {isTeamMember ? (
+                <div className="bg-blue-50 rounded-xl p-4">
+                  <p className="text-sm text-blue-700 font-medium mb-1">{s.planManagedByOwner}</p>
+                  <p className="text-xs text-blue-600">{s.contactOwnerToChange}</p>
+                  {(ownerName || ownerEmail) && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      {s.teamOwner}: <span className="font-medium text-gray-700">{ownerName || ownerEmail}</span>
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {currentPlan === 'free' && (
+                    <p className="text-sm text-gray-500 mb-4">{s.freePlanDesc}</p>
+                  )}
+                  {currentPlan === 'pro' && (
+                    <p className="text-sm text-gray-500 mb-4">{s.proPlanDesc}</p>
+                  )}
+                  {currentPlan === 'elite' && (
+                    <p className="text-sm text-gray-500 mb-4">{s.elitePlanDesc}</p>
+                  )}
+                  {currentPlan !== 'elite' && (
+                    <Button variant="gold" onClick={() => router.push('/designer/pricing')} className="w-full">
+                      {currentPlan === 'free' ? s.upgradeToPro : s.upgradeToElite}
+                    </Button>
+                  )}
+                  {currentPlan === 'elite' && (
+                    <div className="text-center text-sm text-gray-500 mt-2">{s.highestPlan}</div>
+                  )}
+                </>
               )}
             </div>
 
@@ -666,10 +848,10 @@ export default function SettingsPage() {
                 {[
                   { feature: s.aiAnalysis, free: '3', pro: '50/' + (lang === 'ZH' ? '月' : lang === 'BM' ? 'bulan' : 'month'), elite: '250/' + (lang === 'ZH' ? '月 (共享)' : lang === 'BM' ? 'bulan (dikongsi)' : 'month (shared)') },
                   { feature: s.projects, free: '1', pro: lang === 'ZH' ? '无限' : lang === 'BM' ? 'Tanpa had' : 'Unlimited', elite: lang === 'ZH' ? '无限' : lang === 'BM' ? 'Tanpa had' : 'Unlimited' },
-                  { feature: s.priceDB, free: '✗', pro: '✓', elite: '✓' },
-                  { feature: s.costDB, free: '✗', pro: '✓', elite: '✓' },
-                  { feature: s.workerMgmt, free: '✗', pro: '✓', elite: '✓' },
-                  { feature: s.ownerPortal, free: '✗', pro: '✓', elite: '✓' },
+                  { feature: s.priceDB, free: '\u2717', pro: '\u2713', elite: '\u2713' },
+                  { feature: s.costDB, free: '\u2717', pro: '\u2713', elite: '\u2713' },
+                  { feature: s.workerMgmt, free: '\u2717', pro: '\u2713', elite: '\u2713' },
+                  { feature: s.ownerPortal, free: '\u2717', pro: '\u2713', elite: '\u2713' },
                 ].map(row => (
                   <div key={row.feature} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
                     <span className="text-gray-700">{row.feature}</span>
