@@ -2604,7 +2604,7 @@ export default function ProjectDetailPage() {
                       {compareMode ? 'Hide Compare' : t.proj.compareVersions}
                     </Button>
                   )}
-                  <Button variant="gold" size="sm" onClick={() => router.push('/designer/quotation')} className="gap-2">
+                  <Button variant="gold" size="sm" onClick={() => router.push(`/designer/quotation?projectId=${id}&projectName=${encodeURIComponent(project?.name || '')}`)} className="gap-2">
                     <Plus className="w-4 h-4" /> {t.proj.uploadNewVersion}
                   </Button>
                 </div>
