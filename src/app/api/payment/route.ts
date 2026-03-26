@@ -20,23 +20,14 @@ const PRICE_IDS: Record<string, string | undefined> = {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { plan, region, interval = 'monthly' } = body as {
+    const { plan, region, interval = 'monthly', stack = false } = body as {
       plan: string;
       region: string;
       interval?: string;
+      stack?: boolean;
     };
 
     const stripeKey = process.env.STRIPE_SECRET_KEY;
-
-    // Demo mode if no Stripe key
-    if (!stripeKey) {
-      return NextResponse.json({
-        demo: true,
-        message: 'Demo mode: Stripe not configured',
-        plan,
-        redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/designer/pricing?success=1&plan=${plan}`,
-      });
-    }
 
     // Get authenticated user
     const supabase = await createClient();
@@ -47,6 +38,30 @@ export async function POST(req: NextRequest) {
 
     const userId = session.user.id;
     const userEmail = session.user.email;
+
+    // Demo mode if no Stripe key
+    if (!stripeKey) {
+      // In demo mode, also handle stacking by incrementing elite_slots
+      if (stack && plan === 'elite') {
+        const { data: team } = await supabase
+          .from('teams')
+          .select('id, elite_slots')
+          .eq('owner_user_id', userId)
+          .single();
+        if (team) {
+          await supabase.from('teams').update({
+            elite_slots: (team.elite_slots ?? 1) + 1,
+            updated_at: new Date().toISOString(),
+          }).eq('id', team.id);
+        }
+      }
+      return NextResponse.json({
+        demo: true,
+        message: 'Demo mode: Stripe not configured',
+        plan,
+        redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/designer/pricing?success=1&plan=${plan}`,
+      });
+    }
 
     // Get price ID: e.g. "pro_MY_monthly"
     const priceKey = `${plan}_${region || 'MY'}_${interval}`;
@@ -80,16 +95,44 @@ export async function POST(req: NextRequest) {
         .eq('user_id', userId);
     }
 
+    // Determine new slot count for stacking
+    let newSlots = 1;
+    if (stack && plan === 'elite') {
+      const { data: team } = await supabase
+        .from('teams')
+        .select('elite_slots')
+        .eq('owner_user_id', userId)
+        .single();
+      newSlots = (team?.elite_slots ?? 1) + 1;
+    }
+
+    // Build success URL
+    const successUrl = stack
+      ? `${process.env.NEXT_PUBLIC_APP_URL}/designer/settings?tab=team&stack_success=1`
+      : `${process.env.NEXT_PUBLIC_APP_URL}/designer/pricing?success=1&plan=${plan}`;
+
     // Create checkout session
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/designer/pricing?success=1&plan=${plan}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/designer/pricing`,
-      metadata: { user_id: userId, plan },
+      success_url: successUrl,
+      cancel_url: stack
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/designer/pricing?stack=elite`
+        : `${process.env.NEXT_PUBLIC_APP_URL}/designer/pricing`,
+      metadata: {
+        user_id: userId,
+        plan,
+        stack: stack ? 'true' : 'false',
+        new_elite_slots: String(newSlots),
+      },
       subscription_data: {
-        metadata: { user_id: userId, plan },
+        metadata: {
+          user_id: userId,
+          plan,
+          stack: stack ? 'true' : 'false',
+          new_elite_slots: String(newSlots),
+        },
       },
     });
 

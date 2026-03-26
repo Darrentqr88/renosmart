@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+
+// Admin client for sending invite emails (bypasses RLS)
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
 
 export async function POST(req: NextRequest) {
   try {
@@ -74,7 +82,41 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ success: true, message: `邀请已发送至 ${email}` });
+    // Send invite email via Supabase Admin API
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+    const redirectTo = `${appUrl}/auth/callback?team_join=${team!.id}`;
+
+    // Try inviteUserByEmail first (works for new users — Supabase sends the email)
+    const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      redirectTo,
+      data: { team_id: team!.id },
+    });
+
+    if (inviteError) {
+      if (inviteError.message.includes('already registered') || inviteError.message.includes('already been registered')) {
+        // Existing user — generate a magic link they can click to join
+        const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'magiclink',
+          email,
+          options: { redirectTo },
+        });
+        if (linkError) {
+          console.error('generateLink error:', linkError);
+          return NextResponse.json({ error: '无法生成邀请链接，请稍后再试' }, { status: 500 });
+        }
+        // Return the magic link so the owner can share it directly
+        return NextResponse.json({
+          success: true,
+          existingUser: true,
+          magicLink: linkData.properties?.action_link,
+          message: `${email} 已有账号，请将以下链接发送给他们加入团队`,
+        });
+      }
+      console.error('inviteUserByEmail error:', inviteError);
+      return NextResponse.json({ error: inviteError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, message: `邀请邮件已发送至 ${email}` });
   } catch (err) {
     console.error('Team invite error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

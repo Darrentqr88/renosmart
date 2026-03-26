@@ -43,6 +43,8 @@ export async function POST(req: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.metadata?.user_id;
         const plan = session.metadata?.plan;
+        const isStack = session.metadata?.stack === 'true';
+        const newEliteSlots = parseInt(session.metadata?.new_elite_slots || '0', 10);
 
         if (userId && plan) {
           await supabase
@@ -53,6 +55,17 @@ export async function POST(req: NextRequest) {
               updated_at: new Date().toISOString(),
             })
             .eq('user_id', userId);
+
+          // Handle elite bundle stacking — increment elite_slots on the team
+          if (isStack && plan === 'elite' && newEliteSlots > 0) {
+            await supabase
+              .from('teams')
+              .update({
+                elite_slots: newEliteSlots,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('owner_user_id', userId);
+          }
         }
         break;
       }

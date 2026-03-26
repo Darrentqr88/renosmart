@@ -1,10 +1,19 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+
+// Admin client to update team_members without RLS
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
+  const teamJoin = searchParams.get('team_join'); // team_id if invited
   const errorParam = searchParams.get('error');
   const errorDesc = searchParams.get('error_description');
 
@@ -44,6 +53,36 @@ export async function GET(request: Request) {
     const { error, data } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error && data.user) {
+      // Handle team join: activate the pending team_members record
+      if (teamJoin) {
+        const userEmail = data.user.email!;
+        const userId = data.user.id;
+
+        // Find pending invite for this email + team
+        const { data: invite } = await supabaseAdmin
+          .from('team_members')
+          .select('id')
+          .eq('team_id', teamJoin)
+          .eq('email', userEmail)
+          .eq('status', 'pending')
+          .single();
+
+        if (invite) {
+          // Activate member
+          await supabaseAdmin.from('team_members').update({
+            user_id: userId,
+            status: 'active',
+            joined_at: new Date().toISOString(),
+          }).eq('id', invite.id);
+
+          // Set team_id on profile + ensure plan is elite
+          await supabaseAdmin.from('profiles').update({
+            team_id: teamJoin,
+            plan: 'elite',
+          }).eq('user_id', userId);
+        }
+      }
+
       // Look up profile to determine role
       const { data: profile } = await supabase
         .from('profiles')

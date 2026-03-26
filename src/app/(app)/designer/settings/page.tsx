@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useI18n } from '@/lib/i18n/context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,9 +33,207 @@ interface TeamInfo {
   teamUsage: number;
 }
 
+// i18n strings for settings page
+const settingsI18n = {
+  EN: {
+    settings: 'Settings',
+    profile: 'Profile',
+    company: 'Company',
+    plan: 'Plan',
+    teamTab: 'Team',
+    personalInfo: 'Personal Information',
+    fullName: 'Full Name',
+    email: 'Email',
+    emailNote: 'Email cannot be changed here.',
+    phoneNumber: 'Phone Number',
+    saveProfile: 'Save Profile',
+    profileSaved: 'Profile saved!',
+    profileSavedDesc: 'Your profile has been updated.',
+    companyInfo: 'Company Information',
+    companyInfoDesc: 'This information appears on your quotations and client documents.',
+    companyName: 'Company Name',
+    companyAddress: 'Company Address',
+    saveCompany: 'Save Company Info',
+    companySaved: 'Company info saved!',
+    currentPlan: 'Current Plan',
+    freePlanDesc: 'You are on the free plan. Upgrade to unlock unlimited AI analyses, price database access, and more.',
+    proPlanDesc: '50 AI analyses per month · Unlimited projects · Payment tracking · Owner portal',
+    elitePlanDesc: '250 AI analyses/month (team shared) · 5 accounts · All Pro features · Team collaboration',
+    upgradeToPro: 'Upgrade to Pro',
+    upgradeToElite: 'Upgrade to Elite',
+    highestPlan: 'You are on the highest plan. Thank you!',
+    whatsIncluded: "What's Included",
+    aiAnalysis: 'AI Quotation Analysis',
+    projects: 'Projects',
+    priceDB: 'Price Database',
+    costDB: 'Cost Database',
+    workerMgmt: 'Worker Management',
+    ownerPortal: 'Owner Portal',
+    eliteTeam: 'Elite Team',
+    bundles: 'bundle(s)',
+    maxMembers: 'members',
+    perMonthShared: '/month shared',
+    monthlyUsage: 'Monthly team usage',
+    times: 'uses',
+    buyMore: 'Buy more bundles',
+    buyMoreDesc: '/month = +5 members +250 uses',
+    memberList: 'Members',
+    of: 'of',
+    people: 'members',
+    usesPerMonth: 'uses/mo',
+    noMembers: 'No members invited yet',
+    inviteNew: 'Invite New Member',
+    emailPlaceholder: 'Enter member email',
+    sendInvite: 'Send Invite',
+    inviteNote: 'Invited members will join your team and gain Elite AI access after signing up/in.',
+    teamFull: 'Team is full',
+    buyMoreToExpand: 'Buy more bundles',
+    toExpand: 'to expand.',
+    inviteFailed: 'Invite failed',
+    linkGenerated: 'Join link generated',
+    linkGenDesc: 'This email already has an account. Copy and share the link below.',
+    inviteSent: 'Invite sent',
+    memberRemoved: 'Member removed',
+    opFailed: 'Operation failed',
+    copied: 'Copied',
+    existingAcctNote: 'This email already has an account. Share the link below:',
+    copy: 'Copy',
+  },
+  BM: {
+    settings: 'Tetapan',
+    profile: 'Profil',
+    company: 'Syarikat',
+    plan: 'Pelan',
+    teamTab: 'Pasukan',
+    personalInfo: 'Maklumat Peribadi',
+    fullName: 'Nama Penuh',
+    email: 'E-mel',
+    emailNote: 'E-mel tidak boleh diubah di sini.',
+    phoneNumber: 'Nombor Telefon',
+    saveProfile: 'Simpan Profil',
+    profileSaved: 'Profil disimpan!',
+    profileSavedDesc: 'Profil anda telah dikemas kini.',
+    companyInfo: 'Maklumat Syarikat',
+    companyInfoDesc: 'Maklumat ini muncul pada sebut harga dan dokumen pelanggan anda.',
+    companyName: 'Nama Syarikat',
+    companyAddress: 'Alamat Syarikat',
+    saveCompany: 'Simpan Maklumat Syarikat',
+    companySaved: 'Maklumat syarikat disimpan!',
+    currentPlan: 'Pelan Semasa',
+    freePlanDesc: 'Anda menggunakan pelan percuma. Naik taraf untuk membuka analisis AI tanpa had dan banyak lagi.',
+    proPlanDesc: '50 analisis AI sebulan · Projek tanpa had · Penjejakan pembayaran · Portal pemilik',
+    elitePlanDesc: '250 analisis AI/bulan (dikongsi) · 5 akaun · Semua ciri Pro · Kerjasama pasukan',
+    upgradeToPro: 'Naik taraf ke Pro',
+    upgradeToElite: 'Naik taraf ke Elite',
+    highestPlan: 'Anda menggunakan pelan tertinggi. Terima kasih!',
+    whatsIncluded: 'Apa Yang Disertakan',
+    aiAnalysis: 'Audit Sebut Harga AI',
+    projects: 'Projek',
+    priceDB: 'Pangkalan Data Harga',
+    costDB: 'Pangkalan Data Kos',
+    workerMgmt: 'Pengurusan Pekerja',
+    ownerPortal: 'Portal Pemilik',
+    eliteTeam: 'Pasukan Elite',
+    bundles: 'bundle',
+    maxMembers: 'ahli',
+    perMonthShared: '/bulan dikongsi',
+    monthlyUsage: 'Penggunaan pasukan bulan ini',
+    times: 'kali',
+    buyMore: 'Beli lagi bundle',
+    buyMoreDesc: '/bulan = +5 ahli +250 kali',
+    memberList: 'Senarai Ahli',
+    of: 'daripada',
+    people: 'orang',
+    usesPerMonth: 'kali/bln',
+    noMembers: 'Belum menjemput ahli',
+    inviteNew: 'Jemput Ahli Baru',
+    emailPlaceholder: 'Masukkan e-mel ahli',
+    sendInvite: 'Hantar Jemputan',
+    inviteNote: 'Ahli yang dijemput akan menyertai pasukan dan mendapat akses Elite AI selepas mendaftar/log masuk.',
+    teamFull: 'Pasukan penuh',
+    buyMoreToExpand: 'Beli lagi bundle',
+    toExpand: 'untuk kembang.',
+    inviteFailed: 'Jemputan gagal',
+    linkGenerated: 'Pautan penyertaan dijana',
+    linkGenDesc: 'E-mel ini sudah mempunyai akaun. Salin dan kongsi pautan di bawah.',
+    inviteSent: 'Jemputan dihantar',
+    memberRemoved: 'Ahli dibuang',
+    opFailed: 'Operasi gagal',
+    copied: 'Disalin',
+    existingAcctNote: 'E-mel ini sudah mempunyai akaun. Kongsi pautan di bawah:',
+    copy: 'Salin',
+  },
+  ZH: {
+    settings: '设置',
+    profile: '个人资料',
+    company: '公司',
+    plan: '套餐',
+    teamTab: '团队管理',
+    personalInfo: '个人信息',
+    fullName: '姓名',
+    email: '邮箱',
+    emailNote: '邮箱无法在此处更改。',
+    phoneNumber: '手机号码',
+    saveProfile: '保存资料',
+    profileSaved: '资料已保存！',
+    profileSavedDesc: '您的资料已更新。',
+    companyInfo: '公司信息',
+    companyInfoDesc: '此信息会显示在您的报价单和客户文档中。',
+    companyName: '公司名称',
+    companyAddress: '公司地址',
+    saveCompany: '保存公司信息',
+    companySaved: '公司信息已保存！',
+    currentPlan: '当前套餐',
+    freePlanDesc: '您正在使用免费版。升级可解锁无限 AI 分析、价格数据库等功能。',
+    proPlanDesc: '每月 50 次 AI 分析 · 无限项目 · 付款追踪 · 业主门户',
+    elitePlanDesc: '250 次 AI 分析/月（团队共享） · 5 个账号 · Pro 全部功能 · 团队协作',
+    upgradeToPro: '升级至 Pro',
+    upgradeToElite: '升级至 Elite',
+    highestPlan: '您正在使用最高套餐，感谢支持！',
+    whatsIncluded: '包含功能',
+    aiAnalysis: 'AI 报价审计',
+    projects: '项目',
+    priceDB: '价格数据库',
+    costDB: '成本数据库',
+    workerMgmt: '工人管理',
+    ownerPortal: '业主门户',
+    eliteTeam: 'Elite 团队',
+    bundles: '个配套',
+    maxMembers: '人',
+    perMonthShared: '次/月共享',
+    monthlyUsage: '本月团队用量',
+    times: '次',
+    buyMore: '购买更多配套',
+    buyMoreDesc: '/月 = +5 人名额 +250 次',
+    memberList: '成员列表',
+    of: '/',
+    people: '人',
+    usesPerMonth: '次/月',
+    noMembers: '尚未邀请任何成员',
+    inviteNew: '邀请新成员',
+    emailPlaceholder: '输入成员邮箱地址',
+    sendInvite: '发送邀请',
+    inviteNote: '受邀成员注册/登入后自动加入团队并获得 Elite AI 权限。',
+    teamFull: '团队已满员',
+    buyMoreToExpand: '购买更多配套',
+    toExpand: '以扩充团队。',
+    inviteFailed: '邀请失败',
+    linkGenerated: '已生成加入链接',
+    linkGenDesc: '该邮箱已有账号，请复制下方链接发送给对方',
+    inviteSent: '邀请已发送',
+    memberRemoved: '成员已移除',
+    opFailed: '操作失败',
+    copied: '已复制',
+    existingAcctNote: '该邮箱已有账号，请将以下链接发送给对方：',
+    copy: '复制',
+  },
+};
+
 export default function SettingsPage() {
   const supabase = createClient();
   const router = useRouter();
+  const { lang } = useI18n();
+  const s = settingsI18n[lang as keyof typeof settingsI18n] || settingsI18n.EN;
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [loading, setLoading] = useState(false);
 
@@ -58,6 +257,7 @@ export default function SettingsPage() {
   const [usageMap, setUsageMap] = useState<Record<string, number>>({});
   const [inviteEmail, setInviteEmail] = useState('');
   const [teamLoading, setTeamLoading] = useState(false);
+  const [joinLink, setJoinLink] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -102,8 +302,13 @@ export default function SettingsPage() {
         body: JSON.stringify({ email: inviteEmail.trim() }),
       });
       const data = await res.json();
-      if (!res.ok) { toast({ title: '邀请失败', description: data.error, variant: 'destructive' }); return; }
-      toast({ title: '邀请已发送', description: data.message });
+      if (!res.ok) { toast({ title: s.inviteFailed, description: data.error, variant: 'destructive' }); return; }
+      if (data.existingUser && data.magicLink) {
+        setJoinLink(data.magicLink);
+        toast({ title: s.linkGenerated, description: s.linkGenDesc });
+      } else {
+        toast({ title: s.inviteSent, description: data.message });
+      }
       setInviteEmail('');
       loadTeam();
     } finally {
@@ -119,8 +324,8 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ memberId }),
       });
-      if (res.ok) { toast({ title: '成员已移除' }); loadTeam(); }
-      else { const d = await res.json(); toast({ title: '操作失败', description: d.error, variant: 'destructive' }); }
+      if (res.ok) { toast({ title: s.memberRemoved }); loadTeam(); }
+      else { const d = await res.json(); toast({ title: s.opFailed, description: d.error, variant: 'destructive' }); }
     } finally {
       setTeamLoading(false);
     }
@@ -134,7 +339,7 @@ export default function SettingsPage() {
         phone,
         updated_at: new Date().toISOString(),
       }).eq('user_id', userId);
-      toast({ title: 'Profile saved!', description: 'Your profile has been updated.' });
+      toast({ title: s.profileSaved, description: s.profileSavedDesc });
     } finally {
       setLoading(false);
     }
@@ -148,7 +353,7 @@ export default function SettingsPage() {
         company_address: companyAddress,
         updated_at: new Date().toISOString(),
       }).eq('user_id', userId);
-      toast({ title: 'Company info saved!' });
+      toast({ title: s.companySaved });
     } finally {
       setLoading(false);
     }
@@ -162,17 +367,17 @@ export default function SettingsPage() {
   const planCfg = PLAN_CONFIG[currentPlan as keyof typeof PLAN_CONFIG] || PLAN_CONFIG.free;
 
   const tabs: { id: SettingsTab; label: string; icon: typeof User; eliteOnly?: boolean }[] = [
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'company', label: 'Company', icon: Building2 },
-    { id: 'plan', label: 'Plan', icon: CreditCard },
-    { id: 'team', label: '团队管理', icon: Users, eliteOnly: true },
+    { id: 'profile', label: s.profile, icon: User },
+    { id: 'company', label: s.company, icon: Building2 },
+    { id: 'plan', label: s.plan, icon: CreditCard },
+    { id: 'team', label: s.teamTab, icon: Users, eliteOnly: true },
   ];
 
   return (
     <div className="flex-1 p-6 overflow-y-auto">
       <Toaster />
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Settings</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">{s.settings}</h1>
 
         {/* Tab row */}
         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit flex-wrap">
@@ -193,7 +398,7 @@ export default function SettingsPage() {
         {/* Profile Tab */}
         {activeTab === 'profile' && (
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h2 className="font-semibold text-gray-900 mb-5">Personal Information</h2>
+            <h2 className="font-semibold text-gray-900 mb-5">{s.personalInfo}</h2>
 
             {/* Avatar placeholder */}
             <div className="flex items-center gap-4 mb-6">
@@ -216,23 +421,23 @@ export default function SettingsPage() {
 
             <div className="space-y-4">
               <div>
-                <Label className="text-sm text-gray-700">Full Name</Label>
-                <Input value={name} onChange={e => setName(e.target.value)} className="mt-1" placeholder="Your full name" />
+                <Label className="text-sm text-gray-700">{s.fullName}</Label>
+                <Input value={name} onChange={e => setName(e.target.value)} className="mt-1" />
               </div>
               <div>
-                <Label className="text-sm text-gray-700">Email</Label>
+                <Label className="text-sm text-gray-700">{s.email}</Label>
                 <Input value={email} disabled className="mt-1 bg-gray-50 text-gray-500" />
-                <p className="text-xs text-gray-400 mt-1">Email cannot be changed here.</p>
+                <p className="text-xs text-gray-400 mt-1">{s.emailNote}</p>
               </div>
               <div>
-                <Label className="text-sm text-gray-700">Phone Number</Label>
+                <Label className="text-sm text-gray-700">{s.phoneNumber}</Label>
                 <Input value={phone} onChange={e => setPhone(e.target.value)} className="mt-1" placeholder="+60123456789" />
               </div>
             </div>
 
             <Button variant="gold" onClick={handleSaveProfile} disabled={loading} className="mt-6 w-full">
               {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              Save Profile
+              {s.saveProfile}
             </Button>
           </div>
         )}
@@ -240,29 +445,26 @@ export default function SettingsPage() {
         {/* Company Tab */}
         {activeTab === 'company' && (
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h2 className="font-semibold text-gray-900 mb-5">Company Information</h2>
-            <p className="text-sm text-gray-500 mb-5">
-              This information appears on your quotations and client documents.
-            </p>
+            <h2 className="font-semibold text-gray-900 mb-5">{s.companyInfo}</h2>
+            <p className="text-sm text-gray-500 mb-5">{s.companyInfoDesc}</p>
             <div className="space-y-4">
               <div>
-                <Label className="text-sm text-gray-700">Company Name</Label>
-                <Input value={company} onChange={e => setCompany(e.target.value)} className="mt-1" placeholder="Your Renovation Co." />
+                <Label className="text-sm text-gray-700">{s.companyName}</Label>
+                <Input value={company} onChange={e => setCompany(e.target.value)} className="mt-1" />
               </div>
               <div>
-                <Label className="text-sm text-gray-700">Company Address</Label>
+                <Label className="text-sm text-gray-700">{s.companyAddress}</Label>
                 <textarea
                   value={companyAddress}
                   onChange={e => setCompanyAddress(e.target.value)}
                   rows={3}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4F8EF7]/30 focus:border-[#4F8EF7] resize-none"
-                  placeholder="Full business address"
                 />
               </div>
             </div>
             <Button variant="gold" onClick={handleSaveCompany} disabled={loading} className="mt-6 w-full">
               {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              Save Company Info
+              {s.saveCompany}
             </Button>
           </div>
         )}
@@ -279,10 +481,10 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <h2 className="font-semibold text-gray-900">
-                      Elite 团队 — {teamInfo?.elite_slots ?? 1} 个配套
+                      {s.eliteTeam} — {teamInfo?.elite_slots ?? 1} {s.bundles}
                     </h2>
                     <p className="text-xs text-gray-500">
-                      上限 {teamInfo?.maxMembers ?? 5} 人 · {teamInfo?.teamMonthlyLimit ?? 250} 次/月共享
+                      {teamInfo?.maxMembers ?? 5} {s.maxMembers} · {teamInfo?.teamMonthlyLimit ?? 250} {s.perMonthShared}
                     </p>
                   </div>
                 </div>
@@ -293,8 +495,8 @@ export default function SettingsPage() {
               {teamInfo && (
                 <div className="mb-4">
                   <div className="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>本月团队用量</span>
-                    <span>{teamInfo.teamUsage} / {teamInfo.teamMonthlyLimit} 次</span>
+                    <span>{s.monthlyUsage}</span>
+                    <span>{teamInfo.teamUsage} / {teamInfo.teamMonthlyLimit} {s.times}</span>
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-2">
                     <div
@@ -310,10 +512,10 @@ export default function SettingsPage() {
                 variant="outline"
                 size="sm"
                 className="w-full border-purple-200 text-purple-700 hover:bg-purple-50"
-                onClick={() => router.push('/designer/pricing')}
+                onClick={() => router.push('/designer/pricing?stack=elite')}
               >
                 <UserPlus className="w-4 h-4 mr-2" />
-                购买更多配套 — RM299/月 = +5 人名额 +250 次
+                {s.buyMore} — RM299{s.buyMoreDesc}
               </Button>
             </div>
 
@@ -321,9 +523,9 @@ export default function SettingsPage() {
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
               <h3 className="font-medium text-gray-800 mb-4 flex items-center gap-2">
                 <Users className="w-4 h-4" />
-                成员列表
+                {s.memberList}
                 <span className="text-xs font-normal text-gray-400 ml-1">
-                  ({teamMembers.filter(m => m.status !== 'removed').length + 1} / {teamInfo?.maxMembers ?? 5} 人)
+                  ({teamMembers.filter(m => m.status !== 'removed').length + 1} {s.of} {teamInfo?.maxMembers ?? 5} {s.people})
                 </span>
               </h3>
 
@@ -335,7 +537,7 @@ export default function SettingsPage() {
                     <span className="text-sm font-medium text-gray-800">{email}</span>
                     <Badge className="text-xs bg-purple-100 text-purple-700 border-0">Owner</Badge>
                   </div>
-                  <span className="text-xs text-gray-500">{usageMap[userId] ?? 0} 次/月</span>
+                  <span className="text-xs text-gray-500">{usageMap[userId] ?? 0} {s.usesPerMonth}</span>
                 </div>
 
                 {/* Member rows */}
@@ -357,7 +559,7 @@ export default function SettingsPage() {
                     <div className="flex items-center gap-3 ml-2">
                       {member.status === 'active' && (
                         <span className="text-xs text-gray-400 flex-shrink-0">
-                          {usageMap[member.user_id ?? ''] ?? 0} 次/月
+                          {usageMap[member.user_id ?? ''] ?? 0} {s.usesPerMonth}
                         </span>
                       )}
                       <button
@@ -373,7 +575,7 @@ export default function SettingsPage() {
                 ))}
 
                 {teamMembers.length === 0 && (
-                  <p className="text-sm text-gray-400 text-center py-4">尚未邀请任何成员</p>
+                  <p className="text-sm text-gray-400 text-center py-4">{s.noMembers}</p>
                 )}
               </div>
             </div>
@@ -382,33 +584,47 @@ export default function SettingsPage() {
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
               <h3 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
                 <UserPlus className="w-4 h-4" />
-                邀请新成员
+                {s.inviteNew}
               </h3>
               {teamInfo && (teamMembers.filter(m => m.status !== 'removed').length + 1) >= teamInfo.maxMembers ? (
                 <p className="text-sm text-amber-600 bg-amber-50 rounded-lg px-4 py-3">
-                  团队已满员 ({teamInfo.maxMembers} 人)。
-                  <button onClick={() => router.push('/designer/pricing')} className="underline ml-1">
-                    购买更多配套
+                  {s.teamFull} ({teamInfo.maxMembers} {s.people}).{' '}
+                  <button onClick={() => router.push('/designer/pricing?stack=elite')} className="underline ml-1">
+                    {s.buyMoreToExpand}
                   </button>
-                  以扩充团队。
+                  {' '}{s.toExpand}
                 </p>
               ) : (
                 <div className="flex gap-2">
                   <Input
                     value={inviteEmail}
                     onChange={e => setInviteEmail(e.target.value)}
-                    placeholder="输入成员邮箱地址"
+                    placeholder={s.emailPlaceholder}
                     onKeyDown={e => e.key === 'Enter' && handleInvite()}
                     className="flex-1"
                   />
                   <Button variant="gold" onClick={handleInvite} disabled={teamLoading || !inviteEmail.trim()}>
-                    {teamLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : '发送邀请'}
+                    {teamLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : s.sendInvite}
                   </Button>
                 </div>
               )}
-              <p className="text-xs text-gray-400 mt-2">
-                受邀成员注册/登入后自动加入团队并获得 Elite AI 权限。
-              </p>
+              <p className="text-xs text-gray-400 mt-2">{s.inviteNote}</p>
+              {joinLink && (
+                <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                  <p className="text-xs text-yellow-600 mb-1 font-medium">{s.existingAcctNote}</p>
+                  <div className="flex gap-2">
+                    <input
+                      readOnly
+                      value={joinLink}
+                      className="flex-1 text-xs bg-gray-100 border border-gray-300 rounded px-2 py-1 text-gray-700 truncate"
+                    />
+                    <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(joinLink); toast({ title: s.copied }); }}>
+                      {s.copy}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setJoinLink(null)}>✕</Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -419,48 +635,42 @@ export default function SettingsPage() {
             {/* Current plan card */}
             <div className={`bg-white rounded-2xl border-2 ${planCfg.border} p-6`}>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold text-gray-900">Current Plan</h2>
+                <h2 className="font-semibold text-gray-900">{s.currentPlan}</h2>
                 <Badge className={`${planCfg.color} border ${planCfg.border} text-sm px-3 py-1`}>
                   <Crown className="w-4 h-4 mr-1.5" />
                   {planCfg.label}
                 </Badge>
               </div>
               {currentPlan === 'free' && (
-                <p className="text-sm text-gray-500 mb-4">
-                  You are on the free plan. Upgrade to unlock unlimited AI analyses, price database access, and more.
-                </p>
+                <p className="text-sm text-gray-500 mb-4">{s.freePlanDesc}</p>
               )}
               {currentPlan === 'pro' && (
-                <p className="text-sm text-gray-500 mb-4">
-                  50 AI analyses per month · Unlimited projects · Payment tracking · Owner portal
-                </p>
+                <p className="text-sm text-gray-500 mb-4">{s.proPlanDesc}</p>
               )}
               {currentPlan === 'elite' && (
-                <p className="text-sm text-gray-500 mb-4">
-                  250 AI analyses/month (team shared) · 5 accounts · All Pro features · Team collaboration
-                </p>
+                <p className="text-sm text-gray-500 mb-4">{s.elitePlanDesc}</p>
               )}
               {currentPlan !== 'elite' && (
                 <Button variant="gold" onClick={() => router.push('/designer/pricing')} className="w-full">
-                  {currentPlan === 'free' ? 'Upgrade to Pro' : 'Upgrade to Elite'}
+                  {currentPlan === 'free' ? s.upgradeToPro : s.upgradeToElite}
                 </Button>
               )}
               {currentPlan === 'elite' && (
-                <div className="text-center text-sm text-gray-500">You are on the highest plan. Thank you! ⚡</div>
+                <div className="text-center text-sm text-gray-500">{s.highestPlan} ⚡</div>
               )}
             </div>
 
             {/* Plan features summary */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
-              <h3 className="font-medium text-gray-800 mb-4">What&apos;s Included</h3>
+              <h3 className="font-medium text-gray-800 mb-4">{s.whatsIncluded}</h3>
               <div className="space-y-2 text-sm">
                 {[
-                  { feature: 'AI Quotation Analysis', free: '3 lifetime', pro: '50/month', elite: '250/month (shared)' },
-                  { feature: 'Projects', free: '1', pro: 'Unlimited', elite: 'Unlimited' },
-                  { feature: 'Price Database', free: '✗', pro: '✓', elite: '✓' },
-                  { feature: 'Cost Database', free: '✗', pro: '✓', elite: '✓' },
-                  { feature: 'Worker Management', free: '✗', pro: '✓', elite: '✓' },
-                  { feature: 'Owner Portal', free: '✗', pro: '✓', elite: '✓' },
+                  { feature: s.aiAnalysis, free: '3', pro: '50/' + (lang === 'ZH' ? '月' : lang === 'BM' ? 'bulan' : 'month'), elite: '250/' + (lang === 'ZH' ? '月 (共享)' : lang === 'BM' ? 'bulan (dikongsi)' : 'month (shared)') },
+                  { feature: s.projects, free: '1', pro: lang === 'ZH' ? '无限' : lang === 'BM' ? 'Tanpa had' : 'Unlimited', elite: lang === 'ZH' ? '无限' : lang === 'BM' ? 'Tanpa had' : 'Unlimited' },
+                  { feature: s.priceDB, free: '✗', pro: '✓', elite: '✓' },
+                  { feature: s.costDB, free: '✗', pro: '✓', elite: '✓' },
+                  { feature: s.workerMgmt, free: '✗', pro: '✓', elite: '✓' },
+                  { feature: s.ownerPortal, free: '✗', pro: '✓', elite: '✓' },
                 ].map(row => (
                   <div key={row.feature} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
                     <span className="text-gray-700">{row.feature}</span>
