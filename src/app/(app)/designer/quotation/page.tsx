@@ -1196,7 +1196,7 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                       let lastSection: string | null = null;
                       const rows: React.ReactNode[] = [];
                       displayedItems.forEach((item, i) => {
-                        const cfg = STATUS_CONFIG[item.status];
+                        const cfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.nodata;
                         // Section header row
                         const curSection = item.section || null;
                         if (curSection && curSection !== lastSection) {
