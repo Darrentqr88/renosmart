@@ -72,3 +72,14 @@ CREATE POLICY "invitee_update_own" ON team_members
     email = (SELECT email FROM profiles WHERE user_id = auth.uid() LIMIT 1)
     AND status = 'pending'
   );
+
+-- ============================================================
+-- 5. Allow users with profile.team_id to SELECT their team
+-- ============================================================
+-- The existing "team_member_select" only works for active team_members.
+-- Users with profile.team_id set (e.g. just joined, status may be pending)
+-- also need to read their team info.
+CREATE POLICY "team_profile_read" ON teams
+  FOR SELECT USING (
+    id = auth_user_team_id()
+  );

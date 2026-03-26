@@ -23,49 +23,54 @@ export async function GET(req: NextRequest) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const userId = session.user.id;
 
-    // First, check if user OWNS a team (use admin to avoid RLS issues)
-    const { data: ownedTeam } = await supabaseAdmin
-      .from('teams')
-      .select('id, name, elite_slots, owner_user_id')
-      .eq('owner_user_id', userId)
+    // Step 1: Check profile.team_id FIRST — this is the authoritative team link
+    // (covers both owners and invited members)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('team_id')
+      .eq('user_id', userId)
       .single();
 
-    // If not owner, check if user is a MEMBER of a team (via profile.team_id)
-    let team = ownedTeam;
-    let isOwner = !!ownedTeam;
+    let team: { id: string; name: string; elite_slots: number; owner_user_id: string } | null = null;
+    let isOwner = false;
     let ownerEmail = '';
     let ownerName = '';
 
-    if (!team) {
-      // Check profile for team_id (own profile — RLS allows this)
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('team_id')
-        .eq('user_id', userId)
+    if (profile?.team_id) {
+      // Load the team this user belongs to
+      const { data: memberTeam } = await supabaseAdmin
+        .from('teams')
+        .select('id, name, elite_slots, owner_user_id')
+        .eq('id', profile.team_id)
         .single();
 
-      if (profile?.team_id) {
-        // Use admin to read team (bypasses RLS)
-        const { data: memberTeam } = await supabaseAdmin
-          .from('teams')
-          .select('id, name, elite_slots, owner_user_id')
-          .eq('id', profile.team_id)
-          .single();
+      if (memberTeam) {
+        team = memberTeam;
+        isOwner = memberTeam.owner_user_id === userId;
 
-        if (memberTeam) {
-          team = memberTeam;
-          isOwner = false;
-
-          // Get owner info (use admin — member can't read owner's profile via RLS)
+        if (!isOwner) {
+          // Get owner info for member view
           const { data: ownerProfile } = await supabaseAdmin
             .from('profiles')
             .select('name, email')
             .eq('user_id', memberTeam.owner_user_id)
             .single();
-
           ownerEmail = ownerProfile?.email || '';
           ownerName = ownerProfile?.name || '';
         }
+      }
+    }
+
+    // Step 2: Fallback — if no team_id on profile, check if user owns a team
+    if (!team) {
+      const { data: ownedTeam } = await supabaseAdmin
+        .from('teams')
+        .select('id, name, elite_slots, owner_user_id')
+        .eq('owner_user_id', userId)
+        .single();
+      if (ownedTeam) {
+        team = ownedTeam;
+        isOwner = true;
       }
     }
 
