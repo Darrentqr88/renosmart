@@ -611,11 +611,15 @@ export default function QuotationPage() {
   const handleOpenSaveDialog = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { toast({ variant: 'destructive', title: '请先登录' }); return; }
+    // Query by both designer_id and user_id to catch all owned projects
     const { data } = await supabase.from('projects').select('id, name, status')
-      .eq('designer_id', session.user.id).order('updated_at', { ascending: false });
-    setExistingProjects(data || []);
+      .or(`designer_id.eq.${session.user.id},user_id.eq.${session.user.id}`)
+      .order('updated_at', { ascending: false });
+    const projects = data || [];
+    setExistingProjects(projects);
     setNewProjectName(clientInfo?.company || fileName.replace(/\.(pdf|xlsx|xls|csv)$/i, '') || '新项目');
-    setSaveMode('new');
+    // Default to existing project mode when projects exist
+    setSaveMode(projects.length > 0 ? 'existing' : 'new');
     setSelectedProjectId('');
     setShowSaveDialog(true);
   };
@@ -1649,18 +1653,29 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                   </div>
                 </div>
               ) : (
-                <div>
-                  <label className="text-[12px] text-gray-500 mb-1 block">选择项目</label>
-                  <select
-                    value={selectedProjectId}
-                    onChange={e => setSelectedProjectId(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] bg-white"
-                  >
-                    <option value="">请选择项目...</option>
-                    {existingProjects.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[12px] text-gray-500 mb-1 block">选择项目</label>
+                    <select
+                      value={selectedProjectId}
+                      onChange={e => setSelectedProjectId(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] bg-white"
+                    >
+                      <option value="">请选择项目...</option>
+                      {existingProjects.map(p => (
+                        <option key={p.id} value={p.id}>{p.name} ({p.status})</option>
+                      ))}
+                    </select>
+                  </div>
+                  {selectedProjectId && (
+                    <div className="bg-blue-50 rounded-xl p-3 text-[12px] text-blue-700 space-y-1">
+                      <strong>📋 更新现有项目</strong>
+                      <div>• 新报价单将替换为 Active 版本</div>
+                      <div>• 合同金额更新为 {fmtCurrency(analysis?.totalAmount || 0)}</div>
+                      <div>• 付款阶段金额按比例重算</div>
+                      <div>• 进度表保留已有进度，工期自动调整</div>
+                    </div>
+                  )}
                 </div>
               )}
 
