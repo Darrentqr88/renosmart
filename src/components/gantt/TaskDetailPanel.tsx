@@ -141,6 +141,54 @@ export function TaskDetailPanel({
             </span>
           </div>
 
+          {/* ── AI Risks & Lead Time ── */}
+          {(task.risks?.length || task.leadTimeDays || task.materialNotes?.length) ? (
+            <div className="mb-4 space-y-2">
+              {/* Risks */}
+              {task.risks && task.risks.length > 0 && task.risks.map((risk, idx) => (
+                <div key={idx} className={`flex items-start gap-2 px-3 py-2.5 rounded-xl border ${
+                  risk.level === 'high'
+                    ? 'bg-red-50 border-red-200'
+                    : risk.level === 'medium'
+                      ? 'bg-amber-50 border-amber-200'
+                      : 'bg-blue-50 border-blue-200'
+                }`}>
+                  <span className="text-[13px] flex-shrink-0">{risk.level === 'high' ? '🔴' : risk.level === 'medium' ? '🟡' : '🔵'}</span>
+                  <p className={`text-[11px] leading-relaxed ${
+                    risk.level === 'high' ? 'text-red-800' : risk.level === 'medium' ? 'text-amber-800' : 'text-blue-800'
+                  }`}>
+                    {lang === 'ZH' && risk.text_zh ? risk.text_zh : risk.text}
+                  </p>
+                </div>
+              ))}
+              {/* Lead Time */}
+              {task.leadTimeDays && task.leadTimeDays > 0 && (
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl border bg-purple-50 border-purple-200">
+                  <span className="text-[13px] flex-shrink-0">⏳</span>
+                  <div>
+                    <p className="text-[11px] font-semibold text-purple-800">
+                      {lang === 'ZH' ? `备料期：${task.leadTimeDays} 天` : `Lead Time: ${task.leadTimeDays} days`}
+                    </p>
+                    {task.leadTimeNote && (
+                      <p className="text-[10px] text-purple-600 mt-0.5">{task.leadTimeNote}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              {/* Material Notes */}
+              {task.materialNotes && task.materialNotes.length > 0 && (
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl border bg-emerald-50 border-emerald-200">
+                  <span className="text-[13px] flex-shrink-0">📦</span>
+                  <div className="space-y-0.5">
+                    {task.materialNotes.map((note, idx) => (
+                      <p key={idx} className="text-[11px] text-emerald-800 leading-relaxed">• {note}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+
           {/* ── Duration editor ── */}
           <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-rs-text3 mb-2">
             {lang === 'ZH' ? '调整工期' : 'ADJUST DURATION'}

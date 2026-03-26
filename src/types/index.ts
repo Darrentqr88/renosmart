@@ -122,6 +122,25 @@ export interface GanttTradeData {
   taskName?: string;       // quotation-specific task name, e.g. "Kitchen & Bathroom Tiling"
   taskName_zh?: string;    // Chinese task name
   itemNames?: string[];    // quotation item names linked to this trade
+  // ── AI-enhanced fields ──
+  subTasks?: GanttSubTask[];     // AI-generated sub-tasks with individual durations
+  risks?: GanttRiskNote[];       // trade-specific risk warnings with severity
+  leadTimeDays?: number;         // material procurement lead time (days before work starts)
+  leadTimeNote?: string;         // why lead time is needed (e.g. "Italian marble 4-6 weeks import")
+  materialNotes?: string[];      // key materials to confirm/order
+}
+
+export interface GanttSubTask {
+  name: string;
+  name_zh?: string;
+  days: number;              // estimated duration for this sub-task
+  note?: string;             // e.g. "large format tile — slower installation"
+}
+
+export interface GanttRiskNote {
+  level: 'high' | 'medium' | 'low';
+  text: string;
+  text_zh?: string;
 }
 
 export interface GanttCustomPhase {
@@ -130,6 +149,10 @@ export interface GanttCustomPhase {
   trade: string;
   estimatedDays: number;
   insertAfter: string; // phase id to insert after
+  subTasks?: GanttSubTask[];
+  risks?: GanttRiskNote[];
+  leadTimeDays?: number;
+  leadTimeNote?: string;
 }
 
 export interface TradeHint {
@@ -230,6 +253,11 @@ export interface GanttTask {
   source_items?: string[];  // quotation item names linked to this task
   ai_hint?: TradeHint | null; // batch-generated AI trade hint (persisted in DB)
   phase_id?: string; // original CONSTRUCTION_PHASES id (e.g. 'demolition', 'tiling')
+  // ── AI-enhanced fields ──
+  risks?: GanttRiskNote[];       // AI-identified risks for this task
+  leadTimeDays?: number;         // material lead time before work starts
+  leadTimeNote?: string;         // why lead time is needed
+  materialNotes?: string[];      // key materials to confirm/order
 }
 
 export interface GanttSubtask {

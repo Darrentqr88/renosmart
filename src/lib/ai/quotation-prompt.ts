@@ -92,11 +92,13 @@ ${itemList}
 
 STEP 1 — Identify ALL work categories (detectedCategories).
 STEP 2 — Map to standard tradeScope keys OR customPhases.
-STEP 3 — Calculate days from ACTUAL quantities.
+STEP 3 — Calculate days from ACTUAL quantities + material types.
+STEP 4 — Generate subTasks per trade (break down into specific work items with individual durations).
+STEP 5 — Identify risks and lead times per trade.
 
 Standard keys: demolition|masonry|tiling|electrical|plumbing|painting|carpentry|falseCeiling|waterproofing|flooring|aluminium|aircon|glass|metalwork|stone|tabletop
 
-Non-standard → customPhases with: name, name_zh, trade, estimatedDays, insertAfter (phase ID).
+Non-standard → customPhases with: name, name_zh, trade, estimatedDays, insertAfter (phase ID), subTasks, risks.
 
 Day rules (assume multi-worker crews):
 - demolition=ceil(sqft/120/3) min2 (3-person crew)
@@ -107,7 +109,11 @@ Day rules (assume multi-worker crews):
     • Extension (扩建) = +10 days (structural + cure, 4-person crew)
     • Screed/Re-level = ceil(sqft/120/3) days
     → Sum all sub-types, min 3 days
-- tiling=ceil(sqft/80/3) min3 (3-person crew)
+- tiling: ADJUST by tile type:
+    • Standard 600×600/300×600 = ceil(sqft/80/3) min3
+    • Large format (800×800+) = ×1.3 (slower cutting/laying)
+    • Mosaic/small tile (≤100×100) = ×2.0 (much slower)
+    • Natural stone/marble = ×1.5 (careful handling)
 - electrical=ceil(pts/5) min3; pts = count of power/light/fan/data points in items
 - plumbing=ceil(units/2) min2; units = count of basins/wc/showers/taps
 - painting=ceil(sqft/150/2) min4 (2-person crew)
@@ -122,10 +128,31 @@ Day rules (assume multi-worker crews):
     • Output BOTH: ft and itemCount fields in tradeScope.carpentry
     (mfg days = max(10, itemCount×3) capped at 42; install = max(3, ceil(ft/8/3)) 3-person team)
 
+subTasks per trade: break down into specific work items from the quotation. Each subTask has:
+  - name: specific work (e.g. "Kitchen floor tiling 600×600 (120sqft)")
+  - name_zh: Chinese name
+  - days: estimated duration for THIS sub-task
+  - note: material-specific tip if any (e.g. "large format — use leveling system")
+Sum of subTask days should ≈ estimatedDays. If no natural breakdown, use 1-2 subTasks.
+
+risks per trade (max 2): identify trade-specific risks from the quotation content.
+  - level: "high"|"medium"|"low"
+  - text: concise risk description (e.g. "Imported marble — 4-6 week lead time, confirm stock before ordering")
+  - text_zh: Chinese translation
+
+leadTimeDays: material procurement lead time BEFORE work can start (0 if standard materials available locally).
+  - Imported/custom materials: 14-42 days
+  - Factory-made items (carpentry, custom doors): included in mfg phase, set to 0
+  - Standard local materials: 0-3 days
+
+leadTimeNote: why lead time is needed (e.g. "Custom aluminum sliding door — factory production 3 weeks")
+
+materialNotes: list of key materials that must be confirmed/ordered (max 3). E.g. ["Confirm tile selection — 600×600 homogeneous","Order basin & mixer tap — check stock"]
+
 taskName: describe ACTUAL scope (e.g. "Kitchen Floor + 3 Bathrooms Wall Tiling (950sqft)" NOT "Tiling Works"). Include floor prefix if multi-floor.
 
 JSON:
-{"sqft":${projectSqft},"projectType":"${projectType}","hasDemolition":true,"detectedCategories":["Demolition","Tiling"],"tradeScope":{"demolition":{"sqft":200,"estimatedDays":4,"taskName":"...","taskName_zh":"..."},"carpentry":{"ft":45,"itemCount":6,"estimatedDays":28,"taskName":"Kitchen Cabinet + 2 Wardrobes + TV Console","taskName_zh":"..."}},"customPhases":[],"riskNotes":{"carpentry":"Confirm factory slot"}}`;
+{"sqft":${projectSqft},"projectType":"${projectType}","hasDemolition":true,"detectedCategories":["Demolition","Tiling"],"tradeScope":{"demolition":{"sqft":200,"estimatedDays":4,"taskName":"GF Full Hacking (200sqft)","taskName_zh":"底层全拆除","subTasks":[{"name":"Floor hacking (120sqft)","name_zh":"地面拆除","days":2,"note":""},{"name":"Wall hacking (80sqft)","name_zh":"墙面拆除","days":2,"note":"Check for concealed pipes"}],"risks":[{"level":"medium","text":"Check for asbestos in old ceiling panels","text_zh":"检查旧天花板是否含石棉"}],"leadTimeDays":0,"materialNotes":["Arrange skip bin for debris disposal"]},"tiling":{"sqft":950,"estimatedDays":8,"taskName":"Kitchen Floor + 3 Bathrooms Wall Tiling (950sqft)","taskName_zh":"厨房地砖+3间浴室墙砖","subTasks":[{"name":"Kitchen floor 600×600 (120sqft)","name_zh":"厨房地砖","days":2,"note":""},{"name":"Bathroom 1 wall+floor (280sqft)","name_zh":"浴室1墙地砖","days":2,"note":""},{"name":"Bathroom 2+3 (550sqft)","name_zh":"浴室2+3","days":4,"note":"mosaic feature wall — slower"}],"risks":[{"level":"low","text":"Confirm tile batch consistency across 3 bathrooms","text_zh":"确认3间浴室瓷砖批次一致"}],"leadTimeDays":7,"leadTimeNote":"Mosaic tiles — confirm stock, may need 1 week order","materialNotes":["Confirm mosaic tile selection","Order adhesive + grout matching mosaic color"]},"carpentry":{"ft":45,"itemCount":6,"estimatedDays":28,"taskName":"Kitchen Cabinet + 2 Wardrobes + TV Console","taskName_zh":"厨柜+2衣柜+电视柜","subTasks":[{"name":"Kitchen top+bottom cabinet (18ft)","name_zh":"厨房上下柜","days":3,"note":""},{"name":"Master wardrobe sliding (10ft)","name_zh":"主卧衣柜","days":2,"note":""},{"name":"Bedroom 2 wardrobe (8ft)","name_zh":"卧室2衣柜","days":1,"note":""},{"name":"TV console + shoe cabinet (9ft)","name_zh":"电视柜+鞋柜","days":2,"note":""}],"risks":[{"level":"high","text":"Confirm factory slot — CNY period may cause 2-week delay","text_zh":"确认工厂排期—农历新年期间可能延迟2周"}],"leadTimeDays":0,"leadTimeNote":"","materialNotes":["Confirm laminate color + handle selection","Measure after painting phase 1"]}},"customPhases":[]}`;
 }
 
 /**

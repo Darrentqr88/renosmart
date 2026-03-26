@@ -1,4 +1,4 @@
-import { GanttTask, GanttSubtask, GanttParams, PhaseGroup, SiteType, VOItem } from '@/types';
+import { GanttTask, GanttSubtask, GanttParams, GanttTradeData, GanttRiskNote, PhaseGroup, SiteType, VOItem } from '@/types';
 import { addDays, format, parseISO } from 'date-fns';
 import { isWorkday, MY_HOLIDAYS } from './dates';
 
@@ -35,6 +35,12 @@ export interface ConstructionPhase {
   hint_MY?: string;     // Malaysia-specific hint
   hint_SG?: string;     // Singapore-specific hint
   hint_zh?: string;     // Chinese hint (shared)
+  // AI-enhanced fields (populated from GanttTradeData)
+  aiSubTasks?: { name: string; name_zh?: string; days: number; note?: string }[];
+  aiRisks?: GanttRiskNote[];
+  aiLeadTimeDays?: number;
+  aiLeadTimeNote?: string;
+  aiMaterialNotes?: string[];
 }
 
 export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
@@ -823,9 +829,14 @@ function _schedulePhases(
         cursor = addDays(cursor, -1);
       }
 
-      const subtasks: GanttSubtask[] = phase.subItems.map((sub, idx) => ({
-        id: `${phase.id}-sub-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
-      }));
+      // Prefer AI sub-tasks over hardcoded subItems
+      const subtasks: GanttSubtask[] = phase.aiSubTasks?.length
+        ? phase.aiSubTasks.map((sub, idx) => ({
+            id: `${phase.id}-ai-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
+          }))
+        : phase.subItems.map((sub, idx) => ({
+            id: `${phase.id}-sub-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
+          }));
 
       // Prepend (will reverse later)
       tasks.unshift({
@@ -847,6 +858,10 @@ function _schedulePhases(
         sort_order: 0, // will reindex later
         phase_group: 'design',
         source_items: phase.sourceItems || [],
+        risks: phase.aiRisks,
+        leadTimeDays: phase.aiLeadTimeDays,
+        leadTimeNote: phase.aiLeadTimeNote,
+        materialNotes: phase.aiMaterialNotes,
       });
     }
   }
@@ -883,9 +898,14 @@ function _schedulePhases(
       taskEndDates[phase.id] = taskEnd;
       taskStartDates[phase.id] = taskStart;
 
-      const subtasks: GanttSubtask[] = phase.subItems.map((sub, idx) => ({
-        id: `${phase.id}-sub-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
-      }));
+      // Prefer AI sub-tasks over hardcoded subItems
+      const subtasks: GanttSubtask[] = phase.aiSubTasks?.length
+        ? phase.aiSubTasks.map((sub, idx) => ({
+            id: `${phase.id}-ai-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
+          }))
+        : phase.subItems.map((sub, idx) => ({
+            id: `${phase.id}-sub-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
+          }));
 
       tasks.push({
         id: deterministicUUID(`${projectId}-${phase.id}`),
@@ -906,6 +926,10 @@ function _schedulePhases(
         sort_order: tasks.length,
         phase_group: group,
         source_items: phase.sourceItems || [],
+        risks: phase.aiRisks,
+        leadTimeDays: phase.aiLeadTimeDays,
+        leadTimeNote: phase.aiLeadTimeNote,
+        materialNotes: phase.aiMaterialNotes,
       });
     }
   };
@@ -1128,15 +1152,25 @@ export function generateGanttFromAIParams(
         sourceItems = filtered.length > 0 ? filtered : allTradeItems;
       }
 
+      // ── Inject AI-enhanced data from tradeScope ──
+      const aiEnhanced: Partial<ConstructionPhase> = {};
+      if (tradeData) {
+        if (tradeData.subTasks?.length) aiEnhanced.aiSubTasks = tradeData.subTasks;
+        if (tradeData.risks?.length) aiEnhanced.aiRisks = tradeData.risks;
+        if (tradeData.leadTimeDays) aiEnhanced.aiLeadTimeDays = tradeData.leadTimeDays;
+        if (tradeData.leadTimeNote) aiEnhanced.aiLeadTimeNote = tradeData.leadTimeNote;
+        if (tradeData.materialNotes?.length) aiEnhanced.aiMaterialNotes = tradeData.materialNotes;
+      }
+
       // Keep default category label names (e.g. "Demolition", "Electrical Conduit & Wiring")
       // Do NOT override with AI-specific names — those are too detailed for Gantt labels
       if (overrides[p.id] !== undefined) {
         return {
-          ...p, deps: remappedDeps, baseDays: overrides[p.id], scaleBy: undefined, scaleFactor: undefined,
+          ...p, ...aiEnhanced, deps: remappedDeps, baseDays: overrides[p.id], scaleBy: undefined, scaleFactor: undefined,
           sourceItems,
         };
       }
-      return { ...p, deps: remappedDeps, sourceItems };
+      return { ...p, ...aiEnhanced, deps: remappedDeps, sourceItems };
     });
 
   // ── Append customPhases from AI (non-standard trades: CCTV, smart home, etc.) ──
