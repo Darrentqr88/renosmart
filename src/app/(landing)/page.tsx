@@ -286,9 +286,9 @@ const PLAN_FEATURES = {
     ZH: ['每月 50 次 AI 审核', '完整甘特图 + 依赖', '价格智能数据库', '10 个项目', '优先支持'],
   },
   elite: {
-    EN: ['Unlimited AI audits', 'Everything in Pro', 'Cost Database + Profit', 'Unlimited projects', 'Team members', 'Receipt OCR'],
-    BM: ['Audit AI tanpa had', 'Semua dalam Pro', 'Pangkalan Kos + Untung', 'Projek tanpa had', 'Ahli pasukan', 'OCR Resit'],
-    ZH: ['无限 AI 审核', 'Pro 全部功能', '成本数据库 + 利润', '无限项目', '团队成员', '单据 OCR'],
+    EN: ['250 AI audits / month (shared)', 'Everything in Pro', 'Cost Database + Profit', 'Unlimited projects', 'Team members (5 accounts)', 'Receipt OCR'],
+    BM: ['250 audit AI / bulan (dikongsi)', 'Semua dalam Pro', 'Pangkalan Kos + Untung', 'Projek tanpa had', 'Ahli pasukan (5 akaun)', 'OCR Resit'],
+    ZH: ['每月 250 次 AI 审核（共享）', 'Pro 全部功能', '成本数据库 + 利润', '无限项目', '团队成员（5 账号）', '单据 OCR'],
   },
 };
 

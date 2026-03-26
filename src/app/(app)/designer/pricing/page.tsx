@@ -303,7 +303,7 @@ function PricingPageContent() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {[
-                ['AI Quotation Audit', '3 lifetime', '50/month', 'Unlimited'],
+                ['AI Quotation Audit', '3 lifetime', '50/month', '250/month (shared)'],
                 ['Projects', '1', 'Unlimited', 'Unlimited'],
                 ['Gantt Chart', '\u2713', '\u2713 + Drag', '\u2713 + Drag'],
                 ['Owner Portal', '\u2717', '\u2713', '\u2713'],

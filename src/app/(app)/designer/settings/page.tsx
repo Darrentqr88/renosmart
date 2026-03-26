@@ -437,7 +437,7 @@ export default function SettingsPage() {
               )}
               {currentPlan === 'elite' && (
                 <p className="text-sm text-gray-500 mb-4">
-                  Unlimited AI analyses · All Pro features · Team collaboration · API access · Custom branding
+                  250 AI analyses/month (team shared) · 5 accounts · All Pro features · Team collaboration
                 </p>
               )}
               {currentPlan !== 'elite' && (
@@ -455,7 +455,7 @@ export default function SettingsPage() {
               <h3 className="font-medium text-gray-800 mb-4">What&apos;s Included</h3>
               <div className="space-y-2 text-sm">
                 {[
-                  { feature: 'AI Quotation Analysis', free: '3 lifetime', pro: '50/month', elite: 'Unlimited' },
+                  { feature: 'AI Quotation Analysis', free: '3 lifetime', pro: '50/month', elite: '250/month (shared)' },
                   { feature: 'Projects', free: '1', pro: 'Unlimited', elite: 'Unlimited' },
                   { feature: 'Price Database', free: '✗', pro: '✓', elite: '✓' },
                   { feature: 'Cost Database', free: '✗', pro: '✓', elite: '✓' },
