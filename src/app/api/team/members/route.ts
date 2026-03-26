@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+
+// Admin client to bypass RLS for cross-user team queries
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,8 +23,8 @@ export async function GET(req: NextRequest) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const userId = session.user.id;
 
-    // First, check if user OWNS a team
-    const { data: ownedTeam } = await supabase
+    // First, check if user OWNS a team (use admin to avoid RLS issues)
+    const { data: ownedTeam } = await supabaseAdmin
       .from('teams')
       .select('id, name, elite_slots, owner_user_id')
       .eq('owner_user_id', userId)
@@ -29,7 +37,7 @@ export async function GET(req: NextRequest) {
     let ownerName = '';
 
     if (!team) {
-      // Check profile for team_id
+      // Check profile for team_id (own profile — RLS allows this)
       const { data: profile } = await supabase
         .from('profiles')
         .select('team_id')
@@ -37,7 +45,8 @@ export async function GET(req: NextRequest) {
         .single();
 
       if (profile?.team_id) {
-        const { data: memberTeam } = await supabase
+        // Use admin to read team (bypasses RLS)
+        const { data: memberTeam } = await supabaseAdmin
           .from('teams')
           .select('id, name, elite_slots, owner_user_id')
           .eq('id', profile.team_id)
@@ -47,8 +56,8 @@ export async function GET(req: NextRequest) {
           team = memberTeam;
           isOwner = false;
 
-          // Get owner info
-          const { data: ownerProfile } = await supabase
+          // Get owner info (use admin — member can't read owner's profile via RLS)
+          const { data: ownerProfile } = await supabaseAdmin
             .from('profiles')
             .select('name, email')
             .eq('user_id', memberTeam.owner_user_id)
@@ -62,8 +71,8 @@ export async function GET(req: NextRequest) {
 
     if (!team) return NextResponse.json({ team: null, members: [], usageMap: {}, isOwner: false });
 
-    // Get all non-removed members
-    const { data: members } = await supabase
+    // Get all non-removed members (use admin — member can only see own record via RLS)
+    const { data: members } = await supabaseAdmin
       .from('team_members')
       .select('id, user_id, email, role, status, invited_at, joined_at')
       .eq('team_id', team.id)
@@ -82,7 +91,8 @@ export async function GET(req: NextRequest) {
       activeIds.push(ownerUserId);
     }
 
-    const { data: usageRows } = await supabase
+    // Use admin to read all team members' ai_usage (RLS blocks cross-user reads)
+    const { data: usageRows } = await supabaseAdmin
       .from('ai_usage')
       .select('user_id, usage_count')
       .in('user_id', activeIds)

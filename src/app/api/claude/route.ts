@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { checkRateLimit } from '@/lib/ai/rate-limit';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
+
+// Admin client to bypass RLS for cross-user team quota checks
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
 
 const PLAN_LIMITS: Record<string, number> = {
   free: 3,
@@ -59,16 +67,18 @@ export async function POST(req: NextRequest) {
       const teamId = (profile as { plan: string; team_id?: string } | null)?.team_id ?? null;
 
       // Check team Elite quota (shared pool)
+      // Use admin client to bypass RLS — members can't read other members'
+      // team_members or ai_usage rows through the anon client
       if (teamId) {
-        const { data: team } = await supabase
+        const { data: team } = await supabaseAdmin
           .from('teams')
-          .select('elite_slots')
+          .select('elite_slots, owner_user_id')
           .eq('id', teamId)
           .single();
 
         if (team) {
-          const teamMonthlyLimit = ((team as { elite_slots: number }).elite_slots ?? 1) * 250;
-          const { data: teamMembersData } = await supabase
+          const teamMonthlyLimit = ((team as { elite_slots: number; owner_user_id: string }).elite_slots ?? 1) * 250;
+          const { data: teamMembersData } = await supabaseAdmin
             .from('team_members')
             .select('user_id')
             .eq('team_id', teamId)
@@ -77,8 +87,14 @@ export async function POST(req: NextRequest) {
             .map((m) => m.user_id)
             .filter(Boolean);
 
+          // Include owner in usage count (owner is not in team_members)
+          const ownerUserId = (team as { owner_user_id: string }).owner_user_id;
+          if (!memberIds.includes(ownerUserId)) {
+            memberIds.push(ownerUserId);
+          }
+
           const yearMonth = new Date().toISOString().slice(0, 7);
-          const { data: usageRows } = await supabase
+          const { data: usageRows } = await supabaseAdmin
             .from('ai_usage')
             .select('usage_count')
             .in('user_id', memberIds)

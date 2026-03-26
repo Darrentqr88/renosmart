@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+
+// Admin client to bypass RLS for clearing removed member's profile
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,10 +37,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Mark removed + clear team_id from profile
+    // Mark removed
     await supabase.from('team_members').update({ status: 'removed' }).eq('id', memberId);
+
+    // Clear team_id and downgrade plan from the removed member's profile
+    // Use admin client — owner can't update another user's profile via RLS
     if (member.user_id) {
-      await supabase.from('profiles').update({ team_id: null }).eq('user_id', member.user_id);
+      await supabaseAdmin.from('profiles').update({
+        team_id: null,
+        plan: 'free',
+      }).eq('user_id', member.user_id);
     }
 
     return NextResponse.json({ success: true });
