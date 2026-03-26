@@ -37,7 +37,7 @@ const INTERVAL_SAVINGS: Record<Interval, string | null> = {
 };
 
 function PricingPageContent() {
-  const { t, region } = useI18n();
+  const { t, region, lang } = useI18n();
   const searchParams = useSearchParams();
   const supabase = createClient();
   const [currentPlan, setCurrentPlan] = useState('free');
@@ -112,6 +112,16 @@ function PricingPageContent() {
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
+      } else if (data.error === 'No subscription found') {
+        // Plan was activated manually (demo mode) — no Stripe customer
+        toast({
+          title: lang === 'ZH' ? '手动激活套餐' : lang === 'BM' ? 'Pelan Diaktifkan Manual' : 'Manually Activated Plan',
+          description: lang === 'ZH'
+            ? '您的套餐是手动激活的，无法通过 Stripe 管理。如需更改请联系客服。'
+            : lang === 'BM'
+            ? 'Pelan anda diaktifkan secara manual. Hubungi sokongan untuk membuat perubahan.'
+            : 'Your plan was activated manually. Contact support to make changes.',
+        });
       } else {
         toast({ variant: 'destructive', title: 'Error', description: data.error || 'Could not open portal' });
       }
@@ -122,14 +132,32 @@ function PricingPageContent() {
     }
   };
 
+  const eliteDesc: Record<string, string> = {
+    EN: '5 accounts share 1 plan · Stack bundles to expand',
+    BM: '5 akaun kongsi 1 pelan · Tambah bundle untuk kembang',
+    ZH: '5 账号共用 · 可购买多个配套扩充',
+  };
+  const eliteFeatures: Record<string, string[]> = {
+    EN: ['👥 5 accounts · 250 AI audits/month (shared)', 'All Pro features', 'Unlimited projects', 'Team dashboard (invite/remove members)', 'Stack bundles: +5 accounts +250/month each', 'API access', 'Custom branding'],
+    BM: ['👥 5 akaun · 250 audit AI/bulan (dikongsi)', 'Semua ciri Pro', 'Projek tanpa had', 'Dashboard pasukan (jemput/buang ahli)', 'Tambah bundle: +5 akaun +250/bulan', 'Akses API', 'Jenama tersuai'],
+    ZH: ['👥 5 账号共用 · 共享 250 次/月', 'Pro 全部功能', '无限项目', '团队管理面板（邀请/移除成员）', '可叠加购买：每个 +5 人 +250 次', 'API 访问', '自定义品牌'],
+  };
+  const eliteCta: Record<string, string> = {
+    EN: 'Upgrade to Elite', BM: 'Naik taraf ke Elite', ZH: '升级至 Elite',
+  };
+
   const plans = [
     {
       id: 'free',
       name: t.landing.freePlan,
       price: `${r === 'SG' ? 'SGD' : 'RM'} 0`,
       period: '/forever',
-      desc: 'Get started for free',
-      features: ['3 AI analyses lifetime', '1 active project', 'Basic Gantt chart', 'Email support'],
+      desc: lang === 'ZH' ? '免费开始使用' : lang === 'BM' ? 'Mulakan secara percuma' : 'Get started for free',
+      features: lang === 'ZH'
+        ? ['3 次终身 AI 分析', '1 个活跃项目', '基础甘特图', '邮件支持']
+        : lang === 'BM'
+        ? ['3 analisis AI seumur hidup', '1 projek aktif', 'Carta Gantt asas', 'Sokongan e-mel']
+        : ['3 AI analyses lifetime', '1 active project', 'Basic Gantt chart', 'Email support'],
       cta: 'Current Plan',
       color: 'border-gray-200',
       badge: null,
@@ -139,26 +167,24 @@ function PricingPageContent() {
       name: t.landing.proPlan + ' \u2726',
       price: PRICES.pro[r][billingInterval],
       period: INTERVAL_LABELS[billingInterval],
-      desc: 'For growing design firms',
-      features: [
-        '50 AI analyses/month', 'Unlimited projects', 'Smart Gantt + drag & drop',
-        'Payment tracking', 'Owner portal access', 'Worker management', 'Priority support',
-      ],
-      cta: 'Upgrade to Pro',
+      desc: lang === 'ZH' ? '适合成长中的设计公司' : lang === 'BM' ? 'Untuk firma reka bentuk yang berkembang' : 'For growing design firms',
+      features: lang === 'ZH'
+        ? ['每月 50 次 AI 分析', '无限项目', '智能甘特图 + 拖拽', '付款追踪', '业主门户', '工人管理', '优先支持']
+        : lang === 'BM'
+        ? ['50 analisis AI/bulan', 'Projek tanpa had', 'Gantt pintar + seret & lepas', 'Penjejakan pembayaran', 'Portal pemilik', 'Pengurusan pekerja', 'Sokongan keutamaan']
+        : ['50 AI analyses/month', 'Unlimited projects', 'Smart Gantt + drag & drop', 'Payment tracking', 'Owner portal access', 'Worker management', 'Priority support'],
+      cta: lang === 'ZH' ? '升级至 Pro' : lang === 'BM' ? 'Naik taraf ke Pro' : 'Upgrade to Pro',
       color: 'border-[#F0B90B]',
-      badge: 'Most Popular',
+      badge: lang === 'ZH' ? '最受欢迎' : lang === 'BM' ? 'Paling Popular' : 'Most Popular',
     },
     {
       id: 'elite',
       name: t.landing.elitePlan + ' \u26A1',
       price: PRICES.elite[r][billingInterval],
       period: INTERVAL_LABELS[billingInterval],
-      desc: '5 账号共用 · 可购买多个配套扩充',
-      features: [
-        '👥 5 账号共用 · 共享 250 次/月', 'All Pro features', 'Unlimited projects',
-        '团队管理面板（邀请/移除成员）', '可叠加购买：每个 +5 人 +250 次', 'API access', 'Custom branding',
-      ],
-      cta: 'Upgrade to Elite',
+      desc: eliteDesc[lang] || eliteDesc.EN,
+      features: eliteFeatures[lang] || eliteFeatures.EN,
+      cta: eliteCta[lang] || eliteCta.EN,
       color: 'border-purple-400',
       badge: null,
     },
