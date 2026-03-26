@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
 
     // Build Gemini model
     const geminiModel = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash-lite-preview-06-17',
+      model: 'gemini-2.5-flash-lite',
       ...(system ? { systemInstruction: system } : {}),
       generationConfig: { maxOutputTokens: max_tokens || 16000 },
     });
