@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     // Gemini Vision: unified handling for images AND PDFs (no beta flag needed)
     const geminiModel = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash-lite',
-      generationConfig: { maxOutputTokens: 1024 },
+      generationConfig: { maxOutputTokens: isVOMode ? 4096 : 1024 },
     });
 
     const result = await geminiModel.generateContent({

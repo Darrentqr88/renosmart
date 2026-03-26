@@ -869,7 +869,9 @@ export default function ProjectDetailPage() {
         body: JSON.stringify({ imageBase64: base64, mimeType, type: 'vo' }),
       });
       const data = await resp.json();
-      if (data.items || data.total_amount) {
+      if (data.error) {
+        toast({ title: 'VO 识别失败', description: data.error, variant: 'destructive' });
+      } else if (data.items || data.total_amount) {
         const allItems: VOItem[] = data.items || [];
         const amt = data.total_amount || allItems.reduce((s: number, i: VOItem) => s + (i.total || 0), 0);
         const title = data.title || allItems[0]?.description || '变更内容';
@@ -880,9 +882,12 @@ export default function ProjectDetailPage() {
         setVoItemsExpanded(false);
         setShowAddVO(true);
         toast({ title: '✅ OCR 识别成功', description: `已提取 ${allItems.length} 项，金额 RM ${amt}` });
+      } else {
+        toast({ title: '无法识别 VO 内容', description: '请确保文件清晰或手动输入', variant: 'destructive' });
       }
-    } catch {
-      toast({ title: 'OCR 识别失败', variant: 'destructive' });
+    } catch (err) {
+      console.error('VO OCR error:', err);
+      toast({ title: 'OCR 识别失败', description: '网络错误，请重试', variant: 'destructive' });
     } finally {
       setVoScanState('done');
     }
