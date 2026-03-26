@@ -95,15 +95,49 @@ export async function POST(req: NextRequest) {
         .eq('user_id', userId);
     }
 
-    // Determine new slot count for stacking
-    let newSlots = 1;
+    // --- Stack: update existing subscription quantity instead of creating new one ---
     if (stack && plan === 'elite') {
-      const { data: team } = await supabase
-        .from('teams')
-        .select('elite_slots')
-        .eq('owner_user_id', userId)
-        .single();
-      newSlots = (team?.elite_slots ?? 1) + 1;
+      // Find existing active Elite subscription for this customer
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customerId,
+        status: 'active',
+        limit: 10,
+      });
+
+      const eliteSub = subscriptions.data.find(
+        (s) => s.metadata?.plan === 'elite' && s.metadata?.user_id === userId
+      );
+
+      if (eliteSub) {
+        // Update quantity on existing subscription (+1 bundle)
+        const currentQty = eliteSub.items.data[0]?.quantity ?? 1;
+        const newQty = currentQty + 1;
+
+        await stripe.subscriptions.update(eliteSub.id, {
+          items: [{
+            id: eliteSub.items.data[0].id,
+            quantity: newQty,
+          }],
+          metadata: {
+            ...eliteSub.metadata,
+            elite_slots: String(newQty),
+          },
+          proration_behavior: 'create_prorations', // charge prorated diff immediately
+        });
+
+        // Update team elite_slots in DB
+        await supabase
+          .from('teams')
+          .update({ elite_slots: newQty, updated_at: new Date().toISOString() })
+          .eq('owner_user_id', userId);
+
+        return NextResponse.json({
+          success: true,
+          newQuantity: newQty,
+          redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/designer/settings?tab=team&stack_success=1`,
+        });
+      }
+      // No existing elite subscription — fall through to create new one with quantity 1
     }
 
     // Build success URL
@@ -111,27 +145,19 @@ export async function POST(req: NextRequest) {
       ? `${process.env.NEXT_PUBLIC_APP_URL}/designer/settings?tab=team&stack_success=1`
       : `${process.env.NEXT_PUBLIC_APP_URL}/designer/pricing?success=1&plan=${plan}`;
 
-    // Create checkout session
+    // Create new checkout session (first-time purchase)
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: successUrl,
-      cancel_url: stack
-        ? `${process.env.NEXT_PUBLIC_APP_URL}/designer/pricing?stack=elite`
-        : `${process.env.NEXT_PUBLIC_APP_URL}/designer/pricing`,
-      metadata: {
-        user_id: userId,
-        plan,
-        stack: stack ? 'true' : 'false',
-        new_elite_slots: String(newSlots),
-      },
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/designer/pricing`,
+      metadata: { user_id: userId, plan },
       subscription_data: {
         metadata: {
           user_id: userId,
           plan,
-          stack: stack ? 'true' : 'false',
-          new_elite_slots: String(newSlots),
+          elite_slots: '1',
         },
       },
     });

@@ -43,8 +43,6 @@ export async function POST(req: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.metadata?.user_id;
         const plan = session.metadata?.plan;
-        const isStack = session.metadata?.stack === 'true';
-        const newEliteSlots = parseInt(session.metadata?.new_elite_slots || '0', 10);
 
         if (userId && plan) {
           await supabase
@@ -56,15 +54,21 @@ export async function POST(req: NextRequest) {
             })
             .eq('user_id', userId);
 
-          // Handle elite bundle stacking — increment elite_slots on the team
-          if (isStack && plan === 'elite' && newEliteSlots > 0) {
-            await supabase
+          // For Elite: ensure team has elite_slots = 1 (first purchase)
+          if (plan === 'elite') {
+            const { data: existingTeam } = await supabase
               .from('teams')
-              .update({
-                elite_slots: newEliteSlots,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('owner_user_id', userId);
+              .select('id')
+              .eq('owner_user_id', userId)
+              .single();
+            if (!existingTeam) {
+              // Auto-create team on first Elite purchase
+              await supabase.from('teams').insert({
+                owner_user_id: userId,
+                name: 'My Team',
+                elite_slots: 1,
+              });
+            }
           }
         }
         break;
@@ -90,16 +94,40 @@ export async function POST(req: NextRequest) {
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
         const userId = subscription.metadata?.user_id;
+        const plan = subscription.metadata?.plan;
 
         if (userId) {
-          // Downgrade to free when subscription cancelled
+          // Downgrade to free
           await supabase
             .from('profiles')
-            .update({
-              plan: 'free',
-              updated_at: new Date().toISOString(),
-            })
+            .update({ plan: 'free', updated_at: new Date().toISOString() })
             .eq('user_id', userId);
+
+          // If Elite subscription cancelled, reset team elite_slots
+          if (plan === 'elite') {
+            await supabase
+              .from('teams')
+              .update({ elite_slots: 0, updated_at: new Date().toISOString() })
+              .eq('owner_user_id', userId);
+
+            // Remove team_id from all members (they lose Elite access)
+            const { data: team } = await supabase
+              .from('teams')
+              .select('id')
+              .eq('owner_user_id', userId)
+              .single();
+            if (team) {
+              await supabase
+                .from('profiles')
+                .update({ team_id: null, plan: 'free', updated_at: new Date().toISOString() })
+                .eq('team_id', team.id);
+              await supabase
+                .from('team_members')
+                .update({ status: 'removed' })
+                .eq('team_id', team.id)
+                .eq('status', 'active');
+            }
+          }
         }
         break;
       }
@@ -107,17 +135,26 @@ export async function POST(req: NextRequest) {
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
         const userId = subscription.metadata?.user_id;
+        const plan = subscription.metadata?.plan;
 
         if (userId && subscription.status === 'active') {
-          const plan = subscription.metadata?.plan;
           if (plan) {
             await supabase
               .from('profiles')
+              .update({ plan, updated_at: new Date().toISOString() })
+              .eq('user_id', userId);
+          }
+
+          // Sync quantity → elite_slots (for bundle stacking)
+          if (plan === 'elite') {
+            const quantity = subscription.items.data[0]?.quantity ?? 1;
+            await supabase
+              .from('teams')
               .update({
-                plan,
+                elite_slots: quantity,
                 updated_at: new Date().toISOString(),
               })
-              .eq('user_id', userId);
+              .eq('owner_user_id', userId);
           }
         }
         break;

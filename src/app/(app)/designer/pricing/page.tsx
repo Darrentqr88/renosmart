@@ -107,6 +107,18 @@ function PricingPageContent() {
         return;
       }
 
+      // Stack success: subscription quantity updated directly (no checkout page)
+      if (data.success && data.newQuantity) {
+        toast({
+          title: lang === 'ZH' ? '配套已升级' : lang === 'BM' ? 'Bundle dinaik taraf' : 'Bundle upgraded',
+          description: lang === 'ZH'
+            ? `已升级至 ${data.newQuantity} 个配套`
+            : `Upgraded to ${data.newQuantity} bundle(s)`,
+        });
+        if (data.redirect_url) window.location.href = data.redirect_url;
+        return;
+      }
+
       if (data.url) {
         window.location.href = data.url;
       }
