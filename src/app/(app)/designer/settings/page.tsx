@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,10 +8,29 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
-import { Loader2, User, Building2, CreditCard, Crown } from 'lucide-react';
+import { Loader2, User, Building2, CreditCard, Crown, Users, UserPlus, UserMinus, Star } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-type SettingsTab = 'profile' | 'company' | 'plan';
+type SettingsTab = 'profile' | 'company' | 'plan' | 'team';
+
+interface TeamMember {
+  id: string;
+  user_id: string | null;
+  email: string;
+  role: 'owner' | 'member';
+  status: 'pending' | 'active' | 'removed';
+  invited_at: string;
+  joined_at: string | null;
+}
+
+interface TeamInfo {
+  id: string;
+  name: string;
+  elite_slots: number;
+  maxMembers: number;
+  teamMonthlyLimit: number;
+  teamUsage: number;
+}
 
 export default function SettingsPage() {
   const supabase = createClient();
@@ -33,6 +52,13 @@ export default function SettingsPage() {
   const [currentPlan, setCurrentPlan] = useState('free');
   const [userId, setUserId] = useState('');
 
+  // Team state
+  const [teamInfo, setTeamInfo] = useState<TeamInfo | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [usageMap, setUsageMap] = useState<Record<string, number>>({});
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [teamLoading, setTeamLoading] = useState(false);
+
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -51,6 +77,54 @@ export default function SettingsPage() {
       }
     })();
   }, []);
+
+  const loadTeam = useCallback(async () => {
+    const res = await fetch('/api/team/members');
+    if (res.ok) {
+      const data = await res.json();
+      setTeamInfo(data.team);
+      setTeamMembers(data.members || []);
+      setUsageMap(data.usageMap || {});
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'team' && currentPlan === 'elite') loadTeam();
+  }, [activeTab, currentPlan, loadTeam]);
+
+  const handleInvite = async () => {
+    if (!inviteEmail.trim()) return;
+    setTeamLoading(true);
+    try {
+      const res = await fetch('/api/team/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteEmail.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast({ title: '邀请失败', description: data.error, variant: 'destructive' }); return; }
+      toast({ title: '邀请已发送', description: data.message });
+      setInviteEmail('');
+      loadTeam();
+    } finally {
+      setTeamLoading(false);
+    }
+  };
+
+  const handleRemove = async (memberId: string) => {
+    setTeamLoading(true);
+    try {
+      const res = await fetch('/api/team/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId }),
+      });
+      if (res.ok) { toast({ title: '成员已移除' }); loadTeam(); }
+      else { const d = await res.json(); toast({ title: '操作失败', description: d.error, variant: 'destructive' }); }
+    } finally {
+      setTeamLoading(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     setLoading(true);
@@ -87,10 +161,11 @@ export default function SettingsPage() {
   };
   const planCfg = PLAN_CONFIG[currentPlan as keyof typeof PLAN_CONFIG] || PLAN_CONFIG.free;
 
-  const tabs: { id: SettingsTab; label: string; icon: typeof User }[] = [
+  const tabs: { id: SettingsTab; label: string; icon: typeof User; eliteOnly?: boolean }[] = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'company', label: 'Company', icon: Building2 },
     { id: 'plan', label: 'Plan', icon: CreditCard },
+    { id: 'team', label: '团队管理', icon: Users, eliteOnly: true },
   ];
 
   return (
@@ -100,8 +175,8 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Settings</h1>
 
         {/* Tab row */}
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit">
-          {tabs.map(({ id, label, icon: Icon }) => (
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit flex-wrap">
+          {tabs.filter(t => !t.eliteOnly || currentPlan === 'elite').map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
@@ -189,6 +264,152 @@ export default function SettingsPage() {
               {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               Save Company Info
             </Button>
+          </div>
+        )}
+
+        {/* Team Tab */}
+        {activeTab === 'team' && currentPlan === 'elite' && (
+          <div className="space-y-4">
+            {/* Header card */}
+            <div className="bg-white rounded-2xl border-2 border-purple-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+                    <Users className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-gray-900">
+                      Elite 团队 — {teamInfo?.elite_slots ?? 1} 个配套
+                    </h2>
+                    <p className="text-xs text-gray-500">
+                      上限 {teamInfo?.maxMembers ?? 5} 人 · {teamInfo?.teamMonthlyLimit ?? 250} 次/月共享
+                    </p>
+                  </div>
+                </div>
+                <Badge className="bg-purple-50 text-purple-700 border border-purple-200">Elite ⚡</Badge>
+              </div>
+
+              {/* Usage bar */}
+              {teamInfo && (
+                <div className="mb-4">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>本月团队用量</span>
+                    <span>{teamInfo.teamUsage} / {teamInfo.teamMonthlyLimit} 次</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div
+                      className="bg-purple-500 h-2 rounded-full transition-all"
+                      style={{ width: `${Math.min(100, (teamInfo.teamUsage / teamInfo.teamMonthlyLimit) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Buy more slots */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-purple-200 text-purple-700 hover:bg-purple-50"
+                onClick={() => router.push('/designer/pricing')}
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                购买更多配套 — RM299/月 = +5 人名额 +250 次
+              </Button>
+            </div>
+
+            {/* Members list */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+              <h3 className="font-medium text-gray-800 mb-4 flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                成员列表
+                <span className="text-xs font-normal text-gray-400 ml-1">
+                  ({teamMembers.filter(m => m.status !== 'removed').length + 1} / {teamInfo?.maxMembers ?? 5} 人)
+                </span>
+              </h3>
+
+              <div className="space-y-2">
+                {/* Owner row */}
+                <div className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-purple-50">
+                  <div className="flex items-center gap-2">
+                    <Star className="w-4 h-4 text-purple-500" />
+                    <span className="text-sm font-medium text-gray-800">{email}</span>
+                    <Badge className="text-xs bg-purple-100 text-purple-700 border-0">Owner</Badge>
+                  </div>
+                  <span className="text-xs text-gray-500">{usageMap[userId] ?? 0} 次/月</span>
+                </div>
+
+                {/* Member rows */}
+                {teamMembers.map(member => (
+                  <div key={member.id} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-gray-50">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                        member.status === 'active' ? 'bg-green-400' : 'bg-yellow-400'
+                      }`} />
+                      <span className="text-sm text-gray-700 truncate">{member.email}</span>
+                      <Badge className={`text-xs border-0 flex-shrink-0 ${
+                        member.status === 'active'
+                          ? 'bg-green-50 text-green-700'
+                          : 'bg-yellow-50 text-yellow-700'
+                      }`}>
+                        {member.status === 'active' ? 'Active' : 'Pending'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-3 ml-2">
+                      {member.status === 'active' && (
+                        <span className="text-xs text-gray-400 flex-shrink-0">
+                          {usageMap[member.user_id ?? ''] ?? 0} 次/月
+                        </span>
+                      )}
+                      <button
+                        onClick={() => handleRemove(member.id)}
+                        disabled={teamLoading}
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="移除成员"
+                      >
+                        <UserMinus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {teamMembers.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-4">尚未邀请任何成员</p>
+                )}
+              </div>
+            </div>
+
+            {/* Invite form */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+              <h3 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
+                <UserPlus className="w-4 h-4" />
+                邀请新成员
+              </h3>
+              {teamInfo && (teamMembers.filter(m => m.status !== 'removed').length + 1) >= teamInfo.maxMembers ? (
+                <p className="text-sm text-amber-600 bg-amber-50 rounded-lg px-4 py-3">
+                  团队已满员 ({teamInfo.maxMembers} 人)。
+                  <button onClick={() => router.push('/designer/pricing')} className="underline ml-1">
+                    购买更多配套
+                  </button>
+                  以扩充团队。
+                </p>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    value={inviteEmail}
+                    onChange={e => setInviteEmail(e.target.value)}
+                    placeholder="输入成员邮箱地址"
+                    onKeyDown={e => e.key === 'Enter' && handleInvite()}
+                    className="flex-1"
+                  />
+                  <Button variant="gold" onClick={handleInvite} disabled={teamLoading || !inviteEmail.trim()}>
+                    {teamLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : '发送邀请'}
+                  </Button>
+                </div>
+              )}
+              <p className="text-xs text-gray-400 mt-2">
+                受邀成员注册/登入后自动加入团队并获得 Elite AI 权限。
+              </p>
+            </div>
           </div>
         )}
 

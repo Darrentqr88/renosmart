@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
 
 const OCR_PROMPT = `You are analyzing a construction material receipt or invoice.
 Extract the following information and return ONLY valid JSON with no markdown:
@@ -38,7 +38,9 @@ Rules:
 - If qty or unit_price are not shown, estimate from total or leave as null.
 - Always return valid JSON even if some fields are unclear.`;
 
-const VALID_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+const VALID_MIME_TYPES = [
+  'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'
+];
 
 export async function POST(request: Request) {
   try {
@@ -50,62 +52,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing imageBase64 or mimeType' }, { status: 400 });
     }
 
-    if (!process.env.ANTHROPIC_API_KEY) {
+    if (!process.env.GOOGLE_API_KEY) {
       return NextResponse.json({ error: 'AI not configured' }, { status: 503 });
     }
 
-    const isPDF    = mimeType === 'application/pdf';
-    const isImage  = VALID_IMAGE_TYPES.includes(mimeType) || VALID_IMAGE_TYPES.includes(mimeType.replace('/jpg', '/jpeg'));
-    const imgType  = mimeType === 'image/jpg' ? 'image/jpeg' : mimeType;
+    const normalizedMime = mimeType === 'image/jpg' ? 'image/jpeg' : mimeType;
 
-    if (!isPDF && !isImage) {
+    if (!VALID_MIME_TYPES.includes(normalizedMime)) {
       return NextResponse.json({
         error: `不支持的格式 (${mimeType})，请上传 JPG / PNG / PDF`
       }, { status: 400 });
     }
 
-    let responseText: string;
+    // Gemini Vision: unified handling for images AND PDFs (no beta flag needed)
+    const geminiModel = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash-lite-preview-06-17',
+      generationConfig: { maxOutputTokens: 1024 },
+    });
 
-    if (isPDF) {
-      // PDF: use beta.messages with document block
-      const resp = await anthropic.beta.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        betas: ['pdfs-2024-09-25'],
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'document',
-              source: { type: 'base64', media_type: 'application/pdf', data: imageBase64 },
-            },
-            { type: 'text', text: activePrompt },
-          ],
-        }],
-      });
-      responseText = resp.content[0].type === 'text' ? resp.content[0].text : '';
-    } else {
-      // Image: use standard messages with image block
-      const resp = await anthropic.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: imgType as Anthropic.ImageBlockParam['source']['media_type'],
-                data: imageBase64,
-              },
-            },
-            { type: 'text', text: activePrompt },
-          ],
-        }],
-      });
-      responseText = resp.content[0].type === 'text' ? resp.content[0].text : '';
-    }
+    const result = await geminiModel.generateContent({
+      contents: [{
+        role: 'user',
+        parts: [
+          { inlineData: { data: imageBase64, mimeType: normalizedMime } },
+          { text: activePrompt },
+        ],
+      }],
+    });
+
+    const responseText = result.response.text();
 
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {

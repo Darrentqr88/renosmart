@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { checkRateLimit } from '@/lib/ai/rate-limit';
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
 
 const PLAN_LIMITS: Record<string, number> = {
   free: 3,
@@ -15,15 +15,13 @@ const PLAN_LIMITS: Record<string, number> = {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { model, max_tokens, messages, system } = body;
+    const { max_tokens, messages, system, skipQuota } = body;
 
-    // Server-side quota skip: secondary AI calls (gantt params, task details) use haiku
-    // with small token limits. These should not count against the user's quota.
-    const isSecondaryCall = model === 'claude-haiku-4-5-20251001' && (max_tokens || 16000) <= 4000;
+    // Secondary calls (Gantt params, trade hints) pass skipQuota: true — exempt from quota
+    const isSecondaryCall = skipQuota === true;
 
     const authHeader = req.headers.get('Authorization');
     let userId: string | null = null;
-    let userPlan = 'free';
 
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -41,9 +39,7 @@ export async function POST(req: NextRequest) {
       userId = session?.user?.id || null;
     }
 
-    // Quota check
     if (userId && !isSecondaryCall) {
-      // Rate limit check (20-min window, max 10 calls → 60-min cooldown)
       const rateCheck = await checkRateLimit(supabase, userId);
       if (!rateCheck.allowed) {
         return new Response(
@@ -54,70 +50,121 @@ export async function POST(req: NextRequest) {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('plan')
+        .select('plan, team_id')
         .eq('user_id', userId)
         .single();
 
-      userPlan = profile?.plan || 'free';
-      const limit = PLAN_LIMITS[userPlan];
+      let userPlan = profile?.plan || 'free';
+      const teamId = (profile as { plan: string; team_id?: string } | null)?.team_id ?? null;
 
-      const yearMonth = new Date().toISOString().slice(0, 7);
-      const { data: usageRow } = await supabase
-        .from('ai_usage')
-        .select('usage_count')
-        .eq('user_id', userId)
-        .eq('year_month', yearMonth)
-        .single();
+      // Check team Elite quota (shared pool)
+      if (teamId) {
+        const { data: team } = await supabase
+          .from('teams')
+          .select('elite_slots')
+          .eq('id', teamId)
+          .single();
 
-      const currentUsage = usageRow?.usage_count || 0;
+        if (team) {
+          const teamMonthlyLimit = ((team as { elite_slots: number }).elite_slots ?? 1) * 250;
+          const { data: teamMembersData } = await supabase
+            .from('team_members')
+            .select('user_id')
+            .eq('team_id', teamId)
+            .eq('status', 'active');
+          const memberIds = ((teamMembersData || []) as { user_id: string }[])
+            .map((m) => m.user_id)
+            .filter(Boolean);
 
-      let totalUsage = currentUsage;
-      if (userPlan === 'free') {
-        const { data: allUsage } = await supabase
-          .from('ai_usage')
-          .select('usage_count')
-          .eq('user_id', userId);
-        totalUsage = (allUsage || []).reduce((sum: number, row: { usage_count: number }) => sum + row.usage_count, 0);
+          const yearMonth = new Date().toISOString().slice(0, 7);
+          const { data: usageRows } = await supabase
+            .from('ai_usage')
+            .select('usage_count')
+            .in('user_id', memberIds)
+            .eq('year_month', yearMonth);
+
+          const teamUsage = ((usageRows || []) as { usage_count: number }[]).reduce(
+            (s, r) => s + r.usage_count,
+            0
+          );
+
+          if (teamUsage >= teamMonthlyLimit) {
+            return new Response(
+              JSON.stringify({ error: `团队 AI 配额已用完 (${teamUsage}/${teamMonthlyLimit})。请购买更多 Elite 配套。` }),
+              { status: 429, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+          userPlan = 'elite';
+        }
       }
 
-      if (totalUsage >= limit) {
-        return new Response(
-          JSON.stringify({ error: `AI quota exceeded. Please upgrade your plan. (${totalUsage}/${limit === Infinity ? '∞' : limit} used)` }),
-          { status: 429, headers: { 'Content-Type': 'application/json' } }
-        );
+      if (userPlan !== 'elite') {
+        const limit = PLAN_LIMITS[userPlan] ?? 0;
+        const yearMonth = new Date().toISOString().slice(0, 7);
+
+        let totalUsage = 0;
+        if (userPlan === 'free') {
+          const { data: allUsage } = await supabase
+            .from('ai_usage')
+            .select('usage_count')
+            .eq('user_id', userId);
+          totalUsage = ((allUsage || []) as { usage_count: number }[]).reduce(
+            (s, r) => s + r.usage_count,
+            0
+          );
+        } else {
+          const { data: usageRow } = await supabase
+            .from('ai_usage')
+            .select('usage_count')
+            .eq('user_id', userId)
+            .eq('year_month', yearMonth)
+            .single();
+          totalUsage = (usageRow as { usage_count: number } | null)?.usage_count || 0;
+        }
+
+        if (totalUsage >= limit) {
+          return new Response(
+            JSON.stringify({ error: `AI quota exceeded. Please upgrade your plan. (${totalUsage}/${limit === Infinity ? '∞' : limit} used)` }),
+            { status: 429, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
       }
     }
 
-    // Stream from Anthropic
-    const stream = await anthropic.messages.stream({
-      model: model || 'claude-haiku-4-5-20251001',
-      max_tokens: max_tokens || 16000,
-      messages,
-      ...(system ? { system } : {}),
+    // Build Gemini model
+    const geminiModel = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash-lite-preview-06-17',
+      ...(system ? { systemInstruction: system } : {}),
+      generationConfig: { maxOutputTokens: max_tokens || 16000 },
     });
+
+    const contents = (messages as Array<{ role: string; content: string }>).map((m) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
 
     const encoder = new TextEncoder();
     let inputTokens = 0;
     let outputTokens = 0;
 
+    const streamResult = await geminiModel.generateContentStream({ contents });
+
     const readable = new ReadableStream({
       async start(controller) {
         try {
-          for await (const event of stream) {
-            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-              // Send text chunks as SSE
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`));
-            }
-            // Capture token usage from stream events
-            if (event.type === 'message_start' && event.message.usage) {
-              inputTokens = event.message.usage.input_tokens;
-            }
-            if (event.type === 'message_delta' && event.usage) {
-              outputTokens = event.usage.output_tokens;
+          for await (const chunk of streamResult.stream) {
+            const text = chunk.text();
+            if (text) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
             }
           }
 
-          // Increment usage after successful completion (only for main analysis, not gantt)
+          // Get final token usage after stream completes
+          const finalResponse = await streamResult.response;
+          inputTokens = finalResponse.usageMetadata?.promptTokenCount ?? 0;
+          outputTokens = finalResponse.usageMetadata?.candidatesTokenCount ?? 0;
+
+          // Increment usage after successful completion
           if (userId && !isSecondaryCall) {
             const yearMonth = new Date().toISOString().slice(0, 7);
             await supabase.rpc('increment_ai_usage', {
@@ -146,7 +193,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    console.error('Claude stream API error:', error);
+    console.error('Gemini stream API error:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';
     return new Response(JSON.stringify({ error: message }), {
       status: 500,

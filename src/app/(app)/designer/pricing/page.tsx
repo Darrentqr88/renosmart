@@ -153,10 +153,10 @@ function PricingPageContent() {
       name: t.landing.elitePlan + ' \u26A1',
       price: PRICES.elite[r][billingInterval],
       period: INTERVAL_LABELS[billingInterval],
-      desc: 'For large design studios',
+      desc: '5 账号共用 · 可购买多个配套扩充',
       features: [
-        'Unlimited AI analyses', 'Unlimited projects', 'All Pro features',
-        'Team collaboration', 'API access', 'Custom branding', 'Dedicated account manager',
+        '👥 5 账号共用 · 共享 250 次/月', 'All Pro features', 'Unlimited projects',
+        '团队管理面板（邀请/移除成员）', '可叠加购买：每个 +5 人 +250 次', 'API access', 'Custom branding',
       ],
       cta: 'Upgrade to Elite',
       color: 'border-purple-400',
