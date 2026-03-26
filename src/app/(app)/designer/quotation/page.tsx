@@ -427,15 +427,82 @@ export default function QuotationPage() {
     projectId: string,
     analysisData: QuotationAnalysis,
     userId: string,
+    smartMerge = false,
   ) => {
     try {
       const ganttParams = (analysisData as QuotationAnalysis & { ganttParams?: GanttParams }).ganttParams;
+      const startDate = new Date();
       const newTasks = ganttParams
-        ? generateGanttFromAIParams(projectId, ganttParams, new Date(), 'MY', false, false)
+        ? generateGanttFromAIParams(projectId, ganttParams, startDate, 'MY', false, false)
         : analysisData.items?.length > 0
-          ? generateGanttFromQuotation(projectId, analysisData.items.map(i => ({ ...i, unit: i.unit || '' })), new Date(), 'MY', false, false)
+          ? generateGanttFromQuotation(projectId, analysisData.items.map(i => ({ ...i, unit: i.unit || '' })), startDate, 'MY', false, false)
           : null;
       if (!newTasks || newTasks.length === 0) return;
+
+      if (smartMerge) {
+        // ── Smart merge: preserve existing progress ──
+        const { data: existingTasks } = await supabase
+          .from('gantt_tasks').select('*').eq('project_id', projectId);
+
+        if (existingTasks && existingTasks.length > 0) {
+          // Build lookup by phase_id (most reliable) or trade name
+          const existingByPhase = new Map<string, typeof existingTasks[0]>();
+          const existingByTrade = new Map<string, typeof existingTasks[0]>();
+          for (const et of existingTasks) {
+            if (et.phase_id) existingByPhase.set(et.phase_id, et);
+            existingByTrade.set(et.trade?.toLowerCase(), et);
+          }
+
+          // Merge: for each new task, check if an existing task with same phase_id exists
+          const mergedTasks = newTasks.map(nt => {
+            const existing = existingByPhase.get(nt.phase_id || '') || existingByTrade.get(nt.trade?.toLowerCase());
+            if (!existing) return nt; // new task, use as-is
+
+            // Preserve progress & completed subtasks from existing task
+            const preservedProgress = existing.progress || 0;
+            const preservedSubtasks = nt.subtasks.map(sub => {
+              // Check if this subtask existed before and was completed
+              const oldSub = (existing.subtasks as { id: string; completed: boolean }[] || [])
+                .find(os => os.id === sub.id || (sub.name && os.id?.includes?.(sub.name.slice(0, 10))));
+              return oldSub?.completed ? { ...sub, completed: true } : sub;
+            });
+
+            // If existing task has progress > 0, preserve its dates
+            const preserveDates = preservedProgress > 0;
+            // If new duration is longer (scope increased), extend end date but keep start
+            const newDurationIsLonger = nt.duration > (existing.duration || 0);
+
+            return {
+              ...nt,
+              progress: preservedProgress,
+              subtasks: preservedSubtasks,
+              // Keep existing start/end if task has progress, unless new scope is larger
+              start_date: preserveDates ? existing.start_date : nt.start_date,
+              end_date: preserveDates && !newDurationIsLonger ? existing.end_date : nt.end_date,
+              duration: preserveDates && !newDurationIsLonger ? (existing.duration || nt.duration) : nt.duration,
+              assigned_workers: existing.assigned_workers || nt.assigned_workers || [],
+              ai_hint: existing.ai_hint || null,
+            };
+          });
+
+          // Delete old and insert merged
+          await supabase.from('gantt_tasks').delete().eq('project_id', projectId);
+          await supabase.from('gantt_tasks').insert(
+            mergedTasks.map(t => ({
+              id: t.id, project_id: t.project_id, user_id: userId,
+              name: t.name, name_zh: t.name_zh, trade: t.trade,
+              start_date: t.start_date, end_date: t.end_date, duration: t.duration,
+              progress: t.progress, dependencies: t.dependencies, color: t.color,
+              is_critical: t.is_critical, subtasks: t.subtasks,
+              assigned_workers: t.assigned_workers || [],
+              phase_id: t.phase_id,
+            }))
+          );
+          return;
+        }
+      }
+
+      // Full replace (new project or no existing tasks)
       await supabase.from('gantt_tasks').delete().eq('project_id', projectId);
       await supabase.from('gantt_tasks').insert(
         newTasks.map(t => ({
@@ -445,6 +512,7 @@ export default function QuotationPage() {
           progress: t.progress, dependencies: t.dependencies, color: t.color,
           is_critical: t.is_critical, subtasks: t.subtasks,
           assigned_workers: t.assigned_workers || [],
+          phase_id: t.phase_id,
         }))
       );
     } catch { /* non-blocking */ }
@@ -481,11 +549,19 @@ export default function QuotationPage() {
         total_amount: analysis.totalAmount,
       });
 
-      // Auto-populate payment phases (from quotation paymentTerms, or default 30/30/30/10)
+      // Update payment phases: recalculate amounts proportionally, preserve collected status
+      const total = analysis.totalAmount;
       const { data: existingPay } = await supabase
-        .from('payment_phases').select('id').eq('project_id', linkedProjectId).limit(1);
-      if (!existingPay || existingPay.length === 0) {
-        const total = analysis.totalAmount;
+        .from('payment_phases').select('*').eq('project_id', linkedProjectId).order('phase_number');
+      if (existingPay && existingPay.length > 0) {
+        // Recalculate amounts based on new total, preserve status
+        for (const phase of existingPay) {
+          const pct = phase.percentage || 25;
+          const newAmount = total * pct / 100;
+          await supabase.from('payment_phases').update({ amount: newAmount }).eq('id', phase.id);
+        }
+      } else {
+        // No existing phases — create default
         const terms = (analysis as { paymentTerms?: { label: string; percentage: number; amount: number; condition?: string }[] }).paymentTerms;
         const phases = terms && terms.length > 0
           ? terms.map((t, i) => ({
@@ -506,8 +582,8 @@ export default function QuotationPage() {
         await supabase.from('payment_phases').insert(phases);
       }
 
-      // Always regenerate Gantt from quotation AI params
-      await saveGanttFromAnalysis(linkedProjectId, analysis, session.user.id);
+      // Smart merge Gantt: preserve existing progress, only extend durations for new scope
+      await saveGanttFromAnalysis(linkedProjectId, analysis, session.user.id, true);
 
       setSavedProjectId(linkedProjectId);
       toast({ title: '✅ 已保存至项目', description: linkedProjectName });
@@ -589,8 +665,22 @@ export default function QuotationPage() {
         total_amount: analysis.totalAmount,
       });
 
-      // Always regenerate Gantt from quotation AI params
-      await saveGanttFromAnalysis(projectId, analysis, session.user.id);
+      // For existing projects: update payment phases proportionally + smart merge Gantt
+      const isExisting = saveMode === 'existing';
+      if (isExisting) {
+        const total = analysis.totalAmount;
+        const { data: existingPayPhases } = await supabase
+          .from('payment_phases').select('*').eq('project_id', projectId).order('phase_number');
+        if (existingPayPhases && existingPayPhases.length > 0) {
+          for (const phase of existingPayPhases) {
+            const pct = phase.percentage || 25;
+            await supabase.from('payment_phases').update({ amount: total * pct / 100 }).eq('id', phase.id);
+          }
+        }
+      }
+
+      // Smart merge for existing projects, full replace for new
+      await saveGanttFromAnalysis(projectId, analysis, session.user.id, isExisting);
 
       setSavedProjectId(projectId);
       setShowSaveDialog(false);
