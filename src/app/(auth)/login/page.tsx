@@ -218,31 +218,84 @@ function LoginPageContent() {
 
           {/* Dev quick-login — localhost only */}
           {process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_DEV_EMAIL && (
-            <button
-              type="button"
-              onClick={async () => {
-                const devEmail = process.env.NEXT_PUBLIC_DEV_EMAIL!;
-                const devPass = process.env.NEXT_PUBLIC_DEV_PASSWORD!;
-                setLoading(true);
-                try {
-                  const { data, error } = await supabase.auth.signInWithPassword({ email: devEmail, password: devPass });
-                  if (error) throw error;
-                  await getRoleAndRedirect(data.user.id);
-                } catch (err: unknown) {
-                  toast({ variant: 'destructive', title: 'Dev login failed', description: err instanceof Error ? err.message : String(err) });
-                } finally { setLoading(false); }
-              }}
-              disabled={loading}
-              style={{
-                width: '100%', marginBottom: 16, padding: '10px 0', borderRadius: 10,
-                border: '1px dashed rgba(232,163,23,0.4)', background: 'rgba(232,163,23,0.06)',
-                color: '#E8A317', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex',
-                alignItems: 'center', justifyContent: 'center', gap: 8, letterSpacing: 0.3,
-              }}
-            >
-              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : '⚡'}
-              Dev Quick Login
-            </button>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {([
+                { label: 'Designer', role: 'designer', color: '#E8A317' },
+                { label: 'Worker', role: 'worker', color: '#4F8EF7' },
+                { label: 'Owner', role: 'owner', color: '#10B981' },
+              ] as const).map(dev => (
+                <button
+                  key={dev.role}
+                  type="button"
+                  onClick={async () => {
+                    setLoading(true);
+                    try {
+                      const devEmail = process.env.NEXT_PUBLIC_DEV_EMAIL!;
+                      const devPass = process.env.NEXT_PUBLIC_DEV_PASSWORD!;
+
+                      if (dev.role === 'designer') {
+                        // Main dev account → designer
+                        const { data, error } = await supabase.auth.signInWithPassword({ email: devEmail, password: devPass });
+                        if (error) throw error;
+                        await getRoleAndRedirect(data.user.id);
+                      } else {
+                        // Worker/Owner test accounts
+                        const testEmail = `test-${dev.role}@renosmart.dev`;
+                        const testPass = 'test123456';
+                        // Try sign in first
+                        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email: testEmail, password: testPass });
+                        if (signInErr) {
+                          // Account doesn't exist → create it
+                          const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+                            email: testEmail,
+                            password: testPass,
+                            options: { data: { full_name: `Test ${dev.label}` } },
+                          });
+                          if (signUpErr) throw signUpErr;
+                          if (signUpData.user) {
+                            // Create profile with role
+                            await supabase.from('profiles').upsert({
+                              user_id: signUpData.user.id,
+                              role: dev.role,
+                              name: `Test ${dev.label}`,
+                              email: testEmail,
+                              phone: dev.role === 'worker' ? '+60123456789' : '+60198765432',
+                              trades: dev.role === 'worker' ? ['Tiling', 'Painting', 'Carpentry'] : undefined,
+                              plan: 'pro',
+                              updated_at: new Date().toISOString(),
+                            });
+                            router.push(`/${dev.role}`);
+                            router.refresh();
+                          }
+                        } else if (signInData.user) {
+                          // Ensure profile has correct role
+                          await supabase.from('profiles').upsert({
+                            user_id: signInData.user.id,
+                            role: dev.role,
+                            name: `Test ${dev.label}`,
+                            updated_at: new Date().toISOString(),
+                          });
+                          router.push(`/${dev.role}`);
+                          router.refresh();
+                        }
+                      }
+                    } catch (err: unknown) {
+                      toast({ variant: 'destructive', title: `${dev.label} login failed`, description: err instanceof Error ? err.message : String(err) });
+                    } finally { setLoading(false); }
+                  }}
+                  disabled={loading}
+                  style={{
+                    flex: 1, padding: '10px 0', borderRadius: 10,
+                    border: `1px dashed ${dev.color}60`, background: `${dev.color}0A`,
+                    color: dev.color, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', gap: 6, letterSpacing: 0.3,
+                  }}
+                >
+                  {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : '⚡'}
+                  {dev.label}
+                </button>
+              ))}
+            </div>
           )}
 
           {/* Email login */}

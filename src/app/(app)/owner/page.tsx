@@ -16,8 +16,10 @@ export default function OwnerDashboard() {
   const [project, setProject] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [variationOrders, setVariationOrders] = useState<VariationOrder[]>([]);
+  const [sitePhotos, setSitePhotos] = useState<{ id: string; url: string; caption?: string; trade?: string; created_at: string }[]>([]);
   const [voLoading, setVoLoading] = useState(false);
   const [expandedVOId, setExpandedVOId] = useState<string | null>(null);
+  const [ownerLightbox, setOwnerLightbox] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -32,6 +34,14 @@ export default function OwnerDashboard() {
           .eq('project_id', data.id)
           .order('created_at', { ascending: false });
         if (vos) setVariationOrders(vos as VariationOrder[]);
+        // Load approved site photos
+        const { data: photos } = await supabase
+          .from('site_photos')
+          .select('id, url, caption, trade, created_at')
+          .eq('project_id', data.id)
+          .eq('approved', true)
+          .order('created_at', { ascending: false });
+        if (photos) setSitePhotos(photos);
       }
       setLoading(false);
     })();
@@ -194,10 +204,36 @@ export default function OwnerDashboard() {
             </TabsContent>
 
             <TabsContent value="photos" className="flex-1 p-4 overflow-y-auto mt-0">
-              <div className="text-center py-8 text-gray-400 text-sm">
-                <Camera className="w-8 h-8 mx-auto mb-2 text-gray-200" />
-                No site photos yet.
-              </div>
+              {sitePhotos.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 text-sm">
+                  <Camera className="w-8 h-8 mx-auto mb-2 text-gray-200" />
+                  No site photos yet.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-gray-500 font-medium">{sitePhotos.length} approved photos</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {sitePhotos.map(photo => (
+                      <div key={photo.id} className="rounded-xl overflow-hidden border border-gray-100 bg-white shadow-sm cursor-pointer" onClick={() => setOwnerLightbox(photo.url)}>
+                        <img src={photo.url} alt={photo.caption || 'Site photo'} className="w-full aspect-square object-cover" />
+                        <div className="p-2">
+                          {photo.caption && <p className="text-[11px] text-gray-600 line-clamp-1">{photo.caption}</p>}
+                          <div className="flex items-center justify-between mt-1">
+                            {photo.trade && <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-full">{photo.trade}</span>}
+                            <span className="text-[10px] text-gray-400">{new Date(photo.created_at).toLocaleDateString('en-MY')}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Owner lightbox */}
+              {ownerLightbox && (
+                <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 cursor-pointer" onClick={() => setOwnerLightbox(null)}>
+                  <img src={ownerLightbox} alt="Photo" className="max-w-full max-h-[90vh] object-contain rounded-lg" />
+                </div>
+              )}
             </TabsContent>
 
             {/* ── Approvals Tab ── */}

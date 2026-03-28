@@ -1,14 +1,18 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { MapPin, ChevronDown, ChevronUp, Receipt, Loader2, CheckCircle2, X, Upload, Camera, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import WorkerTaskCard, { WorkerTask, TaskSubtask } from './WorkerTaskCard';
+import { watchGeofence } from '@/lib/utils/geofence';
+import { useI18n } from '@/lib/i18n/context';
+import WorkerTaskCard, { WorkerTask } from './WorkerTaskCard';
 
 export interface ProjectSummary {
   id: string;
   name: string;
   address?: string;
+  site_lat?: number | null;
+  site_lng?: number | null;
 }
 
 interface CheckinState {
@@ -58,6 +62,7 @@ export default function WorkerProjectCard({
   onPhotoClick,
 }: WorkerProjectCardProps) {
   const supabase = createClient();
+  const { t } = useI18n();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const today = new Date().toISOString().split('T')[0];
 
@@ -74,10 +79,127 @@ export default function WorkerProjectCard({
     return { status: 'idle' };
   });
 
+  // Recover check-in state from DB if localStorage is empty
+  useEffect(() => {
+    if (checkin.status !== 'idle') return; // already have state from localStorage
+    (async () => {
+      const { data: events } = await supabase
+        .from('project_events')
+        .select('event_type, notes')
+        .eq('project_id', project.id)
+        .eq('user_id', sessionUserId)
+        .eq('event_date', today)
+        .in('event_type', ['worker_checkin', 'worker_checkout'])
+        .order('created_at', { ascending: false });
+      if (!events || events.length === 0) return;
+      const hasCheckout = events.some(e => e.event_type === 'worker_checkout');
+      const checkinEvent = events.find(e => e.event_type === 'worker_checkin');
+      const checkoutEvent = events.find(e => e.event_type === 'worker_checkout');
+      const extractTime = (notes?: string) => {
+        const match = notes?.match(/at (\d{1,2}:\d{2}\s*[AP]?M?)/i);
+        return match ? match[1] : undefined;
+      };
+      if (hasCheckout) {
+        const state: CheckinState = { status: 'checked_out', time: extractTime(checkinEvent?.notes), checkoutTime: extractTime(checkoutEvent?.notes) };
+        setCheckin(state);
+        localStorage.setItem(storageKey, JSON.stringify(state));
+      } else if (checkinEvent) {
+        const state: CheckinState = { status: 'checked_in', time: extractTime(checkinEvent.notes) };
+        setCheckin(state);
+        localStorage.setItem(storageKey, JSON.stringify(state));
+      }
+    })();
+  }, [project.id, sessionUserId, today]);
+
+  // Auto checkout timeout ref
+  const autoCheckoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Use ref to track checkin status inside geofence callbacks (avoids stale closures & re-subscriptions)
+  const checkinRef = useRef(checkin);
+  checkinRef.current = checkin;
+
+  // Geofence auto check-in / auto check-out — runs once per coordinate set
+  useEffect(() => {
+    if (!project.site_lat || !project.site_lng) return;
+
+    const cleanup = watchGeofence(project.site_lat, project.site_lng, {
+      radiusMeters: 200,
+      onEnter: async () => {
+        // Auto check-in only if idle (not checked_in or checked_out)
+        if (checkinRef.current.status !== 'idle') return;
+        // Clear any pending auto-checkout timer
+        if (autoCheckoutTimerRef.current) clearTimeout(autoCheckoutTimerRef.current);
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
+        const state: CheckinState = { status: 'checked_in', time: timeStr };
+        setCheckin(state);
+        localStorage.setItem(storageKey, JSON.stringify(state));
+        await supabase.from('project_events').insert({
+          project_id: project.id,
+          user_id: sessionUserId,
+          event_type: 'worker_checkin',
+          title: `${profileName} auto checked in`,
+          event_date: today,
+          notes: `Auto check-in at ${timeStr} (geofence)`,
+        });
+        fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: project.id,
+            event_type: 'worker_checkin',
+            worker_name: profileName,
+            message: `${profileName} arrived at ${project.name}`,
+            exclude_user_id: sessionUserId,
+          }),
+        }).catch(() => {});
+      },
+      onLeave: () => {
+        // Worker left site — start 15-min auto checkout timer only if checked_in
+        if (checkinRef.current.status !== 'checked_in') return;
+        autoCheckoutTimerRef.current = setTimeout(async () => {
+          // Double-check status hasn't changed during the 15 min wait
+          if (checkinRef.current.status !== 'checked_in') return;
+          const now = new Date();
+          const timeStr = now.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
+          const state: CheckinState = { status: 'checked_out', time: checkinRef.current.time, checkoutTime: timeStr };
+          setCheckin(state);
+          localStorage.setItem(storageKey, JSON.stringify(state));
+          await supabase.from('project_events').insert({
+            project_id: project.id,
+            user_id: sessionUserId,
+            event_type: 'worker_checkout',
+            title: `${profileName} auto checked out`,
+            event_date: today,
+            notes: `Auto check-out at ${timeStr} (auto_checkout)`,
+          });
+          fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              project_id: project.id,
+              event_type: 'worker_checkout',
+              worker_name: profileName,
+              message: `${profileName} left ${project.name} (auto)`,
+              exclude_user_id: sessionUserId,
+            }),
+          }).catch(() => {});
+        }, 15 * 60 * 1000); // 15 minutes
+      },
+    });
+
+    return () => {
+      cleanup();
+      if (autoCheckoutTimerRef.current) clearTimeout(autoCheckoutTimerRef.current);
+    };
+    // Only re-subscribe when coordinates change, not on every status change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.site_lat, project.site_lng]);
+
   // Invoice (receipt) state
   const [invoiceStep, setInvoiceStep] = useState<InvoiceStep>('idle');
   const [ocrResult, setOcrResult] = useState<OcrResult | null>(null);
   const [ocrError, setOcrError] = useState<string | null>(null);
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
 
   const handleCheckin = async () => {
     setCheckin({ status: 'detecting' });
@@ -93,7 +215,6 @@ export default function WorkerProjectCard({
       setCheckin(state);
       localStorage.setItem(storageKey, JSON.stringify(state));
 
-      // Notify designer via project_events
       await supabase.from('project_events').insert({
         project_id: project.id,
         user_id: sessionUserId,
@@ -102,6 +223,27 @@ export default function WorkerProjectCard({
         event_date: today,
         notes: `Checked in at ${timeStr} · GPS: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`,
       });
+
+      // Save GPS as site coordinates if not set
+      if (!project.site_lat || !project.site_lng) {
+        await supabase.from('projects').update({
+          site_lat: pos.coords.latitude,
+          site_lng: pos.coords.longitude,
+        }).eq('id', project.id);
+      }
+
+      // Notify designer + owner
+      fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: project.id,
+          event_type: 'worker_checkin',
+          worker_name: profileName,
+          message: `${profileName} checked in at ${project.name}`,
+          exclude_user_id: sessionUserId,
+        }),
+      }).catch(() => {});
     } catch {
       // GPS denied or error — still allow manual check-in
       const now = new Date();
@@ -118,6 +260,18 @@ export default function WorkerProjectCard({
         event_date: today,
         notes: `Checked in at ${timeStr} (no GPS)`,
       });
+
+      fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: project.id,
+          event_type: 'worker_checkin',
+          worker_name: profileName,
+          message: `${profileName} checked in at ${project.name}`,
+          exclude_user_id: sessionUserId,
+        }),
+      }).catch(() => {});
     }
   };
 
@@ -136,11 +290,24 @@ export default function WorkerProjectCard({
       event_date: today,
       notes: `Checked out at ${timeStr}`,
     });
+
+    fetch('/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project_id: project.id,
+        event_type: 'worker_checkout',
+        worker_name: profileName,
+        message: `${profileName} checked out from ${project.name}`,
+        exclude_user_id: sessionUserId,
+      }),
+    }).catch(() => {});
   };
 
   // Invoice OCR flow
   const handleFileSelect = async (file: File) => {
     setOcrError(null);
+    setInvoiceFile(file);
     setInvoiceStep('scanning');
     try {
       const reader = new FileReader();
@@ -157,21 +324,59 @@ export default function WorkerProjectCard({
           setOcrResult(data);
           setInvoiceStep('review');
         } catch {
-          setOcrError('AI 扫描失败，请重试');
+          setOcrError(t.worker.scanFailed);
           setInvoiceStep('idle');
         }
       };
       reader.readAsDataURL(file);
     } catch {
-      setOcrError('文件读取失败');
+      setOcrError(t.worker.readFailed);
       setInvoiceStep('idle');
     }
+  };
+
+  // Category mapping for Cost Database learning
+  const CATEGORY_MAP: Record<string, string> = {
+    tiling_material: 'Tiling', electrical_material: 'Electrical',
+    plumbing_material: 'Plumbing', carpentry_material: 'Carpentry',
+    paint: 'Painting', cement: 'Construction', steel: 'Metal Work',
+    general_labour: 'Cleaning', waterproofing: 'Waterproofing',
+    ceiling: 'False Ceiling', flooring: 'Flooring', ac: 'Air Conditioning',
+    glass: 'Glass', aluminium: 'Aluminium', roofing: 'Roofing',
+    landscape: 'Landscape', construction: 'Construction',
+    demolition: 'Demolition', other: 'Other',
   };
 
   const handleSaveInvoice = async () => {
     if (!ocrResult) return;
     setInvoiceStep('saving');
     try {
+      // 1. Upload receipt file to Supabase Storage
+      let receiptUrl: string | null = null;
+      if (invoiceFile) {
+        const ext = invoiceFile.name.split('.').pop() || 'jpg';
+        const filePath = `${sessionUserId}/${project.id}/${Date.now()}.${ext}`;
+        const { error: uploadErr } = await supabase.storage
+          .from('receipts')
+          .upload(filePath, invoiceFile, { contentType: invoiceFile.type });
+        if (!uploadErr) {
+          const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(filePath);
+          receiptUrl = urlData?.publicUrl || null;
+        } else {
+          console.warn('[receipt] Storage upload failed:', uploadErr.message);
+        }
+      }
+
+      // 2. Map category for Cost Database learning — use most frequent across all items
+      const categoryCounts: Record<string, number> = {};
+      for (const item of ocrResult.items) {
+        const cat = item.category || 'other';
+        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+      }
+      const rawCategory = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'other';
+      const mappedCategory = CATEGORY_MAP[rawCategory] || 'Other';
+
+      // 3. Insert cost record with receipt_url and proper categorization
       await supabase.from('cost_records').insert({
         project_id: project.id,
         user_id: sessionUserId,
@@ -179,19 +384,22 @@ export default function WorkerProjectCard({
         supplier: ocrResult.supplier || 'Unknown Supplier',
         receipt_date: ocrResult.date || today,
         receipt_number: ocrResult.receipt_number || null,
-        category: ocrResult.items[0]?.category || 'other',
+        category: rawCategory,
+        subcategory: mappedCategory,
         description: ocrResult.supplier || 'Receipt',
         amount: ocrResult.total_amount,
         items: ocrResult.items,
+        receipt_url: receiptUrl,
       });
       setInvoiceStep('done');
       setTimeout(() => {
         setInvoiceOpen(false);
         setInvoiceStep('idle');
         setOcrResult(null);
+        setInvoiceFile(null);
       }, 1800);
     } catch {
-      setOcrError('保存失败，请重试');
+      setOcrError(t.worker.saveFailed);
       setInvoiceStep('review');
     }
   };
@@ -224,13 +432,13 @@ export default function WorkerProjectCard({
               className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#4F8EF7] text-white rounded-xl text-sm font-semibold transition-colors active:scale-[0.97]"
             >
               <MapPin className="w-4 h-4" />
-              Check In to Site
+              {t.worker.checkIn}
             </button>
           )}
           {checkin.status === 'detecting' && (
             <div className="w-full flex items-center justify-center gap-2 py-2.5 bg-amber-50 rounded-xl text-sm text-amber-700">
               <Loader2 className="w-4 h-4 animate-spin" />
-              Detecting location...
+              {t.worker.detectingLocation}
             </div>
           )}
           {checkin.status === 'checked_in' && (
@@ -238,7 +446,7 @@ export default function WorkerProjectCard({
               <div className="flex-1 flex items-center gap-2 py-2.5 px-3 bg-green-50 border border-green-200 rounded-xl">
                 <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
                 <div>
-                  <p className="text-[12px] font-semibold text-green-700">Checked In</p>
+                  <p className="text-[12px] font-semibold text-green-700">{t.worker.checkedIn}</p>
                   <p className="text-[10px] text-green-500">{checkin.time}</p>
                 </div>
               </div>
@@ -246,7 +454,7 @@ export default function WorkerProjectCard({
                 onClick={handleCheckout}
                 className="px-4 py-2.5 bg-gray-100 rounded-xl text-xs font-medium text-gray-600 hover:bg-gray-200 transition-colors"
               >
-                Check Out
+                {t.worker.checkOut}
               </button>
             </div>
           )}
@@ -254,7 +462,7 @@ export default function WorkerProjectCard({
             <div className="flex items-center gap-2 py-2 px-3 bg-gray-50 rounded-xl">
               <CheckCircle2 className="w-4 h-4 text-gray-400" />
               <p className="text-[11px] text-gray-500">
-                {checkin.time} → {checkin.checkoutTime} · Done for today
+                {checkin.time} → {checkin.checkoutTime} · {t.worker.doneForToday}
               </p>
             </div>
           )}
@@ -266,7 +474,7 @@ export default function WorkerProjectCard({
         onClick={() => setTasksExpanded(!tasksExpanded)}
         className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors"
       >
-        <span className="text-[12px] font-semibold text-gray-600">Today&apos;s Tasks ({tasks.length})</span>
+        <span className="text-[12px] font-semibold text-gray-600">{t.worker.todaysTasks} ({tasks.length})</span>
         {tasksExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
       </button>
 
@@ -277,6 +485,8 @@ export default function WorkerProjectCard({
             <WorkerTaskCard
               key={task.id}
               task={task}
+              sessionUserId={sessionUserId}
+              profileName={profileName}
               onProgressChange={onProgressChange}
               onSubtaskToggle={onSubtaskToggle}
               onComplete={onComplete}
@@ -290,12 +500,12 @@ export default function WorkerProjectCard({
       {/* Invoice upload button */}
       <div className="px-4 pb-4">
         <button
-          onClick={() => { setInvoiceOpen(true); setInvoiceStep('idle'); }}
+          onClick={() => { setInvoiceOpen(true); setInvoiceStep('idle'); setOcrError(null); }}
           style={{ touchAction: 'manipulation' }}
           className="w-full flex items-center justify-center gap-2 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm font-semibold text-amber-700 transition-colors active:scale-[0.97]"
         >
           <Receipt className="w-4 h-4" />
-          Upload Invoice
+          {t.worker.uploadInvoice}
         </button>
       </div>
 
@@ -308,7 +518,7 @@ export default function WorkerProjectCard({
               <div>
                 <div className="flex items-center gap-2">
                   <Receipt className="w-4 h-4 text-amber-600" />
-                  <h3 className="font-bold text-gray-900">Upload Invoice</h3>
+                  <h3 className="font-bold text-gray-900">{t.worker.uploadInvoice}</h3>
                 </div>
                 <p className="text-[11px] text-gray-500 mt-0.5">
                   Project: <span className="font-semibold text-amber-700">{project.name}</span>
@@ -341,11 +551,11 @@ export default function WorkerProjectCard({
                       <Camera className="w-6 h-6 text-amber-600" />
                     </div>
                     <div className="text-center">
-                      <p className="font-semibold text-gray-700 text-sm">Take Photo or Upload</p>
-                      <p className="text-xs text-gray-400 mt-1">JPG, PNG, PDF receipt / invoice</p>
+                      <p className="font-semibold text-gray-700 text-sm">{t.worker.takePhotoOrUpload}</p>
+                      <p className="text-xs text-gray-400 mt-1">JPG, PNG, PDF</p>
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                      <Upload className="w-3 h-3" /> Select File
+                      <Upload className="w-3 h-3" /> {t.worker.selectFile}
                     </div>
                   </button>
                   {ocrError && <p className="mt-3 text-xs text-red-500 text-center">{ocrError}</p>}
@@ -359,8 +569,8 @@ export default function WorkerProjectCard({
                     <Loader2 className="w-8 h-8 text-[#4F8EF7] animate-spin" />
                   </div>
                   <div className="text-center">
-                    <p className="font-semibold text-gray-700 text-sm">AI 正在识别单据...</p>
-                    <p className="text-xs text-gray-400 mt-1">通常需要 5-10 秒</p>
+                    <p className="font-semibold text-gray-700 text-sm">{t.worker.scanningReceipt}</p>
+                    <p className="text-xs text-gray-400 mt-1">{t.worker.scanningWait}</p>
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
                     <div className="bg-[#4F8EF7] h-full rounded-full animate-pulse" style={{ width: '65%' }} />
@@ -373,16 +583,16 @@ export default function WorkerProjectCard({
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[11px] text-gray-500 font-medium block mb-1">供应商</label>
+                      <label className="text-[11px] text-gray-500 font-medium block mb-1">{t.worker.supplier}</label>
                       <input
                         value={ocrResult.supplier || ''}
                         onChange={(e) => setOcrResult(p => p ? { ...p, supplier: e.target.value } : p)}
                         className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#4F8EF7]"
-                        placeholder="Supplier name"
+                        placeholder={t.worker.supplier}
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] text-gray-500 font-medium block mb-1">日期</label>
+                      <label className="text-[11px] text-gray-500 font-medium block mb-1">{t.worker.date}</label>
                       <input
                         type="date"
                         value={ocrResult.date || ''}
@@ -394,7 +604,7 @@ export default function WorkerProjectCard({
 
                   <div className="border border-gray-100 rounded-xl overflow-hidden">
                     {ocrResult.items.length === 0 ? (
-                      <p className="p-3 text-xs text-gray-400 text-center">未识别到明细，将以总金额记录</p>
+                      <p className="p-3 text-xs text-gray-400 text-center">{t.worker.noItemsDetected}</p>
                     ) : (
                       ocrResult.items.slice(0, 5).map((item, i) => (
                         <div key={i} className="flex items-center gap-2 p-3 border-b border-gray-50 last:border-0">
@@ -409,7 +619,7 @@ export default function WorkerProjectCard({
                   </div>
 
                   <div className="flex justify-between items-center bg-gray-50 rounded-xl px-4 py-3">
-                    <span className="text-sm font-medium text-gray-600">Total</span>
+                    <span className="text-sm font-medium text-gray-600">{t.worker.total}</span>
                     <span className="font-bold text-gray-900">RM {(ocrResult.total_amount ?? 0).toFixed(2)}</span>
                   </div>
 
@@ -420,13 +630,13 @@ export default function WorkerProjectCard({
                       onClick={() => { setInvoiceStep('idle'); setOcrResult(null); }}
                       className="flex-1 py-3 border border-gray-200 rounded-2xl text-sm text-gray-600 font-medium hover:bg-gray-50 transition-colors"
                     >
-                      Retake
+                      {t.worker.retake}
                     </button>
                     <button
                       onClick={handleSaveInvoice}
                       className="flex-1 py-3 bg-[#4F8EF7] text-white rounded-2xl text-sm font-bold hover:bg-[#4F8EF7]-hover transition-colors"
                     >
-                      <Check className="w-4 h-4" /> Confirm Save
+                      <Check className="w-4 h-4" /> {t.worker.confirmSave}
                     </button>
                   </div>
                 </div>
@@ -436,7 +646,7 @@ export default function WorkerProjectCard({
               {invoiceStep === 'saving' && (
                 <div className="py-10 flex flex-col items-center gap-3">
                   <Loader2 className="w-10 h-10 text-[#4F8EF7] animate-spin" />
-                  <p className="font-medium text-gray-700 text-sm">Saving to project...</p>
+                  <p className="font-medium text-gray-700 text-sm">{t.worker.savingProject}</p>
                 </div>
               )}
 
@@ -447,8 +657,8 @@ export default function WorkerProjectCard({
                     <CheckCircle2 className="w-10 h-10 text-green-500" />
                   </div>
                   <div className="text-center">
-                    <p className="font-bold text-gray-900">Saved!</p>
-                    <p className="text-xs text-gray-500 mt-1">Invoice linked to {project.name}</p>
+                    <p className="font-bold text-gray-900">{t.worker.saved}</p>
+                    <p className="text-xs text-gray-500 mt-1">{t.worker.invoiceLinked} {project.name}</p>
                   </div>
                 </div>
               )}

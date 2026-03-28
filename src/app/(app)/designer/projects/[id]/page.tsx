@@ -101,7 +101,10 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [ganttTasks, setGanttTasks] = useState<GanttTask[]>([]);
   const [payments, setPayments] = useState<PaymentPhase[]>([]);
-  const [photos, setPhotos] = useState<{ id: string; url: string; caption?: string; created_at: string }[]>([]);
+  const [photos, setPhotos] = useState<{ id: string; url: string; caption?: string; trade?: string; approved?: boolean; uploaded_by?: string; created_at: string }[]>([]);
+  const [photoFilter, setPhotoFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [photoTradeFilter, setPhotoTradeFilter] = useState<string>('all');
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const [costRecords, setCostRecords] = useState<CostRecordLocal[]>([]);
   const [quotationVersions, setQuotationVersions] = useState<QuotationVersionLocal[]>([]);
   const [variationOrders, setVariationOrders] = useState<VariationOrder[]>([]);
@@ -2354,43 +2357,80 @@ export default function ProjectDetailPage() {
           {/* Photos Tab */}
           <TabsContent value="photos" className="flex-1 p-6 overflow-y-auto mt-0">
             {photos.length > 0 && (
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-gray-900">Site Photos ({photos.length})</h2>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => {
-                    // Print site photos as PDF using browser print
-                    const printWindow = window.open('', '_blank');
-                    if (!printWindow) return;
-                    const imgTags = photos.map(p =>
-                      `<div class="photo-item"><img src="${p.url}" alt="${p.caption || ''}" />${p.caption ? `<p class="caption">${p.caption}</p>` : ''}<p class="date">${new Date(p.created_at).toLocaleDateString('en-MY')}</p></div>`
-                    ).join('');
-                    printWindow.document.write(`
-                      <html><head><title>${project?.name || 'Site Photos'} — Site Progress Photos</title>
-                      <style>
-                        body { font-family: Arial, sans-serif; margin: 20px; }
-                        h1 { font-size: 18px; margin-bottom: 4px; }
-                        .subtitle { color: #666; font-size: 12px; margin-bottom: 20px; }
-                        .photo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-                        .photo-item img { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; }
-                        .caption { font-size: 11px; color: #333; margin: 4px 0 0; }
-                        .date { font-size: 10px; color: #999; margin: 2px 0; }
-                        @media print { .photo-grid { page-break-inside: avoid; } }
-                      </style></head>
-                      <body>
-                        <h1>${project?.name || 'Project'} — Site Progress Photos</h1>
-                        <p class="subtitle">${project?.address || ''} · Printed ${new Date().toLocaleDateString('en-MY')}</p>
-                        <div class="photo-grid">${imgTags}</div>
-                        <script>window.onload = function(){ window.print(); }</script>
-                      </body></html>
-                    `);
-                    printWindow.document.close();
-                  }}
-                >
-                  <FileText className="w-4 h-4" /> Print as PDF
-                </Button>
+              <div className="space-y-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-semibold text-gray-900">
+                    Site Photos ({photos.length})
+                    {photos.filter(p => p.approved === false || p.approved === null || p.approved === undefined).length > 0 && (
+                      <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
+                        {photos.filter(p => !p.approved).length} pending
+                      </span>
+                    )}
+                  </h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => {
+                      const approved = photos.filter(p => p.approved);
+                      if (approved.length === 0) { toast({ title: 'No approved photos to print' }); return; }
+                      const printWindow = window.open('', '_blank');
+                      if (!printWindow) return;
+                      const imgTags = approved.map(p =>
+                        `<div class="photo-item"><img src="${p.url}" alt="${p.caption || ''}" />${p.caption ? `<p class="caption">${p.caption}</p>` : ''}<p class="date">${new Date(p.created_at).toLocaleDateString('en-MY')}</p></div>`
+                      ).join('');
+                      printWindow.document.write(`<html><head><title>${project?.name || 'Site Photos'} — Site Progress Photos</title><style>body{font-family:Arial,sans-serif;margin:20px}h1{font-size:18px;margin-bottom:4px}.subtitle{color:#666;font-size:12px;margin-bottom:20px}.photo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.photo-item img{width:100%;height:200px;object-fit:cover;border-radius:8px}.caption{font-size:11px;color:#333;margin:4px 0 0}.date{font-size:10px;color:#999;margin:2px 0}@media print{.photo-grid{page-break-inside:avoid}}</style></head><body><h1>${project?.name || 'Project'} — Site Progress Photos</h1><p class="subtitle">${project?.address || ''} · Printed ${new Date().toLocaleDateString('en-MY')}</p><div class="photo-grid">${imgTags}</div><script>window.onload=function(){window.print()}</script></body></html>`);
+                      printWindow.document.close();
+                    }}
+                  >
+                    <FileText className="w-4 h-4" /> Print as PDF
+                  </Button>
+                </div>
+
+                {/* Status filter pills */}
+                <div className="flex flex-wrap gap-2">
+                  {(['all', 'pending', 'approved'] as const).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setPhotoFilter(f)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        photoFilter === f
+                          ? f === 'pending' ? 'bg-amber-100 text-amber-700 border border-amber-300'
+                          : f === 'approved' ? 'bg-green-100 text-green-700 border border-green-300'
+                          : 'bg-[#4F8EF7] text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {f === 'all' ? `All (${photos.length})` : f === 'pending' ? `Pending (${photos.filter(p => !p.approved).length})` : `Approved (${photos.filter(p => p.approved).length})`}
+                    </button>
+                  ))}
+
+                  {/* Trade filter */}
+                  {(() => {
+                    const trades = [...new Set(photos.map(p => p.trade).filter(Boolean))];
+                    if (trades.length === 0) return null;
+                    return (
+                      <>
+                        <span className="text-gray-300 mx-1">|</span>
+                        <button
+                          onClick={() => setPhotoTradeFilter('all')}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${photoTradeFilter === 'all' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                        >
+                          All Trades
+                        </button>
+                        {trades.map(trade => (
+                          <button
+                            key={trade}
+                            onClick={() => setPhotoTradeFilter(trade!)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${photoTradeFilter === trade ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                          >
+                            {trade}
+                          </button>
+                        ))}
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
             )}
             {photos.length === 0 ? (
@@ -2401,14 +2441,86 @@ export default function ProjectDetailPage() {
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {photos.map((photo) => (
-                  <div key={photo.id} className="rounded-xl overflow-hidden border border-gray-100 group">
-                    <img src={photo.url} alt={photo.caption || 'Site photo'} className="w-full aspect-square object-cover" />
-                    {photo.caption && (
-                      <div className="p-2 text-xs text-gray-600">{photo.caption}</div>
-                    )}
+                {photos
+                  .filter(p => {
+                    if (photoFilter === 'pending') return !p.approved;
+                    if (photoFilter === 'approved') return p.approved;
+                    return true;
+                  })
+                  .filter(p => photoTradeFilter === 'all' || p.trade === photoTradeFilter)
+                  .map((photo) => (
+                  <div key={photo.id} className="rounded-xl overflow-hidden border border-gray-100 group bg-white shadow-sm">
+                    {/* Photo image — click to enlarge */}
+                    <div className="relative cursor-pointer" onClick={() => setLightboxPhoto(photo.url)}>
+                      <img src={photo.url} alt={photo.caption || 'Site photo'} className="w-full aspect-square object-cover" />
+                      {/* Status badge overlay */}
+                      <div className="absolute top-2 left-2">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          photo.approved ? 'bg-green-500 text-white' : 'bg-amber-500 text-white'
+                        }`}>
+                          {photo.approved ? '✓ Approved' : '⏳ Pending'}
+                        </span>
+                      </div>
+                      {photo.trade && (
+                        <div className="absolute top-2 right-2">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-black/50 text-white backdrop-blur-sm">
+                            {photo.trade}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Caption + date */}
+                    <div className="p-2.5">
+                      {photo.caption && <p className="text-xs text-gray-600 mb-1 line-clamp-2">{photo.caption}</p>}
+                      <p className="text-[10px] text-gray-400">{new Date(photo.created_at).toLocaleDateString('en-MY')}</p>
+                    </div>
+                    {/* Approve/Reject buttons */}
+                    <div className="flex border-t border-gray-100">
+                      {!photo.approved ? (
+                        <>
+                          <button
+                            onClick={async () => {
+                              await supabase.from('site_photos').update({ approved: true }).eq('id', photo.id);
+                              setPhotos(prev => prev.map(p => p.id === photo.id ? { ...p, approved: true } : p));
+                              toast({ title: '✓ Photo approved' });
+                            }}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-green-600 hover:bg-green-50 transition-colors"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Approve
+                          </button>
+                          <div className="w-px bg-gray-100" />
+                          <button
+                            onClick={async () => {
+                              await supabase.from('site_photos').delete().eq('id', photo.id);
+                              setPhotos(prev => prev.filter(p => p.id !== photo.id));
+                              toast({ title: 'Photo rejected and removed' });
+                            }}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
+                          >
+                            <XCircle className="w-3.5 h-3.5" /> Reject
+                          </button>
+                        </>
+                      ) : (
+                        <div className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-green-600 bg-green-50">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Approved
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Lightbox overlay */}
+            {lightboxPhoto && (
+              <div
+                className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 cursor-pointer"
+                onClick={() => setLightboxPhoto(null)}
+              >
+                <button onClick={() => setLightboxPhoto(null)} className="absolute top-4 right-4 text-white/80 hover:text-white">
+                  <X className="w-8 h-8" />
+                </button>
+                <img src={lightboxPhoto} alt="Photo preview" className="max-w-full max-h-[90vh] object-contain rounded-lg" />
               </div>
             )}
           </TabsContent>

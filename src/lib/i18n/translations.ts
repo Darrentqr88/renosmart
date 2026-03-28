@@ -68,6 +68,41 @@ export interface Trans {
     meetingVisit: string; milestoneMark: string;
   };
   costDb: string;
+  worker: {
+    tasks: string; schedule: string; photos: string; receipts: string; profile: string;
+    goodMorning: string; goodAfternoon: string; goodEvening: string;
+    tasksToday: string; noTasksToday: string; checkSchedule: string;
+    upcoming: string; viewAll: string;
+    checkIn: string; checkOut: string; checkedIn: string;
+    autoCheckedIn: string; leftSite: string;
+    photo: string; invoice: string; complete: string;
+    allDone: string; confirmComplete: string;
+    workItems: string; duration: string; days: string; editDuration: string;
+    saveDuration: string; cancelEdit: string;
+    subtasks: string; progress: string;
+    receiptsThisMonth: string; totalAmount: string; noReceipts: string;
+    uploadFromTasks: string; allProjects: string;
+    personal: string; companyInfo: string; name: string; phone: string; email: string;
+    company: string; address: string; ssm: string; teamSize: string;
+    projectRange: string; about: string; serviceRegions: string;
+    trades: string; signOut: string; teamManagement: string; comingSoon: string;
+    rating: string; attendance: string; onTimeCompletion: string;
+    photoQuality: string; documentation: string; reliability: string;
+    basedOnTasks: string; tasksCompleted: string;
+    notSet: string; tapEdit: string;
+    monthView: string; weekView: string; today: string;
+    approvedBadge: string; pendingBadge: string; rejectedBadge: string;
+    filterAll: string; filterByTrade: string;
+    // Invoice/receipt modal
+    uploadInvoice: string; scanningReceipt: string; scanningWait: string;
+    scanFailed: string; readFailed: string; saveFailed: string;
+    supplier: string; date: string; noItemsDetected: string;
+    total: string; retake: string; confirmSave: string;
+    savingProject: string; saved: string; invoiceLinked: string;
+    takePhotoOrUpload: string; selectFile: string;
+    detectingLocation: string; doneForToday: string;
+    todaysTasks: string;
+  };
 }
 
 const EN: Trans = {
@@ -140,6 +175,42 @@ const EN: Trans = {
     meetingVisit: 'Meeting/Visit', milestoneMark: 'Milestone',
   },
   costDb: 'Cost Database',
+  worker: {
+    tasks: 'Tasks', schedule: 'Schedule', photos: 'Photos', receipts: 'Receipts', profile: 'Profile',
+    goodMorning: 'Good morning', goodAfternoon: 'Good afternoon', goodEvening: 'Good evening',
+    tasksToday: 'tasks today', noTasksToday: 'No tasks today!', checkSchedule: 'Check Schedule for upcoming work',
+    upcoming: 'Upcoming', viewAll: 'View all upcoming tasks',
+    checkIn: 'Check In', checkOut: 'Check Out', checkedIn: 'Checked In',
+    autoCheckedIn: 'Auto checked in at site', leftSite: 'Left site, auto checkout in 15min',
+    photo: 'Photo', invoice: 'Invoice', complete: 'Complete',
+    allDone: 'All tasks done!', confirmComplete: 'Confirm Completion',
+    workItems: 'Work Items (from quotation)', duration: 'Duration', days: 'days', editDuration: 'Edit Duration',
+    saveDuration: 'Save', cancelEdit: 'Cancel',
+    subtasks: 'Subtasks', progress: 'Progress',
+    receiptsThisMonth: 'This Month', totalAmount: 'Total Amount', noReceipts: 'No receipts yet',
+    uploadFromTasks: 'Upload receipts from the Invoice button in your tasks', allProjects: 'All Projects',
+    personal: 'Personal', companyInfo: 'Company Info', name: 'Name', phone: 'Phone', email: 'Email',
+    company: 'Company', address: 'Address', ssm: 'SSM No.', teamSize: 'Team Size',
+    projectRange: 'Project Range', about: 'About', serviceRegions: 'Service Regions',
+    trades: 'Trades', signOut: 'Sign Out', teamManagement: 'Team Management', comingSoon: 'Coming Soon',
+    rating: 'Performance Rating', attendance: 'Attendance', onTimeCompletion: 'On-time Completion',
+    photoQuality: 'Photo Quality', documentation: 'Documentation', reliability: 'Reliability',
+    basedOnTasks: 'Based on', tasksCompleted: 'tasks completed',
+    notSet: 'Not set', tapEdit: 'tap edit',
+    monthView: 'Month', weekView: 'Week', today: 'Today',
+    approvedBadge: 'Approved', pendingBadge: 'Pending', rejectedBadge: 'Rejected',
+    filterAll: 'All', filterByTrade: 'Filter by trade',
+    // Invoice/receipt modal
+    uploadInvoice: 'Upload Invoice', scanningReceipt: 'AI scanning receipt...',
+    scanningWait: 'Usually takes 5-10 seconds', scanFailed: 'AI scan failed, please retry',
+    readFailed: 'File read failed', saveFailed: 'Save failed, please retry',
+    supplier: 'Supplier', date: 'Date', noItemsDetected: 'No items detected, will record total amount',
+    total: 'Total', retake: 'Retake', confirmSave: 'Confirm Save',
+    savingProject: 'Saving to project...', saved: 'Saved!', invoiceLinked: 'Invoice linked to',
+    takePhotoOrUpload: 'Take Photo or Upload', selectFile: 'Select File',
+    detectingLocation: 'Detecting location...', doneForToday: 'Done for today',
+    todaysTasks: "Today's Tasks",
+  },
 };
 
 const BM: Trans = {
@@ -212,6 +283,41 @@ const BM: Trans = {
     meetingVisit: 'Mesyuarat/Lawatan', milestoneMark: 'Pencapaian',
   },
   costDb: 'Pangkalan Kos',
+  worker: {
+    tasks: 'Tugas', schedule: 'Jadual', photos: 'Foto', receipts: 'Resit', profile: 'Profil',
+    goodMorning: 'Selamat pagi', goodAfternoon: 'Selamat petang', goodEvening: 'Selamat malam',
+    tasksToday: 'tugas hari ini', noTasksToday: 'Tiada tugas hari ini!', checkSchedule: 'Semak Jadual untuk kerja akan datang',
+    upcoming: 'Akan Datang', viewAll: 'Lihat semua tugas akan datang',
+    checkIn: 'Daftar Masuk', checkOut: 'Daftar Keluar', checkedIn: 'Sudah Masuk',
+    autoCheckedIn: 'Auto daftar masuk di tapak', leftSite: 'Meninggalkan tapak, auto keluar 15min',
+    photo: 'Foto', invoice: 'Invois', complete: 'Selesai',
+    allDone: 'Semua tugas selesai!', confirmComplete: 'Sahkan Siap',
+    workItems: 'Senarai Kerja (dari sebutharga)', duration: 'Tempoh', days: 'hari', editDuration: 'Ubah Tempoh',
+    saveDuration: 'Simpan', cancelEdit: 'Batal',
+    subtasks: 'Sub-tugas', progress: 'Kemajuan',
+    receiptsThisMonth: 'Bulan Ini', totalAmount: 'Jumlah Amaun', noReceipts: 'Tiada resit lagi',
+    uploadFromTasks: 'Muat naik resit dari butang Invois dalam tugas anda', allProjects: 'Semua Projek',
+    personal: 'Peribadi', companyInfo: 'Info Syarikat', name: 'Nama', phone: 'Telefon', email: 'E-mel',
+    company: 'Syarikat', address: 'Alamat', ssm: 'No. SSM', teamSize: 'Saiz Pasukan',
+    projectRange: 'Julat Projek', about: 'Tentang', serviceRegions: 'Kawasan Perkhidmatan',
+    trades: 'Tred', signOut: 'Log Keluar', teamManagement: 'Pengurusan Pasukan', comingSoon: 'Akan Datang',
+    rating: 'Penilaian Prestasi', attendance: 'Kehadiran', onTimeCompletion: 'Siap Tepat Masa',
+    photoQuality: 'Kualiti Foto', documentation: 'Dokumentasi', reliability: 'Kebolehpercayaan',
+    basedOnTasks: 'Berdasarkan', tasksCompleted: 'tugas selesai',
+    notSet: 'Belum ditetapkan', tapEdit: 'tekan sunting',
+    monthView: 'Bulan', weekView: 'Minggu', today: 'Hari Ini',
+    approvedBadge: 'Diluluskan', pendingBadge: 'Menunggu', rejectedBadge: 'Ditolak',
+    filterAll: 'Semua', filterByTrade: 'Tapis mengikut tred',
+    uploadInvoice: 'Muat Naik Invois', scanningReceipt: 'AI mengimbas resit...',
+    scanningWait: 'Biasanya 5-10 saat', scanFailed: 'Imbasan AI gagal, sila cuba lagi',
+    readFailed: 'Gagal membaca fail', saveFailed: 'Gagal menyimpan, sila cuba lagi',
+    supplier: 'Pembekal', date: 'Tarikh', noItemsDetected: 'Tiada item dikesan, jumlah akan direkod',
+    total: 'Jumlah', retake: 'Ambil Semula', confirmSave: 'Sahkan Simpan',
+    savingProject: 'Menyimpan ke projek...', saved: 'Disimpan!', invoiceLinked: 'Invois dikaitkan ke',
+    takePhotoOrUpload: 'Ambil Foto atau Muat Naik', selectFile: 'Pilih Fail',
+    detectingLocation: 'Mengesan lokasi...', doneForToday: 'Selesai untuk hari ini',
+    todaysTasks: 'Tugas Hari Ini',
+  },
 };
 
 const ZH: Trans = {
@@ -284,6 +390,41 @@ const ZH: Trans = {
     meetingVisit: '会议/拜访', milestoneMark: '里程碑',
   },
   costDb: '成本数据库',
+  worker: {
+    tasks: '任务', schedule: '日程', photos: '照片', receipts: '收据', profile: '个人',
+    goodMorning: '早上好', goodAfternoon: '下午好', goodEvening: '晚上好',
+    tasksToday: '个今日任务', noTasksToday: '今天没有任务！', checkSchedule: '查看日程了解即将到来的工作',
+    upcoming: '即将到来', viewAll: '查看所有即将到来的任务',
+    checkIn: '签到', checkOut: '签退', checkedIn: '已签到',
+    autoCheckedIn: '已到达工地，自动签到', leftSite: '已离开工地，15分钟后自动签退',
+    photo: '拍照', invoice: '单据', complete: '完工',
+    allDone: '所有工序已完成！', confirmComplete: '确认完工',
+    workItems: '工作内容（来自报价单）', duration: '工期', days: '天', editDuration: '修改工期',
+    saveDuration: '保存', cancelEdit: '取消',
+    subtasks: '工序清单', progress: '进度',
+    receiptsThisMonth: '本月', totalAmount: '总金额', noReceipts: '暂无收据',
+    uploadFromTasks: '请从任务中的单据按钮上传收据', allProjects: '全部项目',
+    personal: '个人信息', companyInfo: '公司信息', name: '姓名', phone: '电话', email: '邮箱',
+    company: '公司', address: '地址', ssm: 'SSM编号', teamSize: '团队规模',
+    projectRange: '项目范围', about: '简介', serviceRegions: '服务区域',
+    trades: '工种', signOut: '退出登录', teamManagement: '团队管理', comingSoon: '即将推出',
+    rating: '绩效评分', attendance: '出勤率', onTimeCompletion: '准时完工',
+    photoQuality: '照片质量', documentation: '文档提交', reliability: '可靠度',
+    basedOnTasks: '基于', tasksCompleted: '个已完成任务',
+    notSet: '未设置', tapEdit: '点击编辑',
+    monthView: '月', weekView: '周', today: '今天',
+    approvedBadge: '已通过', pendingBadge: '待审批', rejectedBadge: '已拒绝',
+    filterAll: '全部', filterByTrade: '按工种筛选',
+    uploadInvoice: '上传单据', scanningReceipt: 'AI 正在识别单据...',
+    scanningWait: '通常需要 5-10 秒', scanFailed: 'AI 扫描失败，请重试',
+    readFailed: '文件读取失败', saveFailed: '保存失败，请重试',
+    supplier: '供应商', date: '日期', noItemsDetected: '未识别到明细，将以总金额记录',
+    total: '合计', retake: '重拍', confirmSave: '确认保存',
+    savingProject: '正在保存到项目...', saved: '已保存！', invoiceLinked: '单据已关联到',
+    takePhotoOrUpload: '拍照或上传', selectFile: '选择文件',
+    detectingLocation: '正在定位...', doneForToday: '今日已完成',
+    todaysTasks: '今日任务',
+  },
 };
 
 export const TRANSLATIONS: Record<Language, Trans> = { EN, BM, ZH };

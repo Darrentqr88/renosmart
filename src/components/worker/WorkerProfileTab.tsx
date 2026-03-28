@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LogOut, Edit3, Check, X, User, Building2, Phone, Mail, Briefcase, ChevronRight } from 'lucide-react';
+import { LogOut, Edit3, Check, X, User, Building2, Phone, Mail, Briefcase, ChevronRight, Star, MapPin, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { WorkerTask } from './WorkerTaskCard';
+import { calculateWorkerRating, WorkerRating } from '@/lib/utils/worker-rating';
+import { useI18n } from '@/lib/i18n/context';
 
 interface WorkerProfile {
   id: string;
@@ -19,7 +21,12 @@ interface WorkerProfile {
   employee_count?: number;
   min_project_value?: number;
   max_project_value?: number;
+  company_bio?: string;
+  service_regions?: string[];
 }
+
+const SERVICE_REGIONS = ['KL', 'JB', 'PG', 'SG', 'Ipoh', 'Melaka', 'Kota Kinabalu', 'Kuching'];
+const EMPLOYEE_RANGES = ['1-5', '6-15', '16-30', '30+'];
 
 interface WorkerProfileTabProps {
   profile: WorkerProfile | null;
@@ -49,10 +56,12 @@ function getInitials(name?: string): string {
 export default function WorkerProfileTab({ profile, sessionUserId, tasks }: WorkerProfileTabProps) {
   const supabase = createClient();
   const router = useRouter();
+  const { t } = useI18n();
 
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [receiptCount, setReceiptCount] = useState(0);
+  const [rating, setRating] = useState<WorkerRating | null>(null);
 
   // Editable fields
   const [company, setCompany] = useState(profile?.company || '');
@@ -61,6 +70,8 @@ export default function WorkerProfileTab({ profile, sessionUserId, tasks }: Work
   const [employeeCount, setEmployeeCount] = useState(String(profile?.employee_count || ''));
   const [minValue, setMinValue] = useState(String(profile?.min_project_value || ''));
   const [maxValue, setMaxValue] = useState(String(profile?.max_project_value || ''));
+  const [companyBio, setCompanyBio] = useState(profile?.company_bio || '');
+  const [serviceRegions, setServiceRegions] = useState<string[]>(profile?.service_regions || []);
   const [selectedTrades, setSelectedTrades] = useState<string[]>(profile?.trades || []);
 
   useEffect(() => {
@@ -75,6 +86,9 @@ export default function WorkerProfileTab({ profile, sessionUserId, tasks }: Work
       .eq('uploaded_by', sessionUserId)
       .gte('receipt_date', firstDayStr)
       .then(({ count }) => setReceiptCount(count || 0));
+
+    // Calculate worker rating
+    calculateWorkerRating(supabase, sessionUserId).then(setRating);
   }, [sessionUserId]);
 
   // Stats
@@ -91,6 +105,8 @@ export default function WorkerProfileTab({ profile, sessionUserId, tasks }: Work
       min_project_value: minValue ? parseFloat(minValue) : null,
       max_project_value: maxValue ? parseFloat(maxValue) : null,
       trades: selectedTrades,
+      company_bio: companyBio || null,
+      service_regions: serviceRegions.length > 0 ? serviceRegions : null,
       updated_at: new Date().toISOString(),
     }).eq('user_id', sessionUserId);
     setSaving(false);
@@ -160,16 +176,53 @@ export default function WorkerProfileTab({ profile, sessionUserId, tasks }: Work
       {/* Content */}
       <div className="flex-1 overflow-y-auto bg-rs-bg p-4 space-y-4">
 
+        {/* Rating card */}
+        {rating && rating.totalTasks > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">{t.worker.rating}</p>
+              <div className="flex items-center gap-1">
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                <span className="text-sm font-bold text-gray-900">{rating.overall.toFixed(1)}</span>
+                <span className="text-[10px] text-gray-400">/ 5</span>
+              </div>
+            </div>
+            <div className="p-4 space-y-2.5">
+              {([
+                { key: 'attendance', label: t.worker.attendance, color: '#3B82F6' },
+                { key: 'completion', label: t.worker.onTimeCompletion, color: '#10B981' },
+                { key: 'quality', label: t.worker.photoQuality, color: '#8B5CF6' },
+                { key: 'documentation', label: t.worker.documentation, color: '#F59E0B' },
+                { key: 'reliability', label: t.worker.reliability, color: '#EF4444' },
+              ] as const).map(dim => (
+                <div key={dim.key} className="flex items-center gap-3">
+                  <span className="text-[11px] text-gray-500 w-28 flex-shrink-0">{dim.label}</span>
+                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${(rating[dim.key] / 5) * 100}%`, background: dim.color }}
+                    />
+                  </div>
+                  <span className="text-[11px] font-semibold text-gray-600 w-8 text-right">{rating[dim.key].toFixed(1)}</span>
+                </div>
+              ))}
+              <p className="text-[10px] text-gray-400 mt-1 pt-2 border-t border-gray-50">
+                {t.worker.basedOnTasks} {rating.completedTasks}/{rating.totalTasks} {t.worker.tasksCompleted}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Personal info (read-only) */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-50">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Personal</p>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">{t.worker.personal}</p>
           </div>
           <div className="divide-y divide-gray-50">
             {[
-              { icon: <User className="w-4 h-4" />, label: 'Name', value: profile?.name },
-              { icon: <Phone className="w-4 h-4" />, label: 'Phone', value: profile?.phone },
-              { icon: <Mail className="w-4 h-4" />, label: 'Email', value: profile?.email },
+              { icon: <User className="w-4 h-4" />, label: t.worker.name, value: profile?.name },
+              { icon: <Phone className="w-4 h-4" />, label: t.worker.phone, value: profile?.phone },
+              { icon: <Mail className="w-4 h-4" />, label: t.worker.email, value: profile?.email },
             ].map(item => (
               <div key={item.label} className="flex items-center gap-3 px-4 py-3">
                 <div className="text-gray-400 flex-shrink-0">{item.icon}</div>
@@ -185,7 +238,7 @@ export default function WorkerProfileTab({ profile, sessionUserId, tasks }: Work
         {/* Company info */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Company Info</p>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">{t.worker.companyInfo}</p>
             {editing && (
               <div className="flex gap-2">
                 <button onClick={() => setEditing(false)} className="p-1 rounded-lg hover:bg-gray-100">
@@ -215,8 +268,11 @@ export default function WorkerProfileTab({ profile, sessionUserId, tasks }: Work
                     <input value={ssmNo} onChange={e => setSsmNo(e.target.value)} placeholder="e.g. 202301234567" className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-[#4F8EF7]" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 font-medium block mb-1">Employees</label>
-                    <input type="number" value={employeeCount} onChange={e => setEmployeeCount(e.target.value)} placeholder="e.g. 5" className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-[#4F8EF7]" />
+                    <label className="text-xs text-gray-500 font-medium block mb-1">Team Size</label>
+                    <select value={employeeCount} onChange={e => setEmployeeCount(e.target.value)} className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-[#4F8EF7] bg-white">
+                      <option value="">Select</option>
+                      {EMPLOYEE_RANGES.map(r => <option key={r} value={r}>{r} pax</option>)}
+                    </select>
                   </div>
                 </div>
                 <div>
@@ -245,26 +301,62 @@ export default function WorkerProfileTab({ profile, sessionUserId, tasks }: Work
                     ))}
                   </div>
                 </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium block mb-1">Company Bio (one line)</label>
+                  <input value={companyBio} onChange={e => setCompanyBio(e.target.value)} placeholder="e.g. Specialist in high-end tiling for 10+ years" maxLength={120} className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-[#4F8EF7]" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium block mb-2">Service Regions</label>
+                  <div className="flex flex-wrap gap-2">
+                    {SERVICE_REGIONS.map(region => (
+                      <button
+                        key={region}
+                        onClick={() => setServiceRegions(prev => prev.includes(region) ? prev.filter(r => r !== region) : [...prev, region])}
+                        className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all ${
+                          serviceRegions.includes(region) ? 'bg-[#4F8EF7]/15 text-[#4F8EF7] border border-[#4F8EF7]/30' : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        <MapPin className="w-2.5 h-2.5 inline mr-0.5" />{region}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             ) : (
               <>
                 {[
-                  { icon: <Building2 className="w-4 h-4" />, label: 'Company', value: profile?.company },
-                  { icon: <Building2 className="w-4 h-4" />, label: 'Address', value: profile?.company_address },
-                  { icon: <Briefcase className="w-4 h-4" />, label: 'SSM No.', value: profile?.ssm_no },
-                  { icon: <User className="w-4 h-4" />, label: 'Employees', value: profile?.employee_count ? `${profile.employee_count} pax` : null },
-                  { icon: <Briefcase className="w-4 h-4" />, label: 'Project Range', value: (profile?.min_project_value || profile?.max_project_value) ? `RM ${(profile?.min_project_value || 0).toLocaleString()} – RM ${(profile?.max_project_value || 0).toLocaleString()}` : null },
+                  { icon: <Building2 className="w-4 h-4" />, label: t.worker.company, value: profile?.company },
+                  { icon: <Building2 className="w-4 h-4" />, label: t.worker.address, value: profile?.company_address },
+                  { icon: <Briefcase className="w-4 h-4" />, label: t.worker.ssm, value: profile?.ssm_no },
+                  { icon: <User className="w-4 h-4" />, label: t.worker.teamSize, value: profile?.employee_count ? `${profile.employee_count} pax` : null },
+                  { icon: <Briefcase className="w-4 h-4" />, label: t.worker.projectRange, value: (profile?.min_project_value || profile?.max_project_value) ? `RM ${(profile?.min_project_value || 0).toLocaleString()} – RM ${(profile?.max_project_value || 0).toLocaleString()}` : null },
+                  { icon: <Briefcase className="w-4 h-4" />, label: t.worker.about, value: profile?.company_bio },
+                  { icon: <MapPin className="w-4 h-4" />, label: t.worker.serviceRegions, value: profile?.service_regions?.join(', ') },
                 ].map(item => (
                   <div key={item.label} className="flex items-center gap-3 px-4 py-3">
                     <div className="text-gray-400 flex-shrink-0">{item.icon}</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] text-gray-400">{item.label}</p>
-                      <p className="text-sm font-medium text-gray-800 truncate">{item.value || <span className="text-gray-300 italic text-xs">Not set — tap edit</span>}</p>
+                      <p className="text-sm font-medium text-gray-800 truncate">{item.value || <span className="text-gray-300 italic text-xs">{t.worker.notSet} — {t.worker.tapEdit}</span>}</p>
                     </div>
                   </div>
                 ))}
               </>
             )}
+          </div>
+        </div>
+
+        {/* Team Management — Coming Soon */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden opacity-60">
+          <div className="flex items-center gap-3 px-4 py-4">
+            <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Users className="w-5 h-5 text-purple-400" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-gray-700">{t.worker.teamManagement}</p>
+              <p className="text-[10px] text-gray-400">Manage your workers and subcontractors</p>
+            </div>
+            <span className="text-[9px] px-2 py-0.5 bg-purple-50 text-purple-500 rounded-full font-semibold">{t.worker.comingSoon}</span>
           </div>
         </div>
 
@@ -278,7 +370,7 @@ export default function WorkerProfileTab({ profile, sessionUserId, tasks }: Work
               <div className="w-8 h-8 bg-red-50 rounded-xl flex items-center justify-center group-hover:bg-red-100 transition-colors">
                 <LogOut className="w-4 h-4 text-red-500" />
               </div>
-              <span className="text-sm font-semibold text-red-500">Sign Out</span>
+              <span className="text-sm font-semibold text-red-500">{t.worker.signOut}</span>
             </div>
             <ChevronRight className="w-4 h-4 text-gray-300" />
           </button>

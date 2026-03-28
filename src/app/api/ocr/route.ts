@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createClient } from '@/lib/supabase/server';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
 
@@ -44,6 +45,13 @@ const VALID_MIME_TYPES = [
 
 export async function POST(request: Request) {
   try {
+    // Auth check — caller must be logged in
+    const supabase = await createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { imageBase64, mimeType, type } = await request.json();
     const isVOMode = type === 'vo';
     const activePrompt = isVOMode ? VO_PROMPT : OCR_PROMPT;
@@ -60,7 +68,7 @@ export async function POST(request: Request) {
 
     if (!VALID_MIME_TYPES.includes(normalizedMime)) {
       return NextResponse.json({
-        error: `不支持的格式 (${mimeType})，请上传 JPG / PNG / PDF`
+        error: `Unsupported format (${mimeType}). Please upload JPG / PNG / PDF`
       }, { status: 400 });
     }
 
@@ -84,13 +92,13 @@ export async function POST(request: Request) {
 
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      return NextResponse.json({ error: '无法解析单据内容，请重试' }, { status: 422 });
+      return NextResponse.json({ error: 'Could not parse document content. Please retry.' }, { status: 422 });
     }
 
     return NextResponse.json(JSON.parse(jsonMatch[0]));
   } catch (error) {
     console.error('OCR error:', error);
     const msg = error instanceof Error ? error.message : 'Unknown';
-    return NextResponse.json({ error: 'OCR 失败: ' + msg.slice(0, 120) }, { status: 500 });
+    return NextResponse.json({ error: 'OCR failed: ' + msg.slice(0, 120) }, { status: 500 });
   }
 }
