@@ -124,7 +124,7 @@ export default function WorkersPage() {
     })();
   }, []);
 
-  const handleGenerateInvite = async () => {
+  const handleGenerateInvite = async (): Promise<string | null> => {
     setGeneratingInvite(true);
     try {
       const res = await fetch('/api/worker-invite', {
@@ -136,26 +136,37 @@ export default function WorkersPage() {
       if (res.ok && data.url) {
         setInviteLink(data.url);
         toast({ title: 'Invite link generated!', description: 'Valid for 72 hours. Share via WhatsApp.' });
+        return data.url;
       } else {
         toast({ variant: 'destructive', title: 'Error', description: data.error || 'Failed to generate link' });
+        return null;
       }
     } catch {
       toast({ variant: 'destructive', title: 'Error', description: 'Network error' });
+      return null;
     } finally {
       setGeneratingInvite(false);
     }
   };
 
   const handleCopyLink = async () => {
-    if (!inviteLink) { await handleGenerateInvite(); return; }
-    await navigator.clipboard.writeText(inviteLink);
+    let link = inviteLink;
+    if (!link) {
+      link = await handleGenerateInvite() || '';
+      if (!link) return;
+    }
+    await navigator.clipboard.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     toast({ title: 'Link copied!', description: 'Share this link with your worker via WhatsApp.' });
   };
 
-  const handleWhatsApp = () => {
-    const link = inviteLink || '';
+  const handleWhatsApp = async () => {
+    let link = inviteLink;
+    if (!link) {
+      link = await handleGenerateInvite() || '';
+      if (!link) return;
+    }
     const msg = encodeURIComponent(`Hi! You've been invited to join RenoSmart. Just click the link and enter your phone number — no password needed.\n\n${link}`);
     window.open(`https://wa.me/?text=${msg}`, '_blank');
   };
