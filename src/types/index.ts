@@ -251,6 +251,7 @@ export interface GanttTask {
   sort_order?: number;
   phase_group?: PhaseGroup;
   source_items?: string[];  // quotation item names linked to this task
+  quotation_items?: string[];  // quotation items for worker display
   ai_hint?: TradeHint | null; // batch-generated AI trade hint (persisted in DB)
   phase_id?: string; // original CONSTRUCTION_PHASES id (e.g. 'demolition', 'tiling')
   // ── AI-enhanced fields ──

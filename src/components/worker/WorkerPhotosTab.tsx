@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Camera, Upload, X, CheckCircle2, Clock, Loader2, Images } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { ProjectSummary } from './WorkerProjectCard';
+import { useI18n } from '@/lib/i18n/context';
 
 interface SitePhoto {
   id: string;
@@ -16,11 +17,11 @@ interface SitePhoto {
 }
 
 const PHOTO_TYPES = [
-  { value: 'before', label: '施工前', labelEN: 'Before' },
-  { value: 'during', label: '施工中', labelEN: 'During' },
-  { value: 'inspection', label: '隐蔽验收', labelEN: 'Inspection' },
-  { value: 'test', label: '测试记录', labelEN: 'Test Record' },
-  { value: 'after', label: '完工后', labelEN: 'After' },
+  { value: 'before', labelEN: 'Before', labelZH: '\u65BD\u5DE5\u524D', labelBM: 'Sebelum' },
+  { value: 'during', labelEN: 'During', labelZH: '\u65BD\u5DE5\u4E2D', labelBM: 'Semasa' },
+  { value: 'inspection', labelEN: 'Inspection', labelZH: '\u9690\u853D\u9A8C\u6536', labelBM: 'Pemeriksaan' },
+  { value: 'test', labelEN: 'Test Record', labelZH: '\u6D4B\u8BD5\u8BB0\u5F55', labelBM: 'Rekod Ujian' },
+  { value: 'after', labelEN: 'After', labelZH: '\u5B8C\u5DE5\u540E', labelBM: 'Selepas' },
 ];
 
 const WORKER_TRADES = [
@@ -38,7 +39,9 @@ interface WorkerPhotosTabProps {
 
 export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTaskId }: WorkerPhotosTabProps) {
   const supabase = createClient();
+  const { lang } = useI18n();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const getPhotoLabel = (pt: typeof PHOTO_TYPES[number]) => lang === 'ZH' ? pt.labelZH : lang === 'BM' ? pt.labelBM : pt.labelEN;
 
   const [photos, setPhotos] = useState<SitePhoto[]>([]);
   const [loadingPhotos, setLoadingPhotos] = useState(true);
@@ -132,24 +135,15 @@ export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTa
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="bg-[#0F1923] text-white px-5 pt-12 pb-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <Images className="w-5 h-5 text-[#4F8EF7]" />
-              <h1 className="font-bold text-lg">Site Photos</h1>
-            </div>
-            <p className="text-white/50 text-xs mt-1">{photos.length} photos submitted</p>
-          </div>
-          <button
-            onClick={() => setUploadOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#4F8EF7] text-white rounded-xl text-sm font-semibold hover:bg-[#3B7BE8] transition-colors"
-          >
-            <Camera className="w-4 h-4" />
-            Upload
-          </button>
-        </div>
+      {/* Upload button */}
+      <div className="px-4 pt-3 pb-1 flex justify-end">
+        <button
+          onClick={() => setUploadOpen(true)}
+          className="flex items-center gap-1.5 px-4 py-2 bg-[#4F8EF7] text-white rounded-xl text-sm font-semibold hover:bg-[#3B7BE8] transition-colors"
+        >
+          <Camera className="w-4 h-4" />
+          Upload
+        </button>
       </div>
 
       {/* Gallery */}
@@ -163,8 +157,8 @@ export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTa
             <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
               <Camera className="w-8 h-8 text-gray-300" />
             </div>
-            <p className="text-gray-500 font-medium text-sm">No photos yet</p>
-            <p className="text-gray-400 text-xs mt-1">Upload your first site photo</p>
+            <p className="text-gray-500 font-medium text-sm">{lang === 'ZH' ? '\u8FD8\u6CA1\u6709\u7167\u7247' : lang === 'BM' ? 'Tiada foto lagi' : 'No photos yet'}</p>
+            <p className="text-gray-400 text-xs mt-1">{lang === 'ZH' ? '\u4E0A\u4F20\u7B2C\u4E00\u5F20\u5DE5\u5730\u7167\u7247' : lang === 'BM' ? 'Muat naik foto tapak pertama anda' : 'Upload your first site photo'}</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2">
@@ -184,14 +178,14 @@ export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTa
                     : 'bg-amber-500/90 text-white'
                 }`}>
                   {photo.approved ? (
-                    <><CheckCircle2 className="w-2.5 h-2.5" /> Approved</>
+                    <><CheckCircle2 className="w-2.5 h-2.5" /> {lang === 'ZH' ? '\u5DF2\u6279\u51C6' : lang === 'BM' ? 'Diluluskan' : 'Approved'}</>
                   ) : (
-                    <><Clock className="w-2.5 h-2.5" /> Pending</>
+                    <><Clock className="w-2.5 h-2.5" /> {lang === 'ZH' ? '\u5F85\u5BA1\u6838' : lang === 'BM' ? 'Menunggu' : 'Pending'}</>
                   )}
                 </div>
                 {/* Trade badge */}
                 {photo.trade && (
-                  <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm text-white text-[9px] px-1.5 py-0.5 rounded-md font-medium">
+                  <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-lg font-medium">
                     {photo.trade}
                   </div>
                 )}
@@ -269,7 +263,7 @@ export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTa
                               : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                           }`}
                         >
-                          {pt.label} / {pt.labelEN}
+                          {getPhotoLabel(pt)}
                         </button>
                       ))}
                     </div>

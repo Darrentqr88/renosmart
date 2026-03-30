@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatDate } from '@/lib/utils';
 import { differenceInDays, parseISO } from 'date-fns';
 import { createClient } from '@/lib/supabase/client';
+import { useI18n } from '@/lib/i18n/context';
 
 export interface TaskSubtask {
   id: string;
@@ -26,6 +27,7 @@ export interface WorkerTask {
   name_zh?: string;
   project_id: string;
   project_name: string;
+  project_address?: string;
   trade: string;
   start_date: string;
   end_date: string;
@@ -46,11 +48,11 @@ interface WorkerTaskCardProps {
   onReceiptClick: (task: WorkerTask) => void;
 }
 
-// Trade-specific special indicators
-const TRADE_WARNINGS: Record<string, { icon: string; text: string; color: string }> = {
-  Waterproofing: { icon: '\u{1F4A7}', text: '\u6C34\u538B\u6D4B\u8BD5\u7167\u7247\u5FC5\u987B\u4E0A\u4F20', color: '#3B82F6' },
-  Electrical: { icon: '\u26A1', text: '\u5C01\u5899\u524D\u9700\u9690\u853D\u9A8C\u6536\u7167\u7247', color: '#F59E0B' },
-  Plumbing: { icon: '\u{1F527}', text: '\u6C34\u7BA1\u538B\u529B\u6D4B\u8BD5\u9700\u8BB0\u5F55', color: '#06B6D4' },
+// Trade-specific special indicators — keys for i18n
+const TRADE_WARNINGS: Record<string, { icon: string; textEN: string; textZH: string; textBM: string; color: string }> = {
+  Waterproofing: { icon: '\u{1F4A7}', textEN: 'Water pressure test photos required', textZH: '\u6C34\u538B\u6D4B\u8BD5\u7167\u7247\u5FC5\u987B\u4E0A\u4F20', textBM: 'Foto ujian tekanan air diperlukan', color: '#3B82F6' },
+  Electrical: { icon: '\u26A1', textEN: 'Concealed wiring inspection photos needed', textZH: '\u5C01\u5899\u524D\u9700\u9690\u853D\u9A8C\u6536\u7167\u7247', textBM: 'Foto pemeriksaan pendawaian tersembunyi diperlukan', color: '#F59E0B' },
+  Plumbing: { icon: '\u{1F527}', textEN: 'Pipe pressure test records required', textZH: '\u6C34\u7BA1\u538B\u529B\u6D4B\u8BD5\u9700\u8BB0\u5F55', textBM: 'Rekod ujian tekanan paip diperlukan', color: '#06B6D4' },
 };
 
 // Detect carpentry factory phase
@@ -76,6 +78,7 @@ export default function WorkerTaskCard({
   onReceiptClick,
 }: WorkerTaskCardProps) {
   const supabase = createClient();
+  const { lang, t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [workItemsExpanded, setWorkItemsExpanded] = useState(false);
   const [pendingProgress, setPendingProgress] = useState(task.progress);
@@ -123,12 +126,15 @@ export default function WorkerTaskCard({
     }, 300);
   }, [task.id, subtasks, onSubtaskToggle, onProgressChange]);
 
-  // Handle duration change
+  // Handle duration change — saves to DB and triggers designer Gantt cascade
   const handleDurationSave = async () => {
     const days = parseInt(newDays);
-    if (isNaN(days) || days < 1) return;
+    if (isNaN(days) || days < 1 || days === durationDays) {
+      setEditingDuration(false);
+      return;
+    }
 
-    // Calculate new end_date (simple: add days to start_date, skipping weekends)
+    // Calculate new end_date (add workdays to start_date, skipping weekends)
     const start = parseISO(task.start_date);
     let date = new Date(start);
     let added = 0;
@@ -139,12 +145,95 @@ export default function WorkerTaskCard({
     }
     const newEndDate = date.toISOString().split('T')[0];
 
-    // Update in DB — only this task, no cascade
-    await supabase.from('gantt_tasks').update({
+    // Update this task in DB (duration + end_date + updated_at)
+    const { error } = await supabase.from('gantt_tasks').update({
       end_date: newEndDate,
+      duration: days,
+      updated_at: new Date().toISOString(),
     }).eq('id', task.id);
 
-    // Notify designer
+    if (error) {
+      console.error('Duration update failed:', error.message);
+      return;
+    }
+
+    // Also cascade: update all dependent tasks' start/end dates
+    // Fetch all project tasks to recalculate
+    const { data: allTasks } = await supabase
+      .from('gantt_tasks')
+      .select('id, start_date, end_date, duration, dependencies, sort_order')
+      .eq('project_id', task.project_id)
+      .order('sort_order');
+
+    if (allTasks && allTasks.length > 1) {
+      // Update this task in the local list
+      const taskMap = new Map(allTasks.map(t => [t.id, { ...t }]));
+      const thisTask = taskMap.get(task.id);
+      if (thisTask) {
+        thisTask.end_date = newEndDate;
+        thisTask.duration = days;
+      }
+
+      // Forward cascade: shift all tasks that depend on this one
+      const updates: { id: string; start_date: string; end_date: string }[] = [];
+      const visited = new Set<string>();
+
+      const cascadeFrom = (changedId: string) => {
+        if (visited.has(changedId)) return;
+        visited.add(changedId);
+        const changedTask = taskMap.get(changedId);
+        if (!changedTask) return;
+
+        for (const [tid, t] of taskMap) {
+          if (tid === changedId) continue;
+          const deps = (t.dependencies as string[]) || [];
+          if (!deps.includes(changedId)) continue;
+
+          // This task depends on the changed one — recalculate start
+          const depEnds = deps.map(d => taskMap.get(d)?.end_date).filter(Boolean) as string[];
+          const latestDepEnd = depEnds.sort().pop();
+          if (!latestDepEnd) continue;
+
+          // Next workday after latest dep end
+          let newStart = parseISO(latestDepEnd);
+          newStart.setDate(newStart.getDate() + 1);
+          while (newStart.getDay() === 0 || newStart.getDay() === 6) {
+            newStart.setDate(newStart.getDate() + 1);
+          }
+          const newStartStr = newStart.toISOString().split('T')[0];
+
+          // Calculate new end from duration
+          const dur = (t.duration as number) || 3;
+          let endDate = new Date(newStart);
+          let count = 0;
+          while (count < dur) {
+            endDate.setDate(endDate.getDate() + 1);
+            if (endDate.getDay() !== 0 && endDate.getDay() !== 6) count++;
+          }
+          const newEndStr = endDate.toISOString().split('T')[0];
+
+          if (newStartStr !== t.start_date || newEndStr !== t.end_date) {
+            t.start_date = newStartStr;
+            t.end_date = newEndStr;
+            updates.push({ id: tid, start_date: newStartStr, end_date: newEndStr });
+            cascadeFrom(tid); // Continue cascading
+          }
+        }
+      };
+
+      cascadeFrom(task.id);
+
+      // Batch update dependent tasks
+      for (const u of updates) {
+        await supabase.from('gantt_tasks').update({
+          start_date: u.start_date,
+          end_date: u.end_date,
+          updated_at: new Date().toISOString(),
+        }).eq('id', u.id);
+      }
+    }
+
+    // Notify designer about the change
     fetch('/api/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -152,13 +241,16 @@ export default function WorkerTaskCard({
         project_id: task.project_id,
         event_type: 'duration_changed',
         worker_name: profileName,
-        message: `${profileName} changed "${task.name}" duration from ${durationDays} to ${days} days`,
+        message: `${profileName} adjusted "${task.name}" from ${durationDays} to ${days} days. Dependent tasks auto-updated.`,
         exclude_user_id: sessionUserId,
       }),
     }).catch(() => {});
 
     setEditingDuration(false);
     setNewDays('');
+
+    // Reload to reflect cascaded changes
+    window.location.reload();
   };
 
   // Handle completion with notification
@@ -187,10 +279,12 @@ export default function WorkerTaskCard({
         <div className="flex items-start justify-between gap-2 mb-1">
           <div className="flex-1 min-w-0">
             <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wide truncate">{task.project_name}</p>
-            <h3 className="font-semibold text-gray-900 text-sm leading-tight mt-0.5">{task.name}</h3>
-            {task.name_zh && task.name_zh !== task.name && (
-              <p className="text-[11px] text-gray-400 mt-0.5">{task.name_zh}</p>
-            )}
+            <h3 className="font-semibold text-gray-900 text-sm leading-tight mt-0.5">
+              {task.project_address || task.name}
+            </h3>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              {task.name_zh || task.name}
+            </p>
           </div>
           <div className="flex flex-col items-end gap-1 flex-shrink-0">
             <Badge
@@ -246,26 +340,28 @@ export default function WorkerTaskCard({
         {/* Trade-specific badges */}
         {warning && !isComplete && (
           <div
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 mb-3 text-[11px] font-medium"
-            style={{ backgroundColor: `${warning.color}12`, color: warning.color }}
+            className="flex items-center gap-2 rounded-xl px-3 py-2 mb-3 text-[11px] font-medium"
+            style={{ backgroundColor: `${warning.color}10`, color: warning.color, border: `1px solid ${warning.color}20` }}
           >
-            <span>{warning.icon}</span>
-            <span>{warning.text}</span>
+            <span className="text-sm">{warning.icon}</span>
+            <span>{lang === 'ZH' ? warning.textZH : lang === 'BM' ? warning.textBM : warning.textEN}</span>
           </div>
         )}
 
         {/* Carpentry factory countdown */}
         {carpentryCountdown && !isComplete && (
-          <div className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 mb-3 bg-indigo-50 text-indigo-600 text-[11px] font-medium">
-            <Timer className="w-3 h-3" />
-            <span>{'\u5DE5\u5382\u751F\u4EA7\u4E2D'} — {'\u7B2C'} {carpentryCountdown.day}/{carpentryCountdown.total} {'\u5929'}</span>
+          <div className="flex items-center gap-2 rounded-xl px-3 py-2 mb-3 bg-indigo-50 text-indigo-600 text-[11px] font-medium border border-indigo-100">
+            <Timer className="w-3.5 h-3.5" />
+            <span>
+              {lang === 'ZH' ? '\u5DE5\u5382\u751F\u4EA7\u4E2D' : lang === 'BM' ? 'Pengeluaran kilang' : 'Factory production'} — {lang === 'ZH' ? '\u7B2C' : 'Day'} {carpentryCountdown.day}/{carpentryCountdown.total} {lang === 'ZH' ? '\u5929' : ''}
+            </span>
           </div>
         )}
 
         {/* Progress bar + slider */}
         <div className="mb-1">
           <div className="flex justify-between text-[11px] mb-1.5">
-            <span className="text-gray-400">Progress</span>
+            <span className="text-gray-400">{t.worker.progress || 'Progress'}</span>
             <span className={`font-semibold ${isComplete ? 'text-green-600' : 'text-gray-700'}`}>
               {pendingProgress}%
             </span>
@@ -305,7 +401,7 @@ export default function WorkerTaskCard({
           >
             <span className="text-[11px] font-semibold text-gray-600 flex items-center gap-1.5">
               <FileText className="w-3 h-3" />
-              Work Items
+              {t.worker.workItems || 'Work Items'}
               <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-blue-50 text-blue-600">
                 {quotationItems.length}
               </span>
@@ -339,7 +435,7 @@ export default function WorkerTaskCard({
             className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors"
           >
             <span className="text-[11px] font-semibold text-gray-600 flex items-center gap-1.5">
-              {'\u{1F4CB}'} Task Checklist
+              {'\u{1F4CB}'} {t.worker.taskChecklist || 'Task Checklist'}
               <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${completedCount === subtasks.length ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
                 {completedCount}/{subtasks.length}
               </span>
@@ -383,7 +479,7 @@ export default function WorkerTaskCard({
             onClick={handleComplete}
             className="w-full py-3 rounded-xl bg-gradient-to-r from-[#F0B90B] to-[#F7D060] text-white font-bold text-sm shadow-md hover:shadow-lg transition-all active:scale-[0.98] animate-pulse"
           >
-            {'\u{1F389}'} All tasks done! Confirm completion?
+            {t.worker.allDone || 'All tasks done! Confirm completion?'}
           </button>
         </div>
       )}
@@ -395,14 +491,14 @@ export default function WorkerTaskCard({
           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-[12px] font-medium text-gray-600 hover:bg-gray-100 transition-colors active:scale-95"
         >
           <Camera className="w-3.5 h-3.5" />
-          Photo
+          {t.worker.photo}
         </button>
         <button
           onClick={() => onReceiptClick(task)}
           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[12px] font-medium text-amber-700 hover:bg-amber-100 transition-colors active:scale-95"
         >
           <Receipt className="w-3.5 h-3.5" />
-          Invoice
+          {t.worker.invoice}
         </button>
         {!showCompletionBanner && (
           <button
@@ -415,7 +511,7 @@ export default function WorkerTaskCard({
             }`}
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
-            {isComplete ? 'Done' : 'Complete'}
+            {isComplete ? t.worker.complete : t.worker.confirmComplete}
           </button>
         )}
       </div>

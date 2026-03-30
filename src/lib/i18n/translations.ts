@@ -102,6 +102,29 @@ export interface Trans {
     takePhotoOrUpload: string; selectFile: string;
     detectingLocation: string; doneForToday: string;
     todaysTasks: string;
+    // Empty state
+    welcomeTitle: string; welcomeDesc: string;
+    waitingAssignment: string; waitingAssignmentDesc: string;
+    completeProfile: string; completeProfileDesc: string;
+    uploadPastReceipts: string; uploadPastReceiptsDesc: string;
+    noProjectsYet: string; getStartedTip: string;
+    // Header
+    activeProjects: string; totalTasks: string;
+    // UI labels
+    notifications: string; noNotifications: string; allCaughtUp: string; markAllRead: string;
+    taskChecklist: string;
+    noTasksScheduled: string; freeDayHint: string;
+  };
+  join: {
+    enterPhone: string; continue_: string; signingIn: string;
+    noPassword: string; invitedBy: string; project: string;
+    invalidLink: string; invalidLinkDesc: string;
+    expiredLink: string; expiredLinkDesc: string;
+    usedLink: string; usedLinkDesc: string;
+    verifying: string; welcome: string; redirecting: string;
+    workerLogin: string; workerLoginHint: string; signInWorker: string;
+    generateInvite: string; inviteDesc: string;
+    goToLogin: string;
   };
 }
 
@@ -210,6 +233,31 @@ const EN: Trans = {
     takePhotoOrUpload: 'Take Photo or Upload', selectFile: 'Select File',
     detectingLocation: 'Detecting location...', doneForToday: 'Done for today',
     todaysTasks: "Today's Tasks",
+    // Empty state
+    welcomeTitle: 'Welcome to RenoSmart', welcomeDesc: 'Your designer will assign projects and tasks to you. In the meantime, set up your profile.',
+    waitingAssignment: 'Waiting for assignment', waitingAssignmentDesc: 'Your designer will assign tasks from the Gantt chart',
+    completeProfile: 'Complete your profile', completeProfileDesc: 'Add company info and trades to get discovered',
+    uploadPastReceipts: 'Upload past receipts', uploadPastReceiptsDesc: 'Start building your cost records',
+    noProjectsYet: 'No projects yet', getStartedTip: 'Contact your designer to get started',
+    // Header
+    activeProjects: 'Projects', totalTasks: 'All Tasks',
+    // UI labels
+    notifications: 'Notifications', noNotifications: 'No notifications', allCaughtUp: "You're all caught up", markAllRead: 'Mark all as read',
+    taskChecklist: 'Task Checklist',
+    noTasksScheduled: 'No tasks scheduled', freeDayHint: 'Free day or check another date',
+  },
+  join: {
+    enterPhone: 'Enter your phone number', continue_: 'Continue', signingIn: 'Signing in...',
+    noPassword: 'No password needed — just your phone number',
+    invitedBy: 'Invited by', project: 'Project',
+    invalidLink: 'Invalid Link', invalidLinkDesc: 'This invite link is not valid. Please ask your boss for a new one.',
+    expiredLink: 'Link Expired', expiredLinkDesc: 'This invite link has expired. Ask your boss to generate a new one.',
+    usedLink: 'Link Already Used', usedLinkDesc: 'This invite link has already been used. If you need access, ask your boss for a new link.',
+    verifying: 'Verifying invite link...', welcome: 'Welcome!', redirecting: 'Redirecting to your dashboard...',
+    workerLogin: 'Worker? Sign in with phone number', workerLoginHint: 'Enter your phone to sign in',
+    signInWorker: 'Sign in as Worker',
+    generateInvite: 'Generate Invite Link', inviteDesc: 'Generate a link — workers just enter their phone number, no password needed.',
+    goToLogin: 'Go to Login',
   },
 };
 
@@ -317,6 +365,28 @@ const BM: Trans = {
     takePhotoOrUpload: 'Ambil Foto atau Muat Naik', selectFile: 'Pilih Fail',
     detectingLocation: 'Mengesan lokasi...', doneForToday: 'Selesai untuk hari ini',
     todaysTasks: 'Tugas Hari Ini',
+    welcomeTitle: 'Selamat Datang ke RenoSmart', welcomeDesc: 'Pereka anda akan menetapkan projek dan tugas. Sementara itu, lengkapkan profil anda.',
+    waitingAssignment: 'Menunggu tugasan', waitingAssignmentDesc: 'Pereka anda akan menetapkan tugas dari carta Gantt',
+    completeProfile: 'Lengkapkan profil', completeProfileDesc: 'Tambah maklumat syarikat dan tred',
+    uploadPastReceipts: 'Muat naik resit lama', uploadPastReceiptsDesc: 'Mula bina rekod kos anda',
+    noProjectsYet: 'Tiada projek lagi', getStartedTip: 'Hubungi pereka anda untuk bermula',
+    activeProjects: 'Projek', totalTasks: 'Semua Tugas',
+    notifications: 'Pemberitahuan', noNotifications: 'Tiada pemberitahuan', allCaughtUp: 'Semua sudah dibaca', markAllRead: 'Tanda semua dibaca',
+    taskChecklist: 'Senarai Semak Tugas',
+    noTasksScheduled: 'Tiada tugas dijadualkan', freeDayHint: 'Hari cuti atau semak tarikh lain',
+  },
+  join: {
+    enterPhone: 'Masukkan nombor telefon anda', continue_: 'Teruskan', signingIn: 'Melog masuk...',
+    noPassword: 'Tiada kata laluan diperlukan — hanya nombor telefon anda',
+    invitedBy: 'Dijemput oleh', project: 'Projek',
+    invalidLink: 'Pautan Tidak Sah', invalidLinkDesc: 'Pautan jemputan ini tidak sah. Sila minta pautan baharu daripada bos anda.',
+    expiredLink: 'Pautan Tamat Tempoh', expiredLinkDesc: 'Pautan jemputan ini telah tamat tempoh. Minta bos anda jana pautan baharu.',
+    usedLink: 'Pautan Telah Digunakan', usedLinkDesc: 'Pautan jemputan ini telah digunakan. Minta bos anda untuk pautan baharu.',
+    verifying: 'Mengesahkan pautan jemputan...', welcome: 'Selamat datang!', redirecting: 'Menghalakan ke papan pemuka anda...',
+    workerLogin: 'Pekerja? Log masuk dengan nombor telefon', workerLoginHint: 'Masukkan telefon untuk log masuk',
+    signInWorker: 'Log masuk sebagai Pekerja',
+    generateInvite: 'Jana Pautan Jemputan', inviteDesc: 'Jana pautan — pekerja hanya perlu masukkan nombor telefon, tanpa kata laluan.',
+    goToLogin: 'Pergi ke Log Masuk',
   },
 };
 
@@ -424,6 +494,28 @@ const ZH: Trans = {
     takePhotoOrUpload: '拍照或上传', selectFile: '选择文件',
     detectingLocation: '正在定位...', doneForToday: '今日已完成',
     todaysTasks: '今日任务',
+    welcomeTitle: '欢迎使用 RenoSmart', welcomeDesc: '设计师会为您分配项目和任务。在此之前，请先完善您的个人资料。',
+    waitingAssignment: '等待任务分配', waitingAssignmentDesc: '设计师将从甘特图中为您分配任务',
+    completeProfile: '完善个人资料', completeProfileDesc: '添加公司信息和工种以便被发现',
+    uploadPastReceipts: '上传历史收据', uploadPastReceiptsDesc: '开始建立您的成本记录',
+    noProjectsYet: '暂无项目', getStartedTip: '联系您的设计师开始',
+    activeProjects: '项目', totalTasks: '全部任务',
+    notifications: '通知', noNotifications: '暂无通知', allCaughtUp: '已全部查看', markAllRead: '全部标为已读',
+    taskChecklist: '工序清单',
+    noTasksScheduled: '暂无排期任务', freeDayHint: '休息日或查看其他日期',
+  },
+  join: {
+    enterPhone: '输入您的手机号码', continue_: '继续', signingIn: '登录中...',
+    noPassword: '无需密码 — 只需手机号码',
+    invitedBy: '邀请者', project: '项目',
+    invalidLink: '链接无效', invalidLinkDesc: '此邀请链接无效，请联系您的老板获取新链接。',
+    expiredLink: '链接已过期', expiredLinkDesc: '此邀请链接已过期，请联系您的老板生成新链接。',
+    usedLink: '链接已使用', usedLinkDesc: '此邀请链接已被使用。如需访问权限，请联系您的老板获取新链接。',
+    verifying: '正在验证邀请链接...', welcome: '欢迎！', redirecting: '正在跳转到工作台...',
+    workerLogin: '工人？用手机号码登录', workerLoginHint: '输入手机号码登录',
+    signInWorker: '工人登录',
+    generateInvite: '生成邀请链接', inviteDesc: '生成链接 — 工人只需输入手机号码，无需密码。',
+    goToLogin: '前往登录',
   },
 };
 

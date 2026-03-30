@@ -829,14 +829,28 @@ function _schedulePhases(
         cursor = addDays(cursor, -1);
       }
 
-      // Prefer AI sub-tasks over hardcoded subItems
-      const subtasks: GanttSubtask[] = phase.aiSubTasks?.length
-        ? phase.aiSubTasks.map((sub, idx) => ({
-            id: `${phase.id}-ai-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
-          }))
-        : phase.subItems.map((sub, idx) => ({
-            id: `${phase.id}-sub-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
-          }));
+      // Build subtasks: AI sub-tasks > quotation source items > hardcoded subItems
+      let subtasks: GanttSubtask[];
+      if (phase.aiSubTasks?.length) {
+        subtasks = phase.aiSubTasks.map((sub, idx) => ({
+          id: `${phase.id}-ai-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
+        }));
+      } else if (phase.sourceItems?.length) {
+        // Generate subtasks from actual quotation items for this trade
+        subtasks = phase.sourceItems.map((itemName, idx) => ({
+          id: `${phase.id}-qi-${idx}`, name: itemName, name_zh: undefined, completed: false,
+        }));
+        // Append standard checklist items not covered by quotation
+        phase.subItems.forEach((sub, idx) => {
+          if (!subtasks.some(s => s.name.toLowerCase().includes(sub.name.toLowerCase().split(' ')[0]))) {
+            subtasks.push({ id: `${phase.id}-sub-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false });
+          }
+        });
+      } else {
+        subtasks = phase.subItems.map((sub, idx) => ({
+          id: `${phase.id}-sub-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
+        }));
+      }
 
       // Prepend (will reverse later)
       tasks.unshift({
@@ -858,6 +872,7 @@ function _schedulePhases(
         sort_order: 0, // will reindex later
         phase_group: 'design',
         source_items: phase.sourceItems || [],
+        quotation_items: phase.sourceItems || [],
         risks: phase.aiRisks,
         leadTimeDays: phase.aiLeadTimeDays,
         leadTimeNote: phase.aiLeadTimeNote,
@@ -898,14 +913,28 @@ function _schedulePhases(
       taskEndDates[phase.id] = taskEnd;
       taskStartDates[phase.id] = taskStart;
 
-      // Prefer AI sub-tasks over hardcoded subItems
-      const subtasks: GanttSubtask[] = phase.aiSubTasks?.length
-        ? phase.aiSubTasks.map((sub, idx) => ({
-            id: `${phase.id}-ai-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
-          }))
-        : phase.subItems.map((sub, idx) => ({
-            id: `${phase.id}-sub-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
-          }));
+      // Build subtasks: AI sub-tasks > quotation source items > hardcoded subItems
+      let subtasks: GanttSubtask[];
+      if (phase.aiSubTasks?.length) {
+        subtasks = phase.aiSubTasks.map((sub, idx) => ({
+          id: `${phase.id}-ai-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
+        }));
+      } else if (phase.sourceItems?.length) {
+        // Generate subtasks from actual quotation items for this trade
+        subtasks = phase.sourceItems.map((itemName, idx) => ({
+          id: `${phase.id}-qi-${idx}`, name: itemName, name_zh: undefined, completed: false,
+        }));
+        // Append standard checklist items not covered by quotation
+        phase.subItems.forEach((sub, idx) => {
+          if (!subtasks.some(s => s.name.toLowerCase().includes(sub.name.toLowerCase().split(' ')[0]))) {
+            subtasks.push({ id: `${phase.id}-sub-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false });
+          }
+        });
+      } else {
+        subtasks = phase.subItems.map((sub, idx) => ({
+          id: `${phase.id}-sub-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
+        }));
+      }
 
       tasks.push({
         id: deterministicUUID(`${projectId}-${phase.id}`),
@@ -926,6 +955,7 @@ function _schedulePhases(
         sort_order: tasks.length,
         phase_group: group,
         source_items: phase.sourceItems || [],
+        quotation_items: phase.sourceItems || [],
         risks: phase.aiRisks,
         leadTimeDays: phase.aiLeadTimeDays,
         leadTimeNote: phase.aiLeadTimeNote,

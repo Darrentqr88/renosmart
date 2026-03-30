@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Loader2, Mail } from 'lucide-react';
+import { Loader2, Mail, Phone } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 
@@ -21,6 +21,12 @@ function LoginPageContent() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Worker phone login
+  const [showWorkerLogin, setShowWorkerLogin] = useState(false);
+  const [workerPhone, setWorkerPhone] = useState('');
+  const [workerCountryCode, setWorkerCountryCode] = useState('+60');
+  const [workerLoading, setWorkerLoading] = useState(false);
 
   const completePendingProfile = async () => {
     try {
@@ -100,6 +106,31 @@ function LoginPageContent() {
       toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'Google login failed' });
       setGoogleLoading(false);
     }
+  };
+
+  const handleWorkerPhoneLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!workerPhone.trim()) return;
+    setWorkerLoading(true);
+    try {
+      const res = await fetch('/api/worker-auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: workerPhone, countryCode: workerCountryCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ variant: 'destructive', title: 'Login failed', description: data.error || 'Could not log in' });
+        setWorkerLoading(false);
+        return;
+      }
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email: data.email, password: data.password });
+      if (signInErr) throw signInErr;
+      router.push('/worker');
+      router.refresh();
+    } catch (error: unknown) {
+      toast({ variant: 'destructive', title: 'Login failed', description: error instanceof Error ? error.message : 'Worker login failed' });
+    } finally { setWorkerLoading(false); }
   };
 
   useEffect(() => {
@@ -314,7 +345,59 @@ function LoginPageContent() {
             </Button>
           </form>
 
-          <p style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: '#64748B' }}>
+          {/* Worker phone login */}
+          <div style={{ margin: '24px 0 0' }}>
+            <button
+              type="button"
+              onClick={() => setShowWorkerLogin(!showWorkerLogin)}
+              style={{
+                width: '100%', padding: '10px 0', background: 'transparent', border: 'none',
+                color: '#4F8EF7', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}
+            >
+              <Phone size={14} />
+              Worker? Sign in with phone number
+            </button>
+
+            {showWorkerLogin && (
+              <form onSubmit={handleWorkerPhoneLogin} style={{ marginTop: 12 }}>
+                <div style={{ display: 'flex', gap: 0, marginBottom: 12 }}>
+                  <select
+                    value={workerCountryCode}
+                    onChange={(e) => setWorkerCountryCode(e.target.value)}
+                    style={{
+                      padding: '10px 8px', borderRadius: '10px 0 0 10px',
+                      border: '1px solid rgba(255,255,255,0.1)', borderRight: 'none',
+                      background: 'rgba(255,255,255,0.06)', color: '#F1F5F9',
+                      fontSize: 14, outline: 'none', cursor: 'pointer', minWidth: 85,
+                    }}
+                  >
+                    <option value="+60">🇲🇾 +60</option>
+                    <option value="+65">🇸🇬 +65</option>
+                    <option value="+62">🇮🇩 +62</option>
+                  </select>
+                  <input
+                    type="tel"
+                    value={workerPhone}
+                    onChange={(e) => setWorkerPhone(e.target.value.replace(/[^\d]/g, ''))}
+                    placeholder="0176543210"
+                    className="login-input"
+                    style={{ borderRadius: '0 10px 10px 0' }}
+                    inputMode="tel"
+                    maxLength={15}
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full h-10 rounded-xl bg-[#4F8EF7] hover:bg-[#3D7CE5] text-white" disabled={workerLoading || !workerPhone.trim()}>
+                  {workerLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                  Sign in as Worker
+                </Button>
+              </form>
+            )}
+          </div>
+
+          <p style={{ textAlign: 'center', marginTop: 20, fontSize: 14, color: '#64748B' }}>
             Don&apos;t have an account? <Link href="/register" style={{ color: '#E8A317', textDecoration: 'none', fontWeight: 500 }}>Sign up free</Link>
           </p>
         </div>

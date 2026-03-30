@@ -54,7 +54,7 @@ export async function calculateWorkerRating(
   const { data: photos } = await supabase
     .from('site_photos')
     .select('id, approved')
-    .eq('uploaded_by', workerId);
+    .eq('uploader_id', workerId);
 
   const allPhotos = photos || [];
   const approvedPhotos = allPhotos.filter(p => p.approved === true);

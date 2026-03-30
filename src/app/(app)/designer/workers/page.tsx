@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { WORKER_TRADES } from '@/types';
-import { Plus, Users, Phone, Copy, Check, ExternalLink, Search, Star, UserPlus, Loader2 } from 'lucide-react';
+import { Plus, Users, Phone, Copy, Check, ExternalLink, Search, Star, UserPlus, Loader2, LinkIcon } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 
@@ -46,6 +46,7 @@ export default function WorkersPage() {
   const [searching, setSearching] = useState(false);
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
   const [searchNotFound, setSearchNotFound] = useState(false);
+  const [generatingInvite, setGeneratingInvite] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -53,8 +54,8 @@ export default function WorkersPage() {
       if (!session) return;
       setSessionUserId(session.user.id);
 
-      const link = `${window.location.origin}/register?invite=${session.user.id}`;
-      setInviteLink(link);
+      // Invite link will be generated on demand via API
+      setInviteLink('');
 
       // Load own workers
       const { data } = await supabase
@@ -123,7 +124,30 @@ export default function WorkersPage() {
     })();
   }, []);
 
+  const handleGenerateInvite = async () => {
+    setGeneratingInvite(true);
+    try {
+      const res = await fetch('/api/worker-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setInviteLink(data.url);
+        toast({ title: 'Invite link generated!', description: 'Valid for 72 hours. Share via WhatsApp.' });
+      } else {
+        toast({ variant: 'destructive', title: 'Error', description: data.error || 'Failed to generate link' });
+      }
+    } catch {
+      toast({ variant: 'destructive', title: 'Error', description: 'Network error' });
+    } finally {
+      setGeneratingInvite(false);
+    }
+  };
+
   const handleCopyLink = async () => {
+    if (!inviteLink) { await handleGenerateInvite(); return; }
     await navigator.clipboard.writeText(inviteLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -131,34 +155,63 @@ export default function WorkersPage() {
   };
 
   const handleWhatsApp = () => {
-    const msg = encodeURIComponent(`Hi! Join my team on RenoSmart to receive project assignments and task updates.\n\nClick here to register: ${inviteLink}`);
+    const link = inviteLink || '';
+    const msg = encodeURIComponent(`Hi! You've been invited to join RenoSmart. Just click the link and enter your phone number — no password needed.\n\n${link}`);
     window.open(`https://wa.me/?text=${msg}`, '_blank');
   };
 
-  // Search existing worker by phone
+  // Search existing worker by phone — normalize number for flexible matching
   const handlePhoneSearch = async () => {
-    if (searchPhone.length < 5) return;
+    if (searchPhone.length < 4) return;
     setSearching(true);
     setSearchResult(null);
     setSearchNotFound(false);
 
-    const { data } = await supabase
-      .from('profiles')
-      .select('user_id, name, phone, trades, worker_rating')
-      .eq('role', 'worker')
-      .ilike('phone', `%${searchPhone}%`)
-      .limit(1)
-      .single();
+    // Normalize: strip spaces, dashes, leading +60 or 0
+    const raw = searchPhone.replace(/[\s\-()]/g, '');
+    // Build multiple search patterns for flexible matching
+    const patterns: string[] = [raw];
+    // If starts with 0, also try +60 prefix
+    if (raw.startsWith('0')) {
+      patterns.push(`+6${raw}`);    // 0176... → +60176...
+      patterns.push(raw.slice(1));  // 0176... → 176...
+    }
+    // If starts with 60, also try +60 and 0 prefix
+    if (raw.startsWith('60')) {
+      patterns.push(`+${raw}`);     // 60176... → +60176...
+      patterns.push(`0${raw.slice(2)}`); // 60176... → 0176...
+    }
+    // If starts with +60, also try 0 prefix
+    if (raw.startsWith('+60')) {
+      patterns.push(`0${raw.slice(3)}`); // +60176... → 0176...
+      patterns.push(raw.slice(1));       // +60176... → 60176...
+    }
 
-    if (data) {
+    // Try each pattern
+    let found: SearchResult | null = null;
+    for (const pattern of patterns) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_id, name, phone, trades, worker_rating')
+        .eq('role', 'worker')
+        .ilike('phone', `%${pattern}%`)
+        .limit(1);
+
+      if (data && data.length > 0) {
+        found = data[0] as SearchResult;
+        break;
+      }
+    }
+
+    if (found) {
       // Check if already in our list
-      const alreadyAdded = workers.some(w => w.profile_id === data.user_id || w.phone === data.phone);
+      const alreadyAdded = workers.some(w => w.profile_id === found!.user_id || w.phone === found!.phone);
       if (alreadyAdded) {
-        toast({ title: 'Already in your list', description: `${data.name} is already in your workers.` });
+        toast({ title: 'Already in your list', description: `${found.name} is already in your workers.` });
         setSearching(false);
         return;
       }
-      setSearchResult(data as SearchResult);
+      setSearchResult(found);
     } else {
       setSearchNotFound(true);
     }
@@ -305,18 +358,25 @@ export default function WorkersPage() {
       {/* Invite Link */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-6">
         <h2 className="font-semibold text-blue-900 mb-2">Worker Invite Link</h2>
-        <p className="text-sm text-blue-700 mb-3">Share this link with workers to join your team automatically.</p>
-        <div className="flex gap-2">
-          <Input value={inviteLink} readOnly className="bg-white text-sm font-mono" />
-          <Button variant="outline" onClick={handleCopyLink} className="gap-2 border-blue-300">
-            {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-            {copied ? 'Copied!' : 'Copy'}
+        <p className="text-sm text-blue-700 mb-3">Generate a link — workers just enter their phone number, no password needed.</p>
+        {!inviteLink ? (
+          <Button onClick={handleGenerateInvite} disabled={generatingInvite} className="gap-2 bg-blue-600 text-white hover:bg-blue-700">
+            {generatingInvite ? <Loader2 className="w-4 h-4 animate-spin" /> : <LinkIcon className="w-4 h-4" />}
+            Generate Invite Link
           </Button>
-          <Button onClick={handleWhatsApp} className="gap-2 bg-green-500 text-white hover:bg-green-600">
-            <ExternalLink className="w-4 h-4" />
-            WhatsApp
-          </Button>
-        </div>
+        ) : (
+          <div className="flex gap-2">
+            <Input value={inviteLink} readOnly className="bg-white text-sm font-mono" />
+            <Button variant="outline" onClick={handleCopyLink} className="gap-2 border-blue-300">
+              {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+              {copied ? 'Copied!' : 'Copy'}
+            </Button>
+            <Button onClick={handleWhatsApp} className="gap-2 bg-green-500 text-white hover:bg-green-600">
+              <ExternalLink className="w-4 h-4" />
+              WhatsApp
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Workers list */}

@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { format, addDays, startOfWeek, isSameDay, isToday, parseISO } from 'date-fns';
 import { ChevronLeft, ChevronRight, Clock, Calendar } from 'lucide-react';
 import { WorkerTask } from './WorkerTaskCard';
+import { useI18n } from '@/lib/i18n/context';
 
 interface WorkerScheduleTabProps {
   tasks: WorkerTask[];
@@ -12,6 +13,7 @@ interface WorkerScheduleTabProps {
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 export default function WorkerScheduleTab({ tasks }: WorkerScheduleTabProps) {
+  const { t } = useI18n();
   const today = new Date();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(today, { weekStartsOn: 1 }));
   const [selectedDate, setSelectedDate] = useState(today);
@@ -46,15 +48,6 @@ export default function WorkerScheduleTab({ tasks }: WorkerScheduleTabProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="bg-[#0F1923] text-white px-5 pt-12 pb-5">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-[#4F8EF7]" />
-          <h1 className="font-bold text-lg">Schedule</h1>
-        </div>
-        <p className="text-white/50 text-xs mt-1">{tasks.length} assigned tasks</p>
-      </div>
-
       {/* Week strip */}
       <div
         className="bg-white border-b border-gray-100 px-2 py-3 select-none"
@@ -115,13 +108,13 @@ export default function WorkerScheduleTab({ tasks }: WorkerScheduleTabProps) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="font-bold text-gray-900 text-sm">
-              {isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEEE')}
+              {isToday(selectedDate) ? (t.worker.today || 'Today') : format(selectedDate, 'EEEE')}
             </h2>
             <p className="text-[11px] text-gray-400">{format(selectedDate, 'd MMMM yyyy')}</p>
           </div>
           {selectedDayTasks.length > 0 && (
-            <span className="text-[11px] font-semibold text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">
-              {selectedDayTasks.length} task{selectedDayTasks.length !== 1 ? 's' : ''}
+            <span className="text-[11px] font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
+              {selectedDayTasks.length} {t.worker.totalTasks?.toLowerCase() || 'tasks'}
             </span>
           )}
         </div>
@@ -131,8 +124,8 @@ export default function WorkerScheduleTab({ tasks }: WorkerScheduleTabProps) {
             <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
               <Calendar className="w-7 h-7 text-gray-300" />
             </div>
-            <p className="text-gray-500 text-sm font-medium">No tasks scheduled</p>
-            <p className="text-gray-400 text-xs mt-1">Free day or check another date</p>
+            <p className="text-gray-500 text-sm font-medium">{t.worker.noTasksScheduled || 'No tasks scheduled'}</p>
+            <p className="text-gray-400 text-xs mt-1">{t.worker.freeDayHint || 'Free day or check another date'}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -163,7 +156,7 @@ export default function WorkerScheduleTab({ tasks }: WorkerScheduleTabProps) {
                 {/* Mini progress bar */}
                 <div>
                   <div className="flex justify-between text-[10px] mb-1">
-                    <span className="text-gray-400">Progress</span>
+                    <span className="text-gray-400">{t.worker.progress || 'Progress'}</span>
                     <span className={`font-semibold ${task.progress === 100 ? 'text-green-600' : 'text-gray-700'}`}>
                       {task.progress}%
                     </span>
@@ -190,7 +183,7 @@ export default function WorkerScheduleTab({ tasks }: WorkerScheduleTabProps) {
           const uniqueUpcoming = futureTasks.slice(0, 4);
           return (
             <div className="mt-6">
-              <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-3">Upcoming</h3>
+              <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-3">{t.worker.upcoming}</h3>
               <div className="space-y-2">
                 {uniqueUpcoming.map(task => (
                   <div

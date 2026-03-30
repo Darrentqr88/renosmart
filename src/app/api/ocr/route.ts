@@ -4,20 +4,33 @@ import { createClient } from '@/lib/supabase/server';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
 
-const OCR_PROMPT = `You are analyzing a construction material receipt or invoice.
+const OCR_PROMPT = `You are analyzing a construction material receipt or invoice from Malaysia/Singapore.
 Extract the following information and return ONLY valid JSON with no markdown:
 {
   "supplier": "supplier name or unknown",
   "date": "YYYY-MM-DD or null",
   "items": [
-    {"description": "item name", "category": "category_type", "qty": 1, "unit": "pcs", "unit_cost": 100, "total": 100}
+    {"description": "item name IN ENGLISH", "category": "category_type", "qty": 1, "unit": "sqft", "unit_cost": 8.00, "total": 800}
   ],
-  "total_amount": 100,
+  "total_amount": 800,
   "receipt_number": "REF123 or null",
   "notes": ""
 }
 
-Categories: tiling_material / electrical_material / plumbing_material / carpentry_material / paint / cement / steel / general_labour / other
+CRITICAL RULES:
+1. ALWAYS translate ALL item descriptions to English. Examples:
+   - 瓷砖 600x600 → "Porcelain Tile 600x600"
+   - 水泥 → "Cement"
+   - Jubin lantai → "Floor Tile"
+   - 石膏板天花 → "Plasterboard Ceiling"
+   - 防水涂料 → "Waterproofing Coating"
+2. unit_cost MUST be the per-unit price, NOT the line total.
+   - If receipt shows: 100 sqft x RM8.00 = RM800 → unit_cost=8.00, total=800
+   - If receipt shows only total RM500 for 50 pcs → unit_cost=10.00, total=500
+   - If only total is shown with no qty → qty=1, unit="lot", unit_cost=total
+3. unit values: sqft / pcs / set / unit / lot / m / meter / roll / bag / kg / lump
+4. qty must reflect actual quantity (e.g., 100 sqft, 5 pcs), NOT always 1.
+5. Categories: tiling_material / electrical_material / plumbing_material / carpentry_material / paint / cement / steel / general_labour / waterproofing / ceiling / flooring / ac / glass / aluminium / roofing / landscape / construction / demolition / other
 Always return valid JSON even if the content is unclear.`;
 
 const VO_PROMPT = `You are parsing a Variation Order (VO) document for a renovation project in Malaysia/Singapore.

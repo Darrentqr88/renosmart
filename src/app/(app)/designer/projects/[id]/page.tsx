@@ -17,7 +17,7 @@ import {
   ArrowLeft, BarChart2, CreditCard, User, Camera, FileText, GitBranch,
   Plus, TrendingUp, TrendingDown, Star, Trash2, GitCompare,
   CheckCircle2, XCircle, Clock, AlertTriangle,
-  Upload, Receipt, Printer, Eye, Loader2, X, Search, UserCheck, Send, ChevronDown, ChevronUp,
+  Upload, Receipt, Printer, Eye, Loader2, X, Search, UserCheck, UserPlus, Phone, Send, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
@@ -30,7 +30,8 @@ type CostRecordLocal = {
   id: string;
   category: string;
   description: string;
-  total_amount: number;
+  amount: number;
+  total_amount?: number;
   supplier: string;
   receipt_date: string;
   trade?: string;
@@ -101,7 +102,7 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [ganttTasks, setGanttTasks] = useState<GanttTask[]>([]);
   const [payments, setPayments] = useState<PaymentPhase[]>([]);
-  const [photos, setPhotos] = useState<{ id: string; url: string; caption?: string; trade?: string; approved?: boolean; uploaded_by?: string; created_at: string }[]>([]);
+  const [photos, setPhotos] = useState<{ id: string; url: string; file_url?: string; caption?: string; trade?: string; approved?: boolean; uploader_id?: string; created_at: string }[]>([]);
   const [photoFilter, setPhotoFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [photoTradeFilter, setPhotoTradeFilter] = useState<string>('all');
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
@@ -143,6 +144,8 @@ export default function ProjectDetailPage() {
   const [workerTradeFilter, setWorkerTradeFilter] = useState('all');
   const [selectedWorkerIds, setSelectedWorkerIds] = useState<string[]>([]);
   const [isSendingTasks, setIsSendingTasks] = useState(false);
+  const [phoneSearchResults, setPhoneSearchResults] = useState<{ user_id: string; name: string; phone: string; trades: string[]; alreadyAdded: boolean }[]>([]);
+  const [isSearchingPhone, setIsSearchingPhone] = useState(false);
 
   // Editable client info at top
   const [clientEditMode, setClientEditMode] = useState(false);
@@ -205,6 +208,7 @@ export default function ProjectDetailPage() {
       is_critical: t.is_critical,
       subtasks: t.subtasks,
       assigned_workers: t.assigned_workers,
+      quotation_items: t.quotation_items ?? t.source_items ?? [],
       ai_hint: t.ai_hint ?? null,
       phase_id: t.phase_id ?? null,
     }));
@@ -820,6 +824,79 @@ export default function ProjectDetailPage() {
     setIsDirty(true);
   };
 
+  // ── Search workers by phone number from profiles table ───────────────────
+  const searchWorkerByPhone = async (phone: string) => {
+    if (phone.length < 4) { setPhoneSearchResults([]); return; }
+    setIsSearchingPhone(true);
+    try {
+      // Normalize and build search patterns for flexible matching
+      const raw = phone.replace(/[\s\-()]/g, '');
+      const patterns: string[] = [raw];
+      if (raw.startsWith('0')) { patterns.push(`+6${raw}`); patterns.push(raw.slice(1)); }
+      if (raw.startsWith('60')) { patterns.push(`+${raw}`); patterns.push(`0${raw.slice(2)}`); }
+      if (raw.startsWith('+60')) { patterns.push(`0${raw.slice(3)}`); patterns.push(raw.slice(1)); }
+
+      let results: { user_id: string; name: string; phone: string; trades: string[] }[] = [];
+      for (const pattern of patterns) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('user_id, name, phone, trades')
+          .eq('role', 'worker')
+          .ilike('phone', `%${pattern}%`)
+          .limit(5);
+        if (data && data.length > 0) { results = data as typeof results; break; }
+      }
+
+      if (results.length > 0) {
+        const existingIds = new Set(designerWorkers.map(w => w.profile_id));
+        setPhoneSearchResults(results.map(p => ({
+          user_id: p.user_id,
+          name: p.name || 'Worker',
+          phone: p.phone || '',
+          trades: (p.trades as string[]) || [],
+          alreadyAdded: existingIds.has(p.user_id),
+        })));
+      } else {
+        setPhoneSearchResults([]);
+      }
+    } catch { setPhoneSearchResults([]); }
+    setIsSearchingPhone(false);
+  };
+
+  // ── Add found worker to designer_workers + local list ──────────────────
+  const addWorkerFromSearch = async (result: { user_id: string; name: string; phone: string; trades: string[] }) => {
+    if (!sessionUserId) return;
+    const { data, error } = await supabase
+      .from('designer_workers')
+      .insert({
+        designer_id: sessionUserId,
+        user_id: sessionUserId,
+        profile_id: result.user_id,
+        name: result.name,
+        phone: result.phone,
+        trades: result.trades,
+        status: 'active',
+      })
+      .select('id')
+      .single();
+    if (error) {
+      toast({ title: '添加失败', description: error.message, variant: 'destructive' });
+      return;
+    }
+    const newWorker: GanttWorkerInfo = {
+      id: data.id,
+      profile_id: result.user_id,
+      name: result.name,
+      phone: result.phone,
+      trades: result.trades,
+      rating: 0,
+      completion_rate: 0,
+    };
+    setDesignerWorkers(prev => [...prev, newWorker]);
+    setPhoneSearchResults(prev => prev.map(p => p.user_id === result.user_id ? { ...p, alreadyAdded: true } : p));
+    toast({ title: '✅ 工人已添加', description: `${result.name} 已加入您的工人列表` });
+  };
+
   // ── Send tasks to assigned workers ────────────────────────────────────────
   const handleSendToWorkers = async () => {
     setIsSendingTasks(true);
@@ -1208,7 +1285,7 @@ export default function ProjectDetailPage() {
       if (Array.isArray(items) && items.length > 0)
         return items as { description: string; qty?: number; unit?: string; unit_cost?: number; total: number }[];
     } catch { /* fall through */ }
-    return [{ description: r.description || '单据明细', total: r.total_amount }];
+    return [{ description: r.description || '单据明细', total: costAmt(r) }];
   };
 
   // ─── Print receipt in new window ──────────────────────────────────────────
@@ -1234,7 +1311,7 @@ export default function ProjectDetailPage() {
     <table><tr><th>品项描述</th><th>数量</th><th>单位</th><th>单价</th><th>金额</th></tr>
     ${items.map(i => `<tr><td>${i.description || '—'}</td><td>${i.qty ?? '—'}</td><td>${i.unit ?? '—'}</td><td>${i.unit_cost != null ? 'RM ' + Number(i.unit_cost).toFixed(2) : '—'}</td><td>RM ${Number(i.total || 0).toFixed(2)}</td></tr>`).join('')}
     </table>
-    <div class="footer">合计 Total: RM ${Number(r.total_amount || 0).toFixed(2)}</div>
+    <div class="footer">合计 Total: RM ${Number(r.amount ?? r.total_amount ?? 0).toFixed(2)}</div>
     <script>window.onload=()=>{window.print();}</script>
     </body></html>`);
     win.document.close();
@@ -1307,6 +1384,7 @@ export default function ProjectDetailPage() {
           receipt_date: uploadOcrResult.date || new Date().toISOString().split('T')[0],
           category: uploadTrade + '_material',
           description: item.description,
+          amount: item.total,
           total_amount: item.total,
           items: uploadOcrResult.items,
           trade: uploadTrade,
@@ -1314,6 +1392,27 @@ export default function ProjectDetailPage() {
           receipt_number: uploadOcrResult.receipt_number,
         });
       }
+
+      // Feed individual items into cost intelligence database (async, non-blocking)
+      if (uploadOcrResult.items.length > 0) {
+        fetch('/api/cost-db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: uploadOcrResult.items.map((item: { description: string; unit?: string; qty?: number; unit_cost?: number; total: number }) => ({
+              description: item.description,
+              category: uploadTrade + '_material',
+              unit: item.unit || 'unit',
+              qty: item.qty || 1,
+              unit_cost: item.unit_cost || 0,
+              total: item.total || 0,
+            })),
+            region: 'MY_KL',
+            projectId: id,
+          }),
+        }).catch(() => { /* non-blocking */ });
+      }
+
       setUploadOcrState('done');
       setTimeout(() => {
         setShowUploadModal(false);
@@ -1330,7 +1429,8 @@ export default function ProjectDetailPage() {
 
   const totalCollected = payments.filter(p => p.status === 'collected').reduce((s, p) => s + p.amount, 0);
   const totalOutstanding = payments.filter(p => p.status !== 'collected').reduce((s, p) => s + p.amount, 0);
-  const totalCost = costRecords.reduce((s, r) => s + (r.total_amount || 0), 0);
+  const costAmt = (r: CostRecordLocal) => Number(r.amount ?? r.total_amount ?? 0);
+  const totalCost = costRecords.reduce((s, r) => s + costAmt(r), 0);
   const revenue = project?.contract_amount || 0;
   const grossProfit = revenue - totalCost;
   const margin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
@@ -1347,7 +1447,7 @@ export default function ProjectDetailPage() {
   };
   const costByCategory: Record<string, number> = {};
   for (const r of costRecords) {
-    costByCategory[r.category] = (costByCategory[r.category] || 0) + r.total_amount;
+    costByCategory[r.category] = (costByCategory[r.category] || 0) + costAmt(r);
   }
 
   // ─── Per-trade computations ───────────────────────────────────────────────
@@ -1367,7 +1467,7 @@ export default function ProjectDetailPage() {
   const costByTrade: Record<string, number> = {};
   for (const r of costRecords) {
     const key = catToTrade(r.category, r.trade).toLowerCase();
-    costByTrade[key] = (costByTrade[key] || 0) + (r.total_amount || 0);
+    costByTrade[key] = (costByTrade[key] || 0) + costAmt(r);
   }
   const activeQ = quotationVersions.find(q => q.is_active);
   const quotedByTrade: Record<string, number> = {};
@@ -1971,11 +2071,12 @@ export default function ProjectDetailPage() {
               };
 
               const WorkerRow = ({ w }: { w: GanttWorkerInfo }) => {
-                const checked = selectedWorkerIds.includes(w.id);
+                const wKey = w.profile_id || w.id;
+                const checked = selectedWorkerIds.includes(wKey);
                 return (
                   <button
-                    key={w.id}
-                    onClick={() => toggleWorker(w.id)}
+                    key={wKey}
+                    onClick={() => toggleWorker(wKey)}
                     className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all border-b border-gray-50 hover:bg-gray-50 ${checked ? 'bg-amber-50' : ''}`}
                   >
                     {/* Checkbox */}
@@ -2022,17 +2123,29 @@ export default function ProjectDetailPage() {
                       </div>
                     </div>
 
-                    {/* Search */}
+                    {/* Search — also searches profiles by phone */}
                     <div className="px-4 pt-3 pb-2">
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                         <input
                           type="text"
-                          placeholder="搜索姓名或电话..."
+                          placeholder="搜索姓名或电话号码..."
                           value={workerSearch}
-                          onChange={e => setWorkerSearch(e.target.value)}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setWorkerSearch(val);
+                            // If input looks like a phone number (4+ digits), search profiles
+                            if (/^\d{4,}/.test(val.replace(/[\s\-+]/g, ''))) {
+                              searchWorkerByPhone(val.replace(/[\s\-+]/g, ''));
+                            } else {
+                              setPhoneSearchResults([]);
+                            }
+                          }}
                           className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#4F8EF7] bg-gray-50"
                         />
+                        {isSearchingPhone && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 animate-spin" />
+                        )}
                       </div>
                     </div>
 
@@ -2055,13 +2168,48 @@ export default function ProjectDetailPage() {
 
                     {/* Worker list */}
                     <div className="flex-1 overflow-y-auto">
-                      {designerWorkers.length === 0 ? (
+                      {/* Phone search results from profiles */}
+                      {phoneSearchResults.length > 0 && (
+                        <>
+                          <div className="px-4 py-2 text-xs font-semibold text-blue-600 bg-blue-50 border-b border-blue-100 flex items-center gap-1.5">
+                            <Phone className="w-3 h-3" />
+                            搜索到已注册工人
+                          </div>
+                          {phoneSearchResults.map(r => (
+                            <div key={r.user_id} className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 bg-blue-50/30">
+                              <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-sm font-bold flex-shrink-0">
+                                {r.name.slice(0, 2).toUpperCase()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-gray-900 text-sm">{r.name}</div>
+                                <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                                  <span className="flex items-center gap-0.5"><Phone className="w-2.5 h-2.5" />{r.phone}</span>
+                                  {r.trades.length > 0 && <span>{r.trades[0]}</span>}
+                                </div>
+                              </div>
+                              {r.alreadyAdded ? (
+                                <span className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-1 rounded-lg">已添加</span>
+                              ) : (
+                                <button
+                                  onClick={() => addWorkerFromSearch(r)}
+                                  className="flex items-center gap-1 text-xs font-semibold text-white bg-[#4F8EF7] hover:bg-[#3B7BE8] px-3 py-1.5 rounded-lg transition-colors"
+                                >
+                                  <UserPlus className="w-3 h-3" />
+                                  添加
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </>
+                      )}
+
+                      {designerWorkers.length === 0 && phoneSearchResults.length === 0 ? (
                         <div className="text-center py-12 text-gray-400">
                           <UserCheck className="w-8 h-8 mx-auto mb-2 opacity-30" />
                           <p className="text-sm">还没有添加工人</p>
-                          <p className="text-xs mt-1">请先在工人管理页面添加工人</p>
+                          <p className="text-xs mt-1 max-w-[200px] mx-auto">输入工人电话号码搜索已注册工人，或在工人管理页面添加</p>
                         </div>
-                      ) : (
+                      ) : designerWorkers.length > 0 ? (
                         <>
                           {/* Recommended */}
                           {filterWorkers(recommended).length > 0 && (
@@ -2081,11 +2229,11 @@ export default function ProjectDetailPage() {
                               {filterWorkers(others).map(w => <WorkerRow key={w.id} w={w} />)}
                             </>
                           )}
-                          {filterWorkers([...recommended, ...others]).length === 0 && (
+                          {filterWorkers([...recommended, ...others]).length === 0 && phoneSearchResults.length === 0 && (
                             <div className="text-center py-8 text-gray-400 text-sm">没有匹配的工人</div>
                           )}
                         </>
-                      )}
+                      ) : null}
                     </div>
 
                     {/* Footer */}
@@ -2451,8 +2599,8 @@ export default function ProjectDetailPage() {
                   .map((photo) => (
                   <div key={photo.id} className="rounded-xl overflow-hidden border border-gray-100 group bg-white shadow-sm">
                     {/* Photo image — click to enlarge */}
-                    <div className="relative cursor-pointer" onClick={() => setLightboxPhoto(photo.url)}>
-                      <img src={photo.url} alt={photo.caption || 'Site photo'} className="w-full aspect-square object-cover" />
+                    <div className="relative cursor-pointer" onClick={() => setLightboxPhoto(photo.url || photo.file_url || '')}>
+                      <img src={photo.url || photo.file_url || ''} alt={photo.caption || 'Site photo'} className="w-full aspect-square object-cover" />
                       {/* Status badge overlay */}
                       <div className="absolute top-2 left-2">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -3454,7 +3602,7 @@ export default function ProjectDetailPage() {
                                 </div>
                               </td>
                               <td className="px-4 py-2.5 text-right font-medium text-gray-900 whitespace-nowrap">
-                                {fmtCurrency(r.total_amount)}
+                                {fmtCurrency(costAmt(r))}
                               </td>
                               <td className="px-3 py-2.5 text-center">
                                 <button
@@ -3664,7 +3812,7 @@ export default function ProjectDetailPage() {
                     {/* Total */}
                     <div className="flex justify-between items-center bg-gray-50 rounded-xl px-4 py-3">
                       <span className="font-semibold text-gray-700">合计</span>
-                      <span className="font-bold text-gray-900 text-base">RM {Number(viewingReceipt.total_amount || 0).toFixed(2)}</span>
+                      <span className="font-bold text-gray-900 text-base">RM {Number(viewingReceipt.amount ?? viewingReceipt.total_amount ?? 0).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
