@@ -346,17 +346,14 @@ function LoginPageContent() {
           </form>
 
           {/* Worker phone login */}
-          <div style={{ margin: '24px 0 0' }}>
+          <div style={{ margin: '12px 0 0' }}>
             <button
               type="button"
               onClick={() => setShowWorkerLogin(!showWorkerLogin)}
-              style={{
-                width: '100%', padding: '10px 0', background: 'transparent', border: 'none',
-                color: '#4F8EF7', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              }}
+              className="w-full h-11 rounded-xl font-semibold shadow-md hover:shadow-lg hover:brightness-110 active:brightness-95 transition-all flex items-center justify-center gap-2 text-sm text-white"
+              style={{ background: 'linear-gradient(to right, #F0B90B, #F7D060, #F0B90B)' }}
             >
-              <Phone size={14} />
+              <Phone size={15} />
               Worker? Sign in with phone number
             </button>
 
