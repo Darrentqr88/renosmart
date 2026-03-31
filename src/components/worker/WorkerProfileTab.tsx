@@ -314,7 +314,7 @@ function ProjectRangeField({ label, minValue, maxValue, onSaveMin, onSaveMax }: 
 export default function WorkerProfileTab({ profile, sessionUserId, tasks }: WorkerProfileTabProps) {
   const supabase = createClient();
   const router = useRouter();
-  const { t } = useI18n();
+  const { lang, setLang, t } = useI18n();
 
   const [receiptCount, setReceiptCount] = useState(0);
   const [rating, setRating] = useState<WorkerRating | null>(null);
@@ -766,6 +766,36 @@ export default function WorkerProfileTab({ profile, sessionUserId, tasks }: Work
               </button>
             </div>
           )}
+        </div>
+
+        {/* Language Selector */}
+        <div className="bg-white rounded-2xl overflow-hidden shadow-sm shadow-gray-200/80">
+          <div className="flex items-center gap-3.5 px-4 py-3">
+            <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Globe className="w-4 h-4 text-blue-500" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-gray-800">
+                {lang === 'ZH' ? '语言' : lang === 'BM' ? 'Bahasa' : 'Language'}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 px-4 pb-4">
+            {([['EN', 'English', '🇬🇧'], ['BM', 'Bahasa', '🇲🇾'], ['ZH', '中文', '🇨🇳']] as const).map(([code, label, flag]) => (
+              <button
+                key={code}
+                onClick={() => setLang(code as 'EN' | 'BM' | 'ZH')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  lang === code
+                    ? 'bg-[#4F8EF7] text-white shadow-sm'
+                    : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                <span>{flag}</span>
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Team Management — Coming Soon */}

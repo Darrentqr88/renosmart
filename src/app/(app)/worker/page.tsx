@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { ClipboardList, CalendarDays, Images, User, Sunrise, Sun, Moon, CheckCircle2, Receipt, HardHat, Clock, MapPin, ArrowRight, Briefcase, Bell, X } from 'lucide-react';
+import { ClipboardList, CalendarDays, Images, User, Sunrise, Sun, Moon, CheckCircle2, Receipt, HardHat, Clock, MapPin, ArrowRight, Briefcase, Bell, X, FolderOpen } from 'lucide-react';
 import { format } from 'date-fns';
 import { useI18n } from '@/lib/i18n/context';
 
@@ -65,6 +65,8 @@ export default function WorkerDashboard() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [taskFilter, setTaskFilter] = useState<'today' | 'upcoming' | 'completed'>('today');
+  const [photosRefreshKey, setPhotosRefreshKey] = useState(0);
 
   // Notifications
   const [notifications, setNotifications] = useState<{ id: string; title: string; body: string; read: boolean; created_at: string; type: string }[]>([]);
@@ -91,12 +93,11 @@ export default function WorkerDashboard() {
         .single();
       setProfile(p);
 
-      // Fetch assigned tasks (active + future)
+      // Fetch all assigned tasks (active + future + completed)
       const { data: t } = await supabase
         .from('gantt_tasks')
         .select('*, projects(id, name, address, site_lat, site_lng)')
         .filter('assigned_workers', 'cs', JSON.stringify([uid]))
-        .gte('end_date', today)
         .order('start_date');
 
       const taskList: WorkerTask[] = (t || []).map((task: Record<string, unknown>) => {
@@ -187,20 +188,26 @@ export default function WorkerDashboard() {
     setActiveTab('photos');
   };
 
-  // Group today's tasks by project
-  const todayTasks = tasks.filter(t => t.start_date <= today && t.end_date >= today);
-  const upcomingTasks = tasks.filter(t => t.start_date > today);
+  // Categorize tasks
+  const todayTasks = tasks.filter(t => t.start_date <= today && t.end_date >= today && t.progress < 100);
+  const upcomingTasks = tasks.filter(t => t.start_date > today && t.progress < 100);
+  const completedTasks = tasks.filter(t => t.progress === 100 || t.end_date < today);
   const completedToday = todayTasks.filter(t => t.progress === 100).length;
 
-  const tasksByProject = projects.map(proj => ({
+  // Get filtered tasks based on active segment
+  const filteredTasks = taskFilter === 'today' ? todayTasks
+    : taskFilter === 'upcoming' ? upcomingTasks
+    : completedTasks;
+
+  const filteredByProject = projects.map(proj => ({
     project: proj,
-    tasks: todayTasks.filter(t => t.project_id === proj.id),
+    tasks: filteredTasks.filter(t => t.project_id === proj.id),
   })).filter(g => g.tasks.length > 0);
 
-  // Projects with no active tasks today (for invoice upload access)
-  const projectsWithNoTodayTasks = projects.filter(
-    proj => !tasksByProject.find(g => g.project.id === proj.id)
-  );
+  // For today tab: projects with no today tasks (show invoice upload)
+  const projectsWithNoTodayTasks = taskFilter === 'today'
+    ? projects.filter(proj => !filteredByProject.find(g => g.project.id === proj.id))
+    : [];
 
   // Greeting
   const hour = new Date().getHours();
@@ -259,105 +266,139 @@ export default function WorkerDashboard() {
         {/* ── TASKS TAB ── */}
         {activeTab === 'tasks' && (
           <div className="flex flex-col h-full">
-            {/* Enhanced Header */}
-            <div className="bg-gradient-to-br from-[#0F1923] via-[#152232] to-[#1A2A3A] text-white px-5 pt-14 pb-5 rounded-b-[28px] relative overflow-hidden">
-              {/* Subtle pattern overlay */}
-              <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+            {/* Header — White with RenoSmart brand frame */}
+            <div className="relative">
+              {/* Top brand accent bar */}
+              <div className="h-[3px] bg-gradient-to-r from-[#4F8EF7] via-[#F0B90B] to-[#4F8EF7]" />
 
-              <div className="relative">
-                {/* Top row: Profile + Actions */}
-                <div className="flex items-start gap-3">
-                  {/* Avatar */}
-                  <div className="rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/20 overflow-hidden" style={{ width: 48, height: 48, background: 'linear-gradient(135deg, #4F8EF7 0%, #3B6FD9 100%)' }}>
-                    {profile?.avatar_url ? (
-                      <img src={profile.avatar_url} alt={profile.name || 'Avatar'} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-white font-bold text-base">{getInitials(profile?.name)}</span>
-                    )}
+              {/* White background with subtle warmth */}
+              <div className="bg-white pt-10 pb-4 px-5 relative overflow-hidden">
+                {/* Faint brand watermark — top right */}
+                <div className="absolute -top-6 -right-6 w-[140px] h-[140px] rounded-full border-[20px] border-[#4F8EF7]/[0.03]" />
+
+                {/* Top bar: Date + Bell */}
+                <div className="flex items-center justify-between mb-5 relative">
+                  <div className="flex items-center gap-2">
+                    <div className="w-[6px] h-[6px] rounded-[2px] bg-[#F0B90B]" />
+                    <p className="text-gray-400 text-[11px] font-semibold tracking-[0.06em]">
+                      {format(new Date(), 'EEE, d MMM yyyy').toUpperCase()}
+                    </p>
                   </div>
-                  {/* Name + Company */}
-                  <div className="flex-1 min-w-0 pt-0.5">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <GIcon className="w-3.5 h-3.5 text-amber-400/60" />
-                      <p className="text-white/50 text-[11px] font-medium">{greetText}</p>
+                  <button
+                    onClick={() => setShowNotifPanel(true)}
+                    className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-[#F5F6FA] hover:bg-[#EDEEF2] border border-gray-100 transition-all active:scale-90"
+                  >
+                    <Bell style={{ width: 15, height: 15 }} className="text-gray-400" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-[#EF4444] text-white text-[8px] font-bold rounded-full flex items-center justify-center px-0.5 ring-2 ring-white">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {/* Profile row */}
+                <div className="flex items-center gap-3.5">
+                  {/* Avatar with brand-colored ring */}
+                  <div className="relative flex-shrink-0">
+                    <div className="w-[54px] h-[54px] rounded-[16px] p-[2px] bg-gradient-to-br from-[#4F8EF7] to-[#F0B90B] shadow-md shadow-[#4F8EF7]/10">
+                      <div className="w-full h-full rounded-[14px] overflow-hidden bg-white">
+                        {profile?.avatar_url ? (
+                          <img src={profile.avatar_url} alt={profile.name || 'Avatar'} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="w-full h-full flex items-center justify-center text-[#4F8EF7] font-bold text-lg bg-[#4F8EF7]/8">{getInitials(profile?.name)}</span>
+                        )}
+                      </div>
                     </div>
-                    <h1 className="font-bold text-lg leading-tight truncate">{profile?.name || 'Worker'}</h1>
+                    <div className="absolute -bottom-[2px] -right-[2px] w-4 h-4 bg-emerald-400 rounded-full border-[2.5px] border-white shadow-sm" />
+                  </div>
+
+                  {/* Name block */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <GIcon className="w-3 h-3 text-[#F0B90B]" />
+                      <p className="text-gray-400 text-[10px] font-medium">{greetText}</p>
+                    </div>
+                    <h1 className="font-bold text-[18px] leading-none truncate text-gray-900">{profile?.name || 'Worker'}</h1>
                     {profile?.company && (
-                      <p className="text-white/35 text-[11px] truncate mt-0.5">{profile.company}</p>
+                      <p className="text-gray-300 text-[10px] truncate mt-1">{profile.company}</p>
                     )}
                   </div>
-                  {/* Bell + Date */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => setShowNotifPanel(true)}
-                      className="relative p-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.15] transition-colors"
-                    >
-                      <Bell className="text-white/60" style={{ width: 17, height: 17 }} />
-                      {unreadCount > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center px-0.5 shadow-sm shadow-red-500/40">
-                          {unreadCount > 9 ? '9+' : unreadCount}
+
+                  {/* Trade badges — stacked on right */}
+                  {((profile?.trades as string[]) || []).length > 0 && (
+                    <div className="flex flex-col gap-1 flex-shrink-0 items-end">
+                      {((profile?.trades as string[]) || []).slice(0, 3).map(trade => (
+                        <span
+                          key={trade}
+                          className="text-[9px] px-2 py-[3px] rounded-md font-semibold whitespace-nowrap"
+                          style={{
+                            background: `${TRADE_COLORS[trade] || '#4F8EF7'}10`,
+                            color: TRADE_COLORS[trade] || '#4F8EF7',
+                            border: `1px solid ${TRADE_COLORS[trade] || '#4F8EF7'}20`,
+                          }}
+                        >
+                          {trade}
+                        </span>
+                      ))}
+                      {((profile?.trades as string[]) || []).length > 3 && (
+                        <span className="text-[9px] px-2 py-[3px] rounded-md bg-gray-50 text-gray-300 font-medium border border-gray-100">
+                          +{((profile?.trades as string[]) || []).length - 3}
                         </span>
                       )}
-                    </button>
-                    <div className="bg-white/[0.06] rounded-xl px-2.5 py-1.5 text-center border border-white/[0.05]">
-                      <p className="text-white/60 text-sm font-bold leading-none">{format(new Date(), 'd')}</p>
-                      <p className="text-white/25 text-[9px] font-medium mt-0.5">{format(new Date(), 'MMM')}</p>
                     </div>
-                  </div>
+                  )}
                 </div>
 
-                {/* Trade badges - compact */}
-                {((profile?.trades as string[]) || []).length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-3">
-                    {((profile?.trades as string[]) || []).slice(0, 5).map(trade => (
-                      <span
-                        key={trade}
-                        className="text-[10px] px-2.5 py-1 rounded-full font-semibold"
-                        style={{
-                          background: `${TRADE_COLORS[trade] || '#4F8EF7'}20`,
-                          color: TRADE_COLORS[trade] || '#4F8EF7',
-                        }}
+                {/* Segment tabs — clean with brand accent */}
+                <div className="mt-5 bg-[#F5F6FA] rounded-2xl p-1 grid grid-cols-3 gap-1">
+                  {([
+                    { key: 'today' as const, count: todayTasks.length, label: t.worker.todaysTasks, color: '#4F8EF7' },
+                    { key: 'upcoming' as const, count: upcomingTasks.length, label: t.worker.upcoming, color: '#F0B90B' },
+                    { key: 'completed' as const, count: completedTasks.length, label: t.worker.complete, color: '#10B981' },
+                  ]).map((tab) => {
+                    const isActive = taskFilter === tab.key;
+                    return (
+                      <button
+                        key={tab.key}
+                        onClick={() => setTaskFilter(tab.key)}
+                        className={`relative py-2.5 rounded-xl text-center transition-all duration-200 ${
+                          isActive
+                            ? 'bg-white shadow-sm shadow-gray-200/60 border border-gray-100'
+                            : 'hover:bg-white/60 active:scale-[0.96] border border-transparent'
+                        }`}
                       >
-                        {trade}
-                      </span>
-                    ))}
-                    {((profile?.trades as string[]) || []).length > 5 && (
-                      <span className="text-[10px] px-2.5 py-1 rounded-full bg-white/10 text-white/50 font-medium">
-                        +{((profile?.trades as string[]) || []).length - 5}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Stats row — 4 columns */}
-                <div className="grid grid-cols-4 gap-2 mt-4">
-                  <div className="bg-white/[0.07] rounded-xl px-2 py-2.5 text-center border border-white/[0.06]">
-                    <p className="text-xl font-bold text-[#4F8EF7] leading-none">{todayTasks.length}</p>
-                    <p className="text-[10px] text-white/40 font-medium mt-1.5 leading-tight">{t.worker.todaysTasks}</p>
-                  </div>
-                  <div className="bg-white/[0.07] rounded-xl px-2 py-2.5 text-center border border-white/[0.06]">
-                    <p className="text-xl font-bold text-emerald-400 leading-none">{completedToday}</p>
-                    <p className="text-[10px] text-white/40 font-medium mt-1.5 leading-tight">{t.worker.complete}</p>
-                  </div>
-                  <div className="bg-white/[0.07] rounded-xl px-2 py-2.5 text-center border border-white/[0.06]">
-                    <p className="text-xl font-bold text-amber-400 leading-none">{upcomingTasks.length}</p>
-                    <p className="text-[10px] text-white/40 font-medium mt-1.5 leading-tight">{t.worker.upcoming}</p>
-                  </div>
-                  <div className="bg-white/[0.07] rounded-xl px-2 py-2.5 text-center border border-white/[0.06]">
-                    <p className="text-xl font-bold text-purple-400 leading-none">{projects.length}</p>
-                    <p className="text-[10px] text-white/40 font-medium mt-1.5 leading-tight">{t.worker.activeProjects}</p>
-                  </div>
+                        <p
+                          className="text-[18px] font-bold leading-none transition-colors"
+                          style={{ color: isActive ? tab.color : '#CBD5E1' }}
+                        >
+                          {tab.count}
+                        </p>
+                        <p
+                          className="text-[8px] font-semibold mt-1.5 uppercase tracking-[0.08em] leading-tight transition-colors"
+                          style={{ color: isActive ? tab.color : '#94A3B8' }}
+                        >
+                          {tab.label}
+                        </p>
+                        {isActive && (
+                          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-[2.5px] rounded-full" style={{ background: tab.color }} />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+
+              {/* Bottom brand accent line */}
+              <div className="h-[2px] bg-gradient-to-r from-transparent via-[#4F8EF7]/20 to-transparent" />
             </div>
 
             {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto px-4 pt-5 pb-4">
+            <div className="flex-1 overflow-y-auto px-4 pt-3 pb-4">
 
               {/* ── EMPTY STATE: No projects at all ── */}
               {hasNoProjects ? (
                 <div className="flex flex-col items-center justify-center py-6">
-                  {/* Illustration */}
                   <div className="relative mb-5">
                     <div className="w-24 h-24 rounded-[28px] bg-gradient-to-br from-[#4F8EF7]/12 to-[#4F8EF7]/4 flex items-center justify-center border border-[#4F8EF7]/8">
                       <HardHat className="w-11 h-11 text-[#4F8EF7]/35" strokeWidth={1.5} />
@@ -374,7 +415,6 @@ export default function WorkerDashboard() {
                     {t.worker.welcomeDesc}
                   </p>
 
-                  {/* Step indicator */}
                   <div className="w-full bg-gradient-to-r from-[#4F8EF7]/5 via-[#4F8EF7]/8 to-[#4F8EF7]/5 rounded-2xl px-4 py-3 mb-4 border border-[#4F8EF7]/10">
                     <div className="flex items-center gap-2 mb-1.5">
                       <div className="w-5 h-5 rounded-full bg-[#4F8EF7] flex items-center justify-center">
@@ -384,12 +424,11 @@ export default function WorkerDashboard() {
                     </div>
                   </div>
 
-                  {/* Guide cards */}
                   <div className="w-full space-y-2.5">
                     {[
-                      { icon: <Briefcase className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />, color: '#4F8EF7', title: t.worker.waitingAssignment, desc: t.worker.waitingAssignmentDesc, step: '1' },
-                      { icon: <User className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />, color: '#10B981', title: t.worker.completeProfile, desc: t.worker.completeProfileDesc, action: () => setActiveTab('profile'), step: '2' },
-                      { icon: <Receipt className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />, color: '#F59E0B', title: t.worker.uploadPastReceipts, desc: t.worker.uploadPastReceiptsDesc, action: () => setActiveTab('receipts'), step: '3' },
+                      { icon: <Briefcase className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />, color: '#4F8EF7', title: t.worker.waitingAssignment, desc: t.worker.waitingAssignmentDesc },
+                      { icon: <User className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />, color: '#10B981', title: t.worker.completeProfile, desc: t.worker.completeProfileDesc, action: () => setActiveTab('profile') },
+                      { icon: <Receipt className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />, color: '#F59E0B', title: t.worker.uploadPastReceipts, desc: t.worker.uploadPastReceiptsDesc, action: () => setActiveTab('receipts') },
                     ].map((card, i) => (
                       <button
                         key={i}
@@ -416,48 +455,62 @@ export default function WorkerDashboard() {
                   </div>
                 </div>
 
-              ) : (
-                <>
-                  {/* ── Today's tasks (has tasks but none today) ── */}
-                  {tasksByProject.length === 0 && !hasNoProjects ? (
-                    <div className="text-center py-6">
-                      <div className="w-14 h-14 bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-emerald-100">
-                        <CheckCircle2 className="w-7 h-7 text-emerald-500" />
-                      </div>
-                      <p className="font-bold text-gray-800 text-sm">{t.worker.doneForToday}</p>
-                      <p className="text-gray-400 text-[11px] mt-1 max-w-[220px] mx-auto leading-relaxed">
-                        {t.worker.checkSchedule}
-                      </p>
-                      {upcomingTasks.length > 0 && (
-                        <button
-                          onClick={() => setActiveTab('schedule')}
-                          className="mt-3.5 inline-flex items-center gap-1.5 px-4 py-2 bg-[#4F8EF7]/8 text-[#4F8EF7] rounded-xl text-xs font-semibold transition-all active:scale-95 border border-[#4F8EF7]/10"
-                        >
-                          <CalendarDays className="w-3.5 h-3.5" />
-                          {t.worker.viewAll} ({upcomingTasks.length})
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    /* ── Active task cards ── */
-                    <div className="space-y-0">
-                      {tasksByProject.map(({ project, tasks: projTasks }) => (
-                        <WorkerProjectCard
-                          key={project.id}
-                          project={project}
-                          tasks={projTasks}
-                          sessionUserId={sessionUserId || ''}
-                          profileName={profile?.name || 'Worker'}
-                          onProgressChange={handleProgressChange}
-                          onSubtaskToggle={handleSubtaskToggle}
-                          onComplete={handleComplete}
-                          onPhotoClick={handlePhotoClick}
-                        />
-                      ))}
-                    </div>
+              ) : filteredByProject.length === 0 && projectsWithNoTodayTasks.length === 0 ? (
+                /* ── Empty state per filter ── */
+                <div className="text-center py-10">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 border"
+                    style={{
+                      background: taskFilter === 'today' ? '#4F8EF712' : taskFilter === 'upcoming' ? '#F59E0B12' : '#10B98112',
+                      borderColor: taskFilter === 'today' ? '#4F8EF720' : taskFilter === 'upcoming' ? '#F59E0B20' : '#10B98120',
+                    }}
+                  >
+                    {taskFilter === 'today' ? (
+                      <CheckCircle2 className="w-7 h-7 text-emerald-500" />
+                    ) : taskFilter === 'upcoming' ? (
+                      <CalendarDays className="w-7 h-7 text-amber-500" />
+                    ) : (
+                      <FolderOpen className="w-7 h-7 text-emerald-500" />
+                    )}
+                  </div>
+                  <p className="font-bold text-gray-800 text-sm">
+                    {taskFilter === 'today' ? t.worker.doneForToday
+                      : taskFilter === 'upcoming' ? 'No upcoming tasks'
+                      : 'No completed tasks yet'}
+                  </p>
+                  <p className="text-gray-400 text-[11px] mt-1 max-w-[220px] mx-auto leading-relaxed">
+                    {taskFilter === 'today' ? t.worker.checkSchedule
+                      : taskFilter === 'upcoming' ? 'All caught up! Check back later for new assignments.'
+                      : 'Completed tasks will appear here as you finish your work.'}
+                  </p>
+                  {taskFilter === 'today' && upcomingTasks.length > 0 && (
+                    <button
+                      onClick={() => setTaskFilter('upcoming')}
+                      className="mt-3.5 inline-flex items-center gap-1.5 px-4 py-2 bg-[#4F8EF7]/8 text-[#4F8EF7] rounded-xl text-xs font-semibold transition-all active:scale-95 border border-[#4F8EF7]/10"
+                    >
+                      <CalendarDays className="w-3.5 h-3.5" />
+                      View Upcoming ({upcomingTasks.length})
+                    </button>
                   )}
+                </div>
+              ) : (
+                /* ── Project cards with tasks ── */
+                <div className="space-y-0">
+                  {filteredByProject.map(({ project, tasks: projTasks }) => (
+                    <WorkerProjectCard
+                      key={project.id}
+                      project={project}
+                      tasks={projTasks}
+                      sessionUserId={sessionUserId || ''}
+                      profileName={profile?.name || 'Worker'}
+                      onProgressChange={handleProgressChange}
+                      onSubtaskToggle={handleSubtaskToggle}
+                      onComplete={handleComplete}
+                      onPhotoClick={handlePhotoClick}
+                      onPhotoUploaded={() => setPhotosRefreshKey(k => k + 1)}
+                    />
+                  ))}
 
-                  {/* Projects with no today tasks — show invoice upload only */}
+                  {/* Today tab: projects with no today tasks — invoice upload access */}
                   {projectsWithNoTodayTasks.map(proj => (
                     <WorkerProjectCard
                       key={proj.id}
@@ -469,65 +522,10 @@ export default function WorkerDashboard() {
                       onSubtaskToggle={handleSubtaskToggle}
                       onComplete={handleComplete}
                       onPhotoClick={handlePhotoClick}
+                      onPhotoUploaded={() => setPhotosRefreshKey(k => k + 1)}
                     />
                   ))}
-
-                  {/* Upcoming tasks */}
-                  {upcomingTasks.length > 0 && tasksByProject.length > 0 && (
-                    <div className="mt-6">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                          {t.worker.upcoming}
-                        </h3>
-                        <span className="text-[10px] font-semibold text-[#4F8EF7] bg-[#4F8EF7]/8 px-2 py-0.5 rounded-full">
-                          {upcomingTasks.length}
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {upcomingTasks.slice(0, 5).map(task => (
-                          <div
-                            key={task.id}
-                            onClick={() => setActiveTab('schedule')}
-                            className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3.5 border border-gray-100 cursor-pointer active:bg-gray-50 transition-colors"
-                          >
-                            <div
-                              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                              style={{ background: `${task.color}12` }}
-                            >
-                              <div className="w-2.5 h-2.5 rounded-full" style={{ background: task.color }} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[13px] font-semibold text-gray-800 truncate">{task.name}</p>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <MapPin className="w-3 h-3 text-gray-300" />
-                                <p className="text-[11px] text-gray-400 truncate">{task.project_name}</p>
-                              </div>
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <p className="text-[11px] font-semibold text-gray-500">
-                                {format(new Date(task.start_date), 'd MMM')}
-                              </p>
-                              <span
-                                className="text-[10px] px-2 py-0.5 rounded-full font-semibold mt-0.5 inline-block"
-                                style={{ background: `${task.color}12`, color: task.color }}
-                              >
-                                {task.trade}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                        {upcomingTasks.length > 5 && (
-                          <button
-                            onClick={() => setActiveTab('schedule')}
-                            className="w-full py-3 text-xs text-[#4F8EF7] font-semibold text-center rounded-2xl bg-[#4F8EF7]/5 transition-all active:scale-[0.98]"
-                          >
-                            {t.worker.viewAll} ({upcomingTasks.length}) <ArrowRight className="w-3 h-3 inline ml-1" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -571,9 +569,9 @@ export default function WorkerDashboard() {
             </div>
             <div className="flex-1 overflow-y-auto">
               <WorkerPhotosTab
+                key={photosRefreshKey}
                 sessionUserId={sessionUserId}
                 projects={projects}
-                preselectedTaskId={preselectedPhotoTask?.id || null}
               />
             </div>
           </div>
@@ -699,6 +697,7 @@ export default function WorkerDashboard() {
                 key={tabId}
                 onClick={() => {
                   setActiveTab(tabId);
+                  if (tabId === 'photos') setPhotosRefreshKey(k => k + 1);
                   if (tabId !== 'photos') setPreselectedPhotoTask(null);
                 }}
                 style={{ touchAction: 'manipulation', minHeight: 56 }}

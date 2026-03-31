@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { MapPin, ChevronDown, ChevronUp, Receipt, Loader2, CheckCircle2, X, Upload, Camera, Check } from 'lucide-react';
+import { MapPin, ChevronDown, ChevronUp, Receipt, Loader2, CheckCircle2, X, Upload, Camera, Check, Navigation } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { watchGeofence } from '@/lib/utils/geofence';
 import { useI18n } from '@/lib/i18n/context';
@@ -49,6 +49,7 @@ interface WorkerProjectCardProps {
   onSubtaskToggle: (taskId: string, subtaskId: string) => void;
   onComplete: (taskId: string) => void;
   onPhotoClick: (task: WorkerTask) => void;
+  onPhotoUploaded?: () => void;
 }
 
 export default function WorkerProjectCard({
@@ -60,6 +61,7 @@ export default function WorkerProjectCard({
   onSubtaskToggle,
   onComplete,
   onPhotoClick,
+  onPhotoUploaded,
 }: WorkerProjectCardProps) {
   const supabase = createClient();
   const { t } = useI18n();
@@ -68,6 +70,7 @@ export default function WorkerProjectCard({
 
   const [tasksExpanded, setTasksExpanded] = useState(true);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [invoiceTrade, setInvoiceTrade] = useState<string | null>(null);
 
   // Check-in state (persisted per project in localStorage)
   const storageKey = `checkin_${project.id}_${today}`;
@@ -376,7 +379,7 @@ export default function WorkerProjectCard({
       const rawCategory = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'other';
       const mappedCategory = CATEGORY_MAP[rawCategory] || 'Other';
 
-      // 3. Insert cost record with receipt_url and proper categorization
+      // 3. Insert cost record with receipt_url, trade from task, and proper categorization
       await supabase.from('cost_records').insert({
         project_id: project.id,
         user_id: sessionUserId,
@@ -386,6 +389,8 @@ export default function WorkerProjectCard({
         receipt_number: ocrResult.receipt_number || null,
         category: rawCategory,
         subcategory: mappedCategory,
+        trade: invoiceTrade || null,
+        work_item: invoiceTrade || null,
         description: ocrResult.supplier || 'Receipt',
         amount: ocrResult.total_amount,
         items: ocrResult.items,
@@ -405,82 +410,62 @@ export default function WorkerProjectCard({
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
-      {/* Project header */}
-      <div className="px-4 pt-4 pb-3 border-b border-gray-50">
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <h2 className="font-bold text-gray-900 text-base truncate">{project.name}</h2>
-            {project.address && (
-              <div className="flex items-center gap-1 mt-0.5">
-                <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                <p className="text-[11px] text-gray-400 truncate">{project.address}</p>
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-3">
+      {/* Project header — name + address with navigation */}
+      <div className="px-4 pt-3.5 pb-3">
+        <div className="flex items-center gap-2 mb-1.5">
+          <h2 className="font-bold text-gray-900 text-[15px] truncate">{project.name}</h2>
+          <span className="text-[10px] font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded flex-shrink-0">
+            {tasks.length} task{tasks.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+        {project.address && (
+          <div className="flex items-start gap-1.5">
+            <MapPin className="w-3.5 h-3.5 text-[#4F8EF7] flex-shrink-0 mt-0.5" />
+            <p className="text-[12px] text-gray-600 leading-relaxed flex-1">{project.address}</p>
+          </div>
+        )}
+        {/* Navigation buttons */}
+        {project.address && (
+          <div className="flex items-center gap-2 mt-2">
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(project.address)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 rounded-lg text-[10px] font-semibold text-blue-600 hover:bg-blue-100 transition-colors active:scale-95"
+            >
+              <Navigation className="w-3 h-3" />
+              Google Maps
+            </a>
+            <a
+              href={`https://waze.com/ul?q=${encodeURIComponent(project.address)}&navigate=yes`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#33CCFF]/10 rounded-lg text-[10px] font-semibold text-[#05C8F7] hover:bg-[#33CCFF]/20 transition-colors active:scale-95"
+            >
+              <Navigation className="w-3 h-3" />
+              Waze
+            </a>
+            {/* Check-in status pill */}
+            {checkin.status === 'checked_in' && (
+              <div className="ml-auto flex items-center gap-1 px-2 py-1 bg-green-50 border border-green-100 rounded-lg">
+                <CheckCircle2 className="w-3 h-3 text-green-500" />
+                <span className="text-[10px] font-semibold text-green-600">{checkin.time}</span>
+              </div>
+            )}
+            {checkin.status === 'checked_out' && (
+              <div className="ml-auto flex items-center gap-1 px-2 py-1 bg-gray-50 rounded-lg">
+                <CheckCircle2 className="w-3 h-3 text-gray-400" />
+                <span className="text-[10px] text-gray-400">{checkin.time}–{checkin.checkoutTime}</span>
               </div>
             )}
           </div>
-          <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
-            <span className="text-[11px] font-semibold text-gray-500">{tasks.length} task{tasks.length !== 1 ? 's' : ''}</span>
-          </div>
-        </div>
-
-        {/* GPS Check-in button */}
-        <div className="mt-3">
-          {checkin.status === 'idle' && (
-            <button
-              onClick={handleCheckin}
-              style={{ touchAction: 'manipulation' }}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#4F8EF7] text-white rounded-xl text-sm font-semibold transition-colors active:scale-[0.97]"
-            >
-              <MapPin className="w-4 h-4" />
-              {t.worker.checkIn}
-            </button>
-          )}
-          {checkin.status === 'detecting' && (
-            <div className="w-full flex items-center justify-center gap-2 py-2.5 bg-amber-50 rounded-xl text-sm text-amber-700">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              {t.worker.detectingLocation}
-            </div>
-          )}
-          {checkin.status === 'checked_in' && (
-            <div className="flex gap-2">
-              <div className="flex-1 flex items-center gap-2 py-2.5 px-3 bg-green-50 border border-green-200 rounded-xl">
-                <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                <div>
-                  <p className="text-[12px] font-semibold text-green-700">{t.worker.checkedIn}</p>
-                  <p className="text-[10px] text-green-500">{checkin.time}</p>
-                </div>
-              </div>
-              <button
-                onClick={handleCheckout}
-                className="px-4 py-2.5 bg-gray-100 rounded-xl text-xs font-medium text-gray-600 hover:bg-gray-200 transition-colors"
-              >
-                {t.worker.checkOut}
-              </button>
-            </div>
-          )}
-          {checkin.status === 'checked_out' && (
-            <div className="flex items-center gap-2 py-2 px-3 bg-gray-50 rounded-xl">
-              <CheckCircle2 className="w-4 h-4 text-gray-400" />
-              <p className="text-[11px] text-gray-500">
-                {checkin.time} → {checkin.checkoutTime} · {t.worker.doneForToday}
-              </p>
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* Tasks toggle */}
-      <button
-        onClick={() => setTasksExpanded(!tasksExpanded)}
-        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors"
-      >
-        <span className="text-[12px] font-semibold text-gray-600">{t.worker.todaysTasks} ({tasks.length})</span>
-        {tasksExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-      </button>
-
-      {/* Task cards */}
-      {tasksExpanded && (
-        <div className="px-3 pb-3 space-y-3">
+      {/* Task cards — directly embedded, no toggle */}
+      {tasks.length > 0 && (
+        <div className="px-3 pb-2 space-y-2">
           {tasks.map(task => (
             <WorkerTaskCard
               key={task.id}
@@ -491,22 +476,47 @@ export default function WorkerProjectCard({
               onSubtaskToggle={onSubtaskToggle}
               onComplete={onComplete}
               onPhotoClick={onPhotoClick}
-              onReceiptClick={() => setInvoiceOpen(true)}
+              onReceiptClick={() => { setInvoiceOpen(true); setInvoiceStep('idle'); setOcrError(null); setInvoiceTrade(task.trade || null); }}
+              onPhotoUploaded={onPhotoUploaded}
             />
           ))}
         </div>
       )}
 
-      {/* Invoice upload button */}
-      <div className="px-4 pb-4">
-        <button
-          onClick={() => { setInvoiceOpen(true); setInvoiceStep('idle'); setOcrError(null); }}
-          style={{ touchAction: 'manipulation' }}
-          className="w-full flex items-center justify-center gap-2 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm font-semibold text-amber-700 transition-colors active:scale-[0.97]"
-        >
-          <Receipt className="w-4 h-4" />
-          {t.worker.uploadInvoice}
-        </button>
+      {/* Check-in / Check-out bar */}
+      <div className="px-3 pb-3">
+        {checkin.status === 'idle' && (
+          <button
+            onClick={handleCheckin}
+            style={{ touchAction: 'manipulation' }}
+            className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#4F8EF7] text-white rounded-xl text-[12px] font-semibold transition-all active:scale-[0.97] shadow-sm shadow-[#4F8EF7]/20"
+          >
+            <MapPin className="w-4 h-4" />
+            {t.worker.checkIn}
+          </button>
+        )}
+        {checkin.status === 'detecting' && (
+          <div className="w-full flex items-center justify-center gap-2 py-2.5 bg-amber-50 border border-amber-200/50 rounded-xl text-[12px] font-medium text-amber-600">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            {'Detecting location...'}
+          </div>
+        )}
+        {checkin.status === 'checked_in' && (
+          <button
+            onClick={handleCheckout}
+            style={{ touchAction: 'manipulation' }}
+            className="w-full flex items-center justify-center gap-2 py-2.5 bg-gray-100 rounded-xl text-[12px] font-semibold text-gray-600 transition-all active:scale-[0.97] hover:bg-gray-200"
+          >
+            <CheckCircle2 className="w-4 h-4 text-green-500" />
+            {t.worker.checkOut} · {checkin.time}
+          </button>
+        )}
+        {checkin.status === 'checked_out' && (
+          <div className="w-full flex items-center justify-center gap-2 py-2 bg-gray-50 rounded-xl text-[11px] text-gray-400">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            {t.worker.checkIn} {checkin.time} — {t.worker.checkOut} {checkin.checkoutTime}
+          </div>
+        )}
       </div>
 
       {/* Invoice modal */}

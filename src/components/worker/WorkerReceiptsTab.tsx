@@ -85,7 +85,7 @@ export default function WorkerReceiptsTab({ userId }: WorkerReceiptsTabProps) {
 
   const totalAmount = filtered.reduce((sum, r) => sum + (r.amount || 0), 0);
   const thisMonth = new Date().toISOString().slice(0, 7);
-  const thisMonthCount = filtered.filter(r => r.receipt_date?.startsWith(thisMonth)).length;
+  const thisMonthCount = filtered.filter(r => r.created_at?.startsWith(thisMonth)).length;
 
   const getCategoryDisplay = (rec: CostRecord) => rec.subcategory || rec.category || 'Other';
 

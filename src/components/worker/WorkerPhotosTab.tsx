@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Camera, Upload, X, CheckCircle2, Clock, Loader2, Images } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Camera, CheckCircle2, Clock, Loader2, ChevronLeft, FolderOpen, Image } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { ProjectSummary } from './WorkerProjectCard';
 import { useI18n } from '@/lib/i18n/context';
@@ -16,47 +16,19 @@ interface SitePhoto {
   project_id?: string;
 }
 
-const PHOTO_TYPES = [
-  { value: 'before', labelEN: 'Before', labelZH: '\u65BD\u5DE5\u524D', labelBM: 'Sebelum' },
-  { value: 'during', labelEN: 'During', labelZH: '\u65BD\u5DE5\u4E2D', labelBM: 'Semasa' },
-  { value: 'inspection', labelEN: 'Inspection', labelZH: '\u9690\u853D\u9A8C\u6536', labelBM: 'Pemeriksaan' },
-  { value: 'test', labelEN: 'Test Record', labelZH: '\u6D4B\u8BD5\u8BB0\u5F55', labelBM: 'Rekod Ujian' },
-  { value: 'after', labelEN: 'After', labelZH: '\u5B8C\u5DE5\u540E', labelBM: 'Selepas' },
-];
-
-const WORKER_TRADES = [
-  'Plumbing', 'Electrical', 'Tiling', 'False Ceiling', 'Carpentry',
-  'Painting', 'Demolition', 'Glass Work', 'Aluminium Work', 'Metal Work',
-  'Flooring', 'Stone/Marble', 'Waterproofing', 'Air Conditioning', 'Cleaning',
-  'Alarm & CCTV', 'Landscaping', 'Other',
-];
-
 interface WorkerPhotosTabProps {
   sessionUserId: string;
   projects: ProjectSummary[];
-  preselectedTaskId?: string | null;
 }
 
-export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTaskId }: WorkerPhotosTabProps) {
+export default function WorkerPhotosTab({ sessionUserId, projects }: WorkerPhotosTabProps) {
   const supabase = createClient();
   const { lang } = useI18n();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const getPhotoLabel = (pt: typeof PHOTO_TYPES[number]) => lang === 'ZH' ? pt.labelZH : lang === 'BM' ? pt.labelBM : pt.labelEN;
 
   const [photos, setPhotos] = useState<SitePhoto[]>([]);
   const [loadingPhotos, setLoadingPhotos] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [uploadOpen, setUploadOpen] = useState(!!preselectedTaskId);
-
-  // Upload form state
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [selectedProjectId, setSelectedProjectId] = useState('');
-  const [caption, setCaption] = useState('');
-  const [photoType, setPhotoType] = useState('during');
-  const [selectedTrade, setSelectedTrade] = useState('');
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadDone, setUploadDone] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<SitePhoto | null>(null);
 
   useEffect(() => {
     fetchPhotos();
@@ -69,84 +41,139 @@ export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTa
       .select('id, url, caption, trade, approved, created_at, project_id')
       .eq('uploaded_by', sessionUserId)
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(200);
     setPhotos(data || []);
     setLoadingPhotos(false);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setSelectedFile(file);
-    if (file.type.startsWith('image/')) {
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
+  // Group photos by project
+  const photosByProject = (() => {
+    const map = new Map<string, SitePhoto[]>();
+    for (const p of photos) {
+      const pid = p.project_id || '__unlinked__';
+      if (!map.has(pid)) map.set(pid, []);
+      map.get(pid)!.push(p);
     }
+    return map;
+  })();
+
+  const getProjectName = (pid: string) => {
+    if (pid === '__unlinked__') return lang === 'ZH' ? '未分类' : lang === 'BM' ? 'Tidak dikategori' : 'Uncategorized';
+    return projects.find(p => p.id === pid)?.name || (lang === 'ZH' ? '工程' : 'Project');
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile) return;
-    setUploading(true);
-    setUploadError(null);
-    try {
-      // Upload to storage
-      const ext = selectedFile.name.split('.').pop() || 'jpg';
-      const path = `${sessionUserId}/${Date.now()}.${ext}`;
-      const { error: storageError } = await supabase.storage
-        .from('site-photos')
-        .upload(path, selectedFile, { contentType: selectedFile.type, upsert: false });
+  // Projects that have photos (ordered by most recent photo)
+  const projectIds = Array.from(photosByProject.keys());
 
-      let publicUrl = '';
-      if (storageError) {
-        // Fall back to storing without actual file (demo mode)
-        publicUrl = previewUrl || '';
-      } else {
-        const { data: { publicUrl: url } } = supabase.storage.from('site-photos').getPublicUrl(path);
-        publicUrl = url;
-      }
+  const selectedProjectPhotos = selectedProjectId ? (photosByProject.get(selectedProjectId) || []) : [];
 
-      // Save to DB
-      await supabase.from('site_photos').insert({
-        project_id: selectedProjectId || null,
-        user_id: sessionUserId,
-        uploaded_by: sessionUserId,
-        url: publicUrl,
-        caption: `[${photoType}] ${caption}`.trim(),
-        trade: selectedTrade || null,
-        approved: false,
-      });
-
-      setUploadDone(true);
-      await fetchPhotos();
-      setTimeout(() => {
-        setUploadOpen(false);
-        setUploadDone(false);
-        setSelectedFile(null);
-        setPreviewUrl(null);
-        setCaption('');
-        setPhotoType('during');
-      }, 1500);
-    } catch {
-      setUploadError('Upload failed. Please try again.');
-    } finally {
-      setUploading(false);
-    }
+  const labels = {
+    title: lang === 'ZH' ? '照片相册' : lang === 'BM' ? 'Album Foto' : 'Photo Album',
+    projects: lang === 'ZH' ? '个工程' : lang === 'BM' ? ' projek' : ' projects',
+    photos: lang === 'ZH' ? '张照片' : lang === 'BM' ? ' foto' : ' photos',
+    noPhotos: lang === 'ZH' ? '还没有照片' : lang === 'BM' ? 'Tiada foto lagi' : 'No photos yet',
+    noPhotosHint: lang === 'ZH' ? '从任务卡片上传工地照片' : lang === 'BM' ? 'Muat naik foto dari kad tugas' : 'Upload photos from task cards',
+    back: lang === 'ZH' ? '返回' : lang === 'BM' ? 'Kembali' : 'Back',
+    approved: lang === 'ZH' ? '已批准' : lang === 'BM' ? 'Diluluskan' : 'Approved',
+    pending: lang === 'ZH' ? '待审核' : lang === 'BM' ? 'Menunggu' : 'Pending',
   };
 
+  // ── Lightbox view ──
+  if (selectedPhoto) {
+    return (
+      <div className="flex flex-col h-full bg-black">
+        <div className="flex items-center gap-3 px-4 py-3 bg-black/80">
+          <button onClick={() => setSelectedPhoto(null)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+            <ChevronLeft className="w-5 h-5 text-white" />
+          </button>
+          <div className="flex-1 min-w-0">
+            {selectedPhoto.caption && (
+              <p className="text-white text-xs truncate">{selectedPhoto.caption}</p>
+            )}
+            {selectedPhoto.trade && (
+              <p className="text-white/50 text-[10px]">{selectedPhoto.trade}</p>
+            )}
+          </div>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+            selectedPhoto.approved ? 'bg-green-500/90 text-white' : 'bg-amber-500/90 text-white'
+          }`}>
+            {selectedPhoto.approved ? labels.approved : labels.pending}
+          </span>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={selectedPhoto.url}
+            alt={selectedPhoto.caption || 'Site photo'}
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%23222"/><text x="100" y="105" text-anchor="middle" fill="%23666" font-size="14">Photo</text></svg>'; }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Project folder gallery view ──
+  if (selectedProjectId) {
+    return (
+      <div className="flex flex-col h-full">
+        {/* Folder header */}
+        <div className="px-4 pt-3 pb-2 flex items-center gap-2">
+          <button onClick={() => setSelectedProjectId(null)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+            <ChevronLeft className="w-4 h-4 text-gray-500" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-gray-900 text-sm truncate">{getProjectName(selectedProjectId)}</h3>
+            <p className="text-[10px] text-gray-400">{selectedProjectPhotos.length}{labels.photos}</p>
+          </div>
+        </div>
+
+        {/* Photo grid */}
+        <div className="flex-1 overflow-y-auto bg-rs-bg p-3 overscroll-contain">
+          {selectedProjectPhotos.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <Image className="w-7 h-7 text-gray-300" />
+              </div>
+              <p className="text-gray-500 font-medium text-sm">{labels.noPhotos}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-1.5">
+              {selectedProjectPhotos.map(photo => (
+                <button
+                  key={photo.id}
+                  onClick={() => setSelectedPhoto(photo)}
+                  className="relative rounded-xl overflow-hidden bg-gray-100 aspect-square group"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={photo.url}
+                    alt={photo.caption || 'Site photo'}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%23f3f4f6"/><text x="50" y="55" text-anchor="middle" fill="%239ca3af" font-size="12">Photo</text></svg>'; }}
+                  />
+                  {/* Status dot */}
+                  <div className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border border-white/80 ${
+                    photo.approved ? 'bg-green-500' : 'bg-amber-400'
+                  }`} />
+                  {/* Trade badge */}
+                  {photo.trade && (
+                    <div className="absolute bottom-1.5 left-1.5 bg-black/50 backdrop-blur-sm text-white text-[8px] px-1.5 py-0.5 rounded-md font-medium">
+                      {photo.trade}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Folder list (main view) ──
   return (
     <div className="flex flex-col h-full">
-      {/* Upload button */}
-      <div className="px-4 pt-3 pb-1 flex justify-end">
-        <button
-          onClick={() => setUploadOpen(true)}
-          className="flex items-center gap-1.5 px-4 py-2 bg-[#4F8EF7] text-white rounded-xl text-sm font-semibold hover:bg-[#3B7BE8] transition-colors"
-        >
-          <Camera className="w-4 h-4" />
-          Upload
-        </button>
-      </div>
-
-      {/* Gallery */}
       <div className="flex-1 overflow-y-auto bg-rs-bg p-4 overscroll-contain">
         {loadingPhotos ? (
           <div className="flex items-center justify-center py-16">
@@ -157,174 +184,76 @@ export default function WorkerPhotosTab({ sessionUserId, projects, preselectedTa
             <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
               <Camera className="w-8 h-8 text-gray-300" />
             </div>
-            <p className="text-gray-500 font-medium text-sm">{lang === 'ZH' ? '\u8FD8\u6CA1\u6709\u7167\u7247' : lang === 'BM' ? 'Tiada foto lagi' : 'No photos yet'}</p>
-            <p className="text-gray-400 text-xs mt-1">{lang === 'ZH' ? '\u4E0A\u4F20\u7B2C\u4E00\u5F20\u5DE5\u5730\u7167\u7247' : lang === 'BM' ? 'Muat naik foto tapak pertama anda' : 'Upload your first site photo'}</p>
+            <p className="text-gray-500 font-medium text-sm">{labels.noPhotos}</p>
+            <p className="text-gray-400 text-xs mt-1">{labels.noPhotosHint}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
-            {photos.map(photo => (
-              <div key={photo.id} className="relative rounded-2xl overflow-hidden bg-gray-100 aspect-square">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={photo.url}
-                  alt={photo.caption || 'Site photo'}
-                  className="w-full h-full object-cover"
-                  onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%23f3f4f6"/><text x="50" y="55" text-anchor="middle" fill="%239ca3af" font-size="12">Photo</text></svg>'; }}
-                />
-                {/* Status badge */}
-                <div className={`absolute bottom-2 left-2 flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold backdrop-blur-sm ${
-                  photo.approved
-                    ? 'bg-green-500/90 text-white'
-                    : 'bg-amber-500/90 text-white'
-                }`}>
-                  {photo.approved ? (
-                    <><CheckCircle2 className="w-2.5 h-2.5" /> {lang === 'ZH' ? '\u5DF2\u6279\u51C6' : lang === 'BM' ? 'Diluluskan' : 'Approved'}</>
-                  ) : (
-                    <><Clock className="w-2.5 h-2.5" /> {lang === 'ZH' ? '\u5F85\u5BA1\u6838' : lang === 'BM' ? 'Menunggu' : 'Pending'}</>
-                  )}
-                </div>
-                {/* Trade badge */}
-                {photo.trade && (
-                  <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-lg font-medium">
-                    {photo.trade}
+          <div className="space-y-2">
+            {projectIds.map(pid => {
+              const projectPhotos = photosByProject.get(pid) || [];
+              const approvedCount = projectPhotos.filter(p => p.approved).length;
+              // Use up to 4 thumbnails for folder cover
+              const coverPhotos = projectPhotos.slice(0, 4);
+
+              return (
+                <button
+                  key={pid}
+                  onClick={() => setSelectedProjectId(pid)}
+                  className="w-full bg-white rounded-2xl p-3 shadow-sm hover:shadow-md transition-all text-left"
+                >
+                  <div className="flex gap-3">
+                    {/* Folder cover — 2x2 grid thumbnail */}
+                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 grid grid-cols-2 grid-rows-2 gap-px">
+                      {coverPhotos.map((photo, i) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          key={photo.id}
+                          src={photo.url}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="%23f3f4f6"/></svg>'; }}
+                        />
+                      ))}
+                      {/* Fill empty slots */}
+                      {Array.from({ length: Math.max(0, 4 - coverPhotos.length) }).map((_, i) => (
+                        <div key={`empty-${i}`} className="bg-gray-50" />
+                      ))}
+                    </div>
+
+                    {/* Folder info */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <FolderOpen className="w-3.5 h-3.5 text-[#4F8EF7]" />
+                        <h3 className="font-semibold text-gray-900 text-[13px] truncate">
+                          {getProjectName(pid)}
+                        </h3>
+                      </div>
+                      <p className="text-[11px] text-gray-400 mb-2">
+                        {projectPhotos.length}{labels.photos}
+                      </p>
+                      {/* Status summary */}
+                      <div className="flex items-center gap-3">
+                        {approvedCount > 0 && (
+                          <span className="flex items-center gap-1 text-[10px] text-green-600">
+                            <CheckCircle2 className="w-3 h-3" />
+                            {approvedCount}
+                          </span>
+                        )}
+                        {projectPhotos.length - approvedCount > 0 && (
+                          <span className="flex items-center gap-1 text-[10px] text-amber-500">
+                            <Clock className="w-3 h-3" />
+                            {projectPhotos.length - approvedCount}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
-
-      {/* Upload modal */}
-      {uploadOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm overflow-hidden shadow-2xl">
-            {/* Modal header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                  <Camera className="w-4 h-4 text-[#4F8EF7]" />
-                  <h3 className="font-bold text-gray-900">Upload Photo</h3>
-                </div>
-              <button
-                onClick={() => { setUploadOpen(false); setSelectedFile(null); setPreviewUrl(null); setUploadDone(false); }}
-                className="p-2 rounded-xl hover:bg-gray-100"
-              >
-                <X className="w-4 h-4 text-gray-500" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
-              {uploadDone ? (
-                <div className="py-8 flex flex-col items-center gap-3">
-                  <CheckCircle2 className="w-14 h-14 text-green-500" />
-                  <p className="font-bold text-gray-900">Photo uploaded!</p>
-                  <p className="text-xs text-gray-500">Pending designer review</p>
-                </div>
-              ) : (
-                <>
-                  {/* File select */}
-                  {!selectedFile ? (
-                    <>
-                      <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full border-2 border-dashed border-gray-200 rounded-2xl py-8 flex flex-col items-center gap-2 hover:border-[#4F8EF7]/50 hover:bg-[#4F8EF7]/5 transition-colors"
-                      >
-                        <Camera className="w-8 h-8 text-gray-400" />
-                        <p className="text-sm font-medium text-gray-700">Take Photo / Select Image</p>
-                        <p className="text-xs text-gray-400">JPG, PNG</p>
-                      </button>
-                    </>
-                  ) : (
-                    <div className="relative">
-                      {previewUrl && (
-                        <img src={previewUrl} alt="Preview" className="w-full h-40 object-cover rounded-xl" />
-                      )}
-                      <button
-                        onClick={() => { setSelectedFile(null); setPreviewUrl(null); }}
-                        className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full flex items-center justify-center"
-                      >
-                        <X className="w-3.5 h-3.5 text-white" />
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Photo type */}
-                  <div>
-                    <label className="text-[11px] text-gray-500 font-medium block mb-2">Photo Type</label>
-                    <div className="flex flex-wrap gap-2">
-                      {PHOTO_TYPES.map(pt => (
-                        <button
-                          key={pt.value}
-                          onClick={() => setPhotoType(pt.value)}
-                          className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all ${
-                            photoType === pt.value
-                              ? 'bg-[#4F8EF7] text-white'
-                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                          }`}
-                        >
-                          {getPhotoLabel(pt)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Project */}
-                  <div>
-                    <label className="text-[11px] text-gray-500 font-medium block mb-1">Project</label>
-                    <select
-                      value={selectedProjectId}
-                      onChange={e => setSelectedProjectId(e.target.value)}
-                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:border-[#4F8EF7]"
-                    >
-                      <option value="">Select project...</option>
-                      {projects.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Trade */}
-                  <div>
-                    <label className="text-[11px] text-gray-500 font-medium block mb-1">Trade</label>
-                    <select
-                      value={selectedTrade}
-                      onChange={e => setSelectedTrade(e.target.value)}
-                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:border-[#4F8EF7]"
-                    >
-                      <option value="">Select trade...</option>
-                      {WORKER_TRADES.map(t => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Caption */}
-                  <div>
-                    <label className="text-[11px] text-gray-500 font-medium block mb-1">Caption (optional)</label>
-                    <input
-                      value={caption}
-                      onChange={e => setCaption(e.target.value)}
-                      placeholder="Describe the photo..."
-                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-[#4F8EF7]"
-                    />
-                  </div>
-
-                  {uploadError && <p className="text-xs text-red-500 text-center">{uploadError}</p>}
-
-                  <button
-                    onClick={handleUpload}
-                    disabled={!selectedFile || uploading}
-                    className="w-full py-3 bg-[#4F8EF7] text-white rounded-2xl font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-[#3B7BE8] transition-colors"
-                  >
-                    {uploading ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</> : <><Upload className="w-4 h-4" /> Upload Photo</>}
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

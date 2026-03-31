@@ -38,6 +38,7 @@ type CostRecordLocal = {
   work_item?: string;
   items?: unknown;
   receipt_number?: string;
+  receipt_url?: string;
 };
 type QAuditAlert = { level: 'critical' | 'warning' | 'tip'; title: string; desc?: string };
 type QAuditScore = { total?: number; completeness?: number; price?: number; logic?: number; risk?: number };
@@ -1312,6 +1313,7 @@ export default function ProjectDetailPage() {
     ${items.map(i => `<tr><td>${i.description || '—'}</td><td>${i.qty ?? '—'}</td><td>${i.unit ?? '—'}</td><td>${i.unit_cost != null ? 'RM ' + Number(i.unit_cost).toFixed(2) : '—'}</td><td>RM ${Number(i.total || 0).toFixed(2)}</td></tr>`).join('')}
     </table>
     <div class="footer">合计 Total: RM ${Number(r.amount ?? r.total_amount ?? 0).toFixed(2)}</div>
+    ${r.receipt_url ? `<div style="margin-top:30px;page-break-before:auto"><h3 style="font-size:14px;margin-bottom:8px">原档 Original Document</h3><img src="${r.receipt_url}" style="max-width:100%;border:1px solid #ddd;border-radius:8px" /></div>` : ''}
     <script>window.onload=()=>{window.print();}</script>
     </body></html>`);
     win.document.close();
@@ -3814,6 +3816,22 @@ export default function ProjectDetailPage() {
                       <span className="font-semibold text-gray-700">合计</span>
                       <span className="font-bold text-gray-900 text-base">RM {Number(viewingReceipt.amount ?? viewingReceipt.total_amount ?? 0).toFixed(2)}</span>
                     </div>
+                    {/* Original receipt image/document */}
+                    {viewingReceipt.receipt_url && (
+                      <div>
+                        <span className="text-xs text-gray-500 block mb-2">原档文件</span>
+                        <div className="border border-gray-100 rounded-xl overflow-hidden bg-gray-50">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={viewingReceipt.receipt_url}
+                            alt="Receipt"
+                            className="w-full max-h-[400px] object-contain cursor-pointer"
+                            onClick={() => window.open(viewingReceipt.receipt_url, '_blank')}
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
