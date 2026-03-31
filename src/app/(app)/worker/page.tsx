@@ -28,6 +28,7 @@ interface WorkerProfile {
   employee_count?: number;
   min_project_value?: number;
   max_project_value?: number;
+  avatar_url?: string;
 }
 
 const TRADE_COLORS: Record<string, string> = {
@@ -267,8 +268,12 @@ export default function WorkerDashboard() {
                 {/* Top row: Profile + Actions */}
                 <div className="flex items-start gap-3">
                   {/* Avatar */}
-                  <div className="rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/20" style={{ width: 48, height: 48, background: 'linear-gradient(135deg, #4F8EF7 0%, #3B6FD9 100%)' }}>
-                    <span className="text-white font-bold text-base">{getInitials(profile?.name)}</span>
+                  <div className="rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/20 overflow-hidden" style={{ width: 48, height: 48, background: 'linear-gradient(135deg, #4F8EF7 0%, #3B6FD9 100%)' }}>
+                    {profile?.avatar_url ? (
+                      <img src={profile.avatar_url} alt={profile.name || 'Avatar'} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-white font-bold text-base">{getInitials(profile?.name)}</span>
+                    )}
                   </div>
                   {/* Name + Company */}
                   <div className="flex-1 min-w-0 pt-0.5">

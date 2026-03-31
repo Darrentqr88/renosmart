@@ -18,6 +18,7 @@ interface Worker {
   status: 'active' | 'inactive';
   profile_id?: string;
   worker_rating?: number;
+  avatar_url?: string;
   source?: 'own' | 'team';
 }
 
@@ -27,6 +28,7 @@ interface SearchResult {
   phone: string;
   trades: string[];
   worker_rating?: number;
+  avatar_url?: string;
 }
 
 export default function WorkersPage() {
@@ -66,18 +68,44 @@ export default function WorkersPage() {
 
       const ownWorkers: Worker[] = (data || []).map(w => ({ ...w, source: 'own' as const }));
 
-      // Load worker ratings from profiles
-      const profileIds = ownWorkers.filter(w => w.profile_id).map(w => w.profile_id!);
+      // Load worker ratings + avatars from profiles
+      const withProfile = ownWorkers.filter(w => w.profile_id);
+      const withoutProfile = ownWorkers.filter(w => !w.profile_id && w.phone);
+
+      const profileIds = withProfile.map(w => w.profile_id!);
       if (profileIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('user_id, worker_rating')
+          .select('user_id, worker_rating, avatar_url')
           .in('user_id', profileIds);
         if (profiles) {
-          const ratingMap = new Map(profiles.map(p => [p.user_id, p.worker_rating]));
-          ownWorkers.forEach(w => {
-            if (w.profile_id && ratingMap.has(w.profile_id)) {
-              w.worker_rating = ratingMap.get(w.profile_id) || 0;
+          const profileMap = new Map(profiles.map(p => [p.user_id, p]));
+          withProfile.forEach(w => {
+            if (w.profile_id && profileMap.has(w.profile_id)) {
+              const p = profileMap.get(w.profile_id)!;
+              w.worker_rating = p.worker_rating || 0;
+              w.avatar_url = p.avatar_url || undefined;
+            }
+          });
+        }
+      }
+
+      // For workers without profile_id, try matching by phone for avatar
+      if (withoutProfile.length > 0) {
+        const phones = withoutProfile.map(w => w.phone);
+        const { data: phoneProfiles } = await supabase
+          .from('profiles')
+          .select('phone, avatar_url, worker_rating, user_id')
+          .eq('role', 'worker')
+          .in('phone', phones);
+        if (phoneProfiles) {
+          const phoneMap = new Map(phoneProfiles.map(p => [p.phone, p]));
+          withoutProfile.forEach(w => {
+            if (phoneMap.has(w.phone)) {
+              const p = phoneMap.get(w.phone)!;
+              w.avatar_url = p.avatar_url || undefined;
+              w.worker_rating = p.worker_rating || 0;
+              w.profile_id = p.user_id; // link for future
             }
           });
         }
@@ -115,6 +143,23 @@ export default function WorkersPage() {
             teamWorkers = sharedData
               .filter(w => !ownProfileIds.has(w.profile_id) && !ownPhones.has(w.phone))
               .map(w => ({ ...w, source: 'team' as const }));
+
+            // Enrich team workers with avatar from profiles
+            const teamProfileIds = teamWorkers.filter(w => w.profile_id).map(w => w.profile_id!);
+            if (teamProfileIds.length > 0) {
+              const { data: teamProfiles } = await supabase
+                .from('profiles')
+                .select('user_id, avatar_url')
+                .in('user_id', teamProfileIds);
+              if (teamProfiles) {
+                const avatarMap = new Map(teamProfiles.map(p => [p.user_id, p.avatar_url]));
+                teamWorkers.forEach(w => {
+                  if (w.profile_id && avatarMap.has(w.profile_id)) {
+                    w.avatar_url = avatarMap.get(w.profile_id) || undefined;
+                  }
+                });
+              }
+            }
           }
         }
       }
@@ -203,7 +248,7 @@ export default function WorkersPage() {
     for (const pattern of patterns) {
       const { data } = await supabase
         .from('profiles')
-        .select('user_id, name, phone, trades, worker_rating')
+        .select('user_id, name, phone, trades, worker_rating, avatar_url')
         .eq('role', 'worker')
         .ilike('phone', `%${pattern}%`)
         .limit(1);
@@ -242,7 +287,7 @@ export default function WorkersPage() {
     }).select().single();
 
     if (!error && data) {
-      setWorkers(prev => [{ ...data, source: 'own' as const, worker_rating: searchResult.worker_rating }, ...prev]);
+      setWorkers(prev => [{ ...data, source: 'own' as const, worker_rating: searchResult.worker_rating, avatar_url: searchResult.avatar_url }, ...prev]);
       setSearchResult(null);
       setSearchPhone('');
       toast({ title: 'Worker added!', description: `${searchResult.name} has been added to your team.` });
@@ -335,8 +380,12 @@ export default function WorkersPage() {
         {/* Search result */}
         {searchResult && (
           <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-              <span className="font-bold text-green-700">{searchResult.name?.[0]?.toUpperCase() || 'W'}</span>
+            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center overflow-hidden">
+              {searchResult.avatar_url ? (
+                <img src={searchResult.avatar_url} alt={searchResult.name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="font-bold text-green-700">{searchResult.name?.[0]?.toUpperCase() || 'W'}</span>
+              )}
             </div>
             <div className="flex-1">
               <p className="font-semibold text-gray-900">{searchResult.name}</p>
@@ -409,8 +458,12 @@ export default function WorkersPage() {
                 {workers.filter(w => w.source === 'own').map((worker) => (
                   <div key={worker.id} className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
                     <div className="flex items-start justify-between mb-3">
-                      <div className="w-10 h-10 rounded-full bg-[#4F8EF7]/20 flex items-center justify-center">
-                        <span className="font-bold text-[#4F8EF7]">{worker.name?.[0]?.toUpperCase() || 'W'}</span>
+                      <div className="w-10 h-10 rounded-full bg-[#4F8EF7]/20 flex items-center justify-center overflow-hidden">
+                        {worker.avatar_url ? (
+                          <img src={worker.avatar_url} alt={worker.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="font-bold text-[#4F8EF7]">{worker.name?.[0]?.toUpperCase() || 'W'}</span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         {renderRating(worker.worker_rating)}
@@ -448,8 +501,12 @@ export default function WorkersPage() {
                 {workers.filter(w => w.source === 'team').map((worker) => (
                   <div key={worker.id} className="bg-white rounded-xl border border-dashed border-gray-200 p-5 opacity-90">
                     <div className="flex items-start justify-between mb-3">
-                      <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-                        <span className="font-bold text-purple-600">{worker.name?.[0]?.toUpperCase() || 'W'}</span>
+                      <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center overflow-hidden">
+                        {worker.avatar_url ? (
+                          <img src={worker.avatar_url} alt={worker.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="font-bold text-purple-600">{worker.name?.[0]?.toUpperCase() || 'W'}</span>
+                        )}
                       </div>
                       <Badge className="bg-purple-50 text-purple-600 border-purple-200">Team</Badge>
                     </div>
