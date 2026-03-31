@@ -425,12 +425,11 @@ export default function WorkerProjectCard({
             <p className="text-[12px] text-gray-600 leading-relaxed flex-1">{project.address}</p>
           </div>
         )}
-        {/* Navigation buttons */}
+        {/* Navigation buttons — use geo: intent to open native map apps */}
         {project.address && (
           <div className="flex items-center gap-2 mt-2">
             <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(project.address)}`}
-              target="_blank"
+              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(project.address || '')}`}
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 rounded-lg text-[10px] font-semibold text-blue-600 hover:bg-blue-100 transition-colors active:scale-95"
             >
@@ -438,8 +437,7 @@ export default function WorkerProjectCard({
               Google Maps
             </a>
             <a
-              href={`https://waze.com/ul?q=${encodeURIComponent(project.address)}&navigate=yes`}
-              target="_blank"
+              href={`https://waze.com/ul?q=${encodeURIComponent(project.address || '')}&navigate=yes`}
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-[#33CCFF]/10 rounded-lg text-[10px] font-semibold text-[#05C8F7] hover:bg-[#33CCFF]/20 transition-colors active:scale-95"
             >
