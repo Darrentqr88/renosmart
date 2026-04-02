@@ -200,6 +200,7 @@ export interface GanttParams {
     stonework?:     GanttTradeData;
     stone?:         GanttTradeData;
     tabletop?:      GanttTradeData;
+    wallpaper?:     GanttTradeData;
   };
   customPhases?: GanttCustomPhase[];
   phaseOrder?: GanttPhaseOrderEntry[];
@@ -254,6 +255,7 @@ export interface GanttTask {
   quotation_items?: string[];  // quotation items for worker display
   ai_hint?: TradeHint | null; // batch-generated AI trade hint (persisted in DB)
   phase_id?: string; // original CONSTRUCTION_PHASES id (e.g. 'demolition', 'tiling')
+  is_duration_locked?: boolean; // true when duration was manually set by designer/worker
   // ── AI-enhanced fields ──
   risks?: GanttRiskNote[];       // AI-identified risks for this task
   leadTimeDays?: number;         // material lead time before work starts

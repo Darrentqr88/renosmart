@@ -1,7 +1,7 @@
 export function buildQuotationPrompt(textForAI: string, outputLang: string, dbPriceRef?: string): string {
   const priceSection = dbPriceRef
     ? `Market price reference (MY/SG 2025-2026, verified market data):\n${dbPriceRef}`
-    : `Market price reference (baseline): Tiling S&I RM15-35/sqft | Electrical pt RM80-180 | Painting RM2.5-5/sqft | Carpentry RM350-1800/ft | Plumbing RM300-800/unit`;
+    : `Market price reference (baseline): Tiling S&I RM15-35/sqft | Tiling Labour incl. cement & sand RM12-18/sqft (pure labour only RM6-10/sqft) | Electrical pt RM80-180 | Painting RM2.5-5/sqft | Carpentry RM350-1800/ft | Plumbing RM300-800/unit | Table Top: Postform RM80-150/ft, Quartz std RM180-350/ft, Quartz premium RM350-600/ft, Marble local RM300-600/ft, Marble imported RM500-1200/ft, Sintered stone China RM250-400/ft, Sintered stone (Dekton/Neolith) RM500-900/ft, Solid Surface RM250-500/ft, Labour Only RM50-120/ft | Feature Wall / Bed Headboard / Wall Panel S&I RM70-150/sqft | Partition / Drywall S&I RM40-90/sqft`;
 
   return `You are a senior Quantity Surveyor (QS) AI for Malaysia and Singapore renovation projects.
 Audit the quotation below — parse ALL items AND catch problems. Return ONLY valid JSON. No markdown.
@@ -16,7 +16,7 @@ RULES:
 1. CLIENT vs CONTRACTOR: "client" = property OWNER paying (To:/Attn:/Bill To:/业主:). The issuing company is the contractor — do NOT put in client.
 2. Section totals → subtotals array only. Never as items.
 3. Copy item names VERBATIM. Never translate English names to Chinese or vice versa.
-4. warn/flag items: add "note" ≤20 chars describing the price issue. Empty string if ok.
+4. warn/flag items: add "note" ≤20 chars describing the price issue. status="ok" → note MUST be "" (empty). Never add qualitative comments like "higher end" or "within range" as a note.
 5. Items: include ALL line items in ORIGINAL document order. Do NOT sort. Do NOT skip. Include "page" (1-based integer from "--- Page N ---" markers).
 6. status: "ok"=price normal | "warn"=20-50% above or >30% below | "flag"=>50% above | "nodata"=no reference found
 7. supplyType detection:
@@ -25,30 +25,90 @@ RULES:
    "supply_only"    = "Supply Only"/"Material Only"/"供料"/"不含安装"
    DEFAULT: if no supply type is mentioned, assume "supply_install"
 8. projectType: "condo"|"apartment"|"landed_terrace"|"landed_semid"|"landed_bungalow"|"shop_lot"|"commercial"|"mall"|"factory". Default "landed_terrace".
+   HARD RULE — condo/apartment classification:
+   ONLY classify as condo/apartment if the address or quotation body EXPLICITLY and LITERALLY contains one or more of these exact keywords:
+   "Unit", "Blok", "Block", "Kondominium", "Condominium", "Residensi", "Residence", "Apartment", "Pangsapuri", "Parcel No", "Lot No Strata", or an explicit floor/level number referring to a unit (e.g. "Level 5, Block A").
+   NEVER classify as condo/apartment based on: balconies, multiple floors, staircases, high ceilings, extension works, or any "could be" / "suggests" reasoning. Landed houses (terrace/semid/bungalow) routinely have all of these.
+   If you are even slightly uncertain → output "landed_terrace". The cost of a wrong condo flag is far higher than missing it.
+   CONSEQUENCE: If projectType is NOT "condo" or "apartment", do NOT add "JMB/MC management approval" or "renovation notice submission" to missingCritical under any circumstances.
 9. projectSqft: estimate from floor plan references, item quantities, or address context.
 10. QS AUDIT — Malaysia / Singapore Professional QS Audit:
-    MISSING ITEMS: The examples below are not exhaustive — use professional QS judgement to identify any serious missing scope in the quotation.
-    Common critical missing: waterproofing (wet areas), DB upgrade, water heater, site prelims/management fee, cleaning, M&E first fix (roughin wiring/piping).
-    CONSTRUCTION MISSING (flag if renovation scope implies but not quoted):
-    - Demolition/hacking (if floors/walls replaced but no hacking item)
-    - Debris disposal / lorry skip bin
-    - Structural support / beam / column (if load-bearing wall removal mentioned)
-    - Protective hoarding (commercial/mall projects)
-    WATERPROOFING:
+    MISSING ITEMS — systematic trigger-based checklist. For each trigger, scan ALL items in the quotation first. Only flag as missing if genuinely absent (not covered under a different name or section).
+    SCAN RULES — when checking if an item exists, match by MEANING not exact wording:
+    - Waterproofing = "water proofing" / "waterproofing" / "water proof" / "WP membrane" / "torch-on" / "kalis air" — ANY of these counts as waterproofing present. Do NOT flag missing if ANY such item appears anywhere in the quotation, even under Tiling or other sections.
+    - Debris disposal = "disposal" / "rubbish removal" / "skip bin" / "waste removal" / "remove debris" — counts as disposal present.
+    - If an item is present but only for SOME areas (e.g. 2nd floor balcony only, not bathrooms), flag the SPECIFIC missing areas, not the whole category.
+
+    [BATHROOM / WET AREA SCOPE] — triggered if: bathroom renovation, wet area tiling, sanitary fittings, shower, WC, basin present:
+    ✦ Waterproofing → CRITICAL (except landed GF bathrooms — not required there)
+    ✦ Water heater → CRITICAL if no water heater anywhere in quotation
+    ✦ Hacking of existing tiles → warning if replacing tiles but no hacking quoted
+    ✦ Debris disposal → warning if hacking present but no disposal
+    ✦ Floor trap / floor grating → warning if bathroom tiling but no floor trap
+
+    [KITCHEN SCOPE] — triggered if: kitchen cabinet, kitchen tiling, kitchen top, wet kitchen present:
+    ✦ Kitchen table top / countertop → CRITICAL if kitchen cabinets quoted but no countertop
+    ✦ Kitchen sink + tap → warning if kitchen cabinet but no sink
+    ✦ Waterproofing (wet kitchen) → CRITICAL for condo/upper floor; not required landed GF
+    ✦ Water heater → warning if kitchen scope but no water heater anywhere
+    ✦ Hacking → warning if new tiling but no hacking item
+
+    [ELECTRICAL SCOPE] — triggered if: lighting points, sockets, wiring, DB, fan points present:
+    ✦ DB box upgrade → warning if >15 new electrical points but no DB upgrade quoted
+    ✦ Lighting fittings → info if points quoted but no fittings supply (check if labour-only intended)
+    ✦ Testing & commissioning → info if large electrical scope (>20 points)
+
+    [PLUMBING SCOPE] — triggered if: basin, WC, shower, pipe, drainage present:
+    ✦ Waterproofing → CRITICAL (condo/upper floor); not required landed GF
+    ✦ Water heater → warning if bathroom scope but no water heater
+    ✦ Floor trap → warning if wet area but no floor trap
+
+    [TILING SCOPE] — triggered if: floor/wall tiles present:
+    ✦ Hacking of existing tiles → warning if no hacking item (assume existing tiles need removal)
+    ✦ Waterproofing → CRITICAL for wet areas condo/upper floor
+    ✦ Debris disposal → warning if hacking present but no disposal item
+
+    [CARPENTRY SCOPE] — triggered if: wardrobe, cabinet, kitchen cabinet, TV console present:
+    ✦ Nothing critical — carpentry is typically self-contained
+
+    [FULL RENOVATION / WHOLE UNIT] — triggered if: multiple trades across whole unit:
+    ✦ Site prelims / preliminary works → warning if no site management / hoarding / protection item
+    ✦ Post-renovation cleaning → warning if no cleaning item
+    ✦ M&E roughin (1st fix wiring + piping) → CRITICAL if electrical + plumbing present but no roughin/first-fix items
+
+    [DEMOLITION / HACKING SCOPE] — triggered if: any hacking or demolition item present:
+    ✦ Debris disposal / lorry skip bin → warning if not quoted
+    ✦ Re-plastering / patching → info if walls hacked but no plastering item
+
+    [EXTENSION / STRUCTURAL SCOPE] — triggered if: RC slab, new slab, extension, beam, column, structural work present:
+    ✦ Plan submission & City Council approval (MBPJ/DBKL/local authority) → CRITICAL
+    ✦ Structural engineer PE endorsement → CRITICAL
+
+    [CONDO / APARTMENT PROJECT] — any renovation:
+    ✦ Renovation notice & JMB/MC management approval + deposit → CRITICAL
+
+    WATERPROOFING RULES (summary):
     - Landed GF wet areas: NOT required. Do NOT flag.
     - Landed upper floors (1F+): REQUIRED for bathrooms, balcony, laundry.
     - Condo/apartment ALL floors: REQUIRED for all wet areas.
-    - RC slab roof / Balcony / Extension / water feature: ALWAYS required.
+    - RC roof / Balcony / Extension / water feature: ALWAYS required.
     PRICE: flag >50% above; warn 20-50% above or >30% below.
     Cite: "Market RM X-Y/unit, Quoted RM Z/unit". Match unit types. Consider supplyType + material grade.
-    CALC ERROR: qty × unitPrice ≠ total by >1% → flag critical.
+    IMPORTANT: For tiles priced per pcs, apply Rule 16 derivation BEFORE comparing to sqft reference. For split supply+labour, combine both before comparing to S&I reference. Never flag a correctly-split supply_only+labour_only pair as anomaly unless their COMBINED price is out of range.
+    CALC ERROR: qty × unitPrice ≠ total by >1% → flag critical. If calculation IS correct → NO alert. Never create a "Calculation Error" alert that says "Calculation is correct" — that is contradictory. Only create a Calculation Error alert when there is a genuine discrepancy.
     COORDINATION: tiling + no waterproofing (condo/upper floor) → critical.
-    ALERTS: max 8 critical + 6 warning + 4 info. Each desc ≤150 chars.
+    ALERTS — strict rules:
+    - level="critical"/"warning": ONLY for items with status="warn" or "flag", calculation errors, missing critical scope, coordination failures. NEVER for status="ok" items.
+    - level="info": ONLY for non-price tips — lead time warnings, coordination reminders, spec ambiguity (e.g. "Tile size not specified"), construction sequence notes. NEVER for price observations.
+    - ABSOLUTE RULE: If price is within range → NO ALERT AT ALL. Do NOT create any alert mentioning "within range", "reasonable", "in range", "on the higher end but within", or any phrase implying the price is acceptable. Silence = ok.
+    - "Price Anomaly" alerts ONLY for genuine outliers (status="flag" or status="warn"). If status="ok" → NO Price Anomaly alert ever.
+    - GROUPING RULE: If multiple items share the SAME issue type (e.g. several items all have ambiguous 'sq' unit, or several wallpaper items all exceed market price), create ONE alert with a combined desc listing all affected items (e.g. "Items 1, 2, 3: ..."). Do NOT create separate alerts for each item with the same issue.
+    - No hardcoded max count. Generate only genuinely needed alerts. Each desc ≤200 chars.
 11. paymentTerms: extract if present, else [].
 12. subcategory + materialMethod per item:
     Tiling:        "Floor Tiles"+"600x600" | "Floor Tiles"+"300x300" | "Wall Tiles"+"300x600" | "Mosaic"+"Feature" | "Marble"+"Floor" | "Marble"+"Wall" | "Granite"+"Floor" | "Natural Stone"+"Floor" | "Artificial Stone"+"Floor"
     Carpentry:     "Kitchen Cabinet"+"Laminated" | "Wardrobe"+"Sliding Door" | "Vanity Cabinet"+"Laminated" | "TV Console"+"Laminated"
-    Tabletop:      "Kitchen Countertop"+"Quartz Surface" | "Bathroom Countertop"+"Solid Surface" | "Bar Countertop"+"Sintered Stone"
+    Tabletop:      "Kitchen Table Top"+"Quartz Surface" | "Bathroom Table Top"+"Solid Surface" | "Bar Table Top"+"Sintered Stone" | "Kitchen Table Top"+"Sintered Stone China" | "Kitchen Table Top"+"Marble" | "Kitchen Table Top"+"Postform"
     Plumbing:      "Basin"+"Mixer Tap" | "WC"+"Wall Hung" | "WC"+"Floor Mount" | "Rain Shower"+"Set" | "Water Heater"+"Instant"
     Electrical:    "Power Point"+"13A" | "Lighting Point"+"Standard" | "DB Box"+"18-way" | "Ceiling Fan"+"Point"
     Painting:      "Interior Wall"+"2-Coat" | "Skim Coat"+"+ Paint" | "Exterior"+"Weather Shield"
@@ -65,10 +125,78 @@ RULES:
     Metal Work:    "Mild Steel Gate"+"Powder Coated" | "Metal Railing"+"Standard" | "Metal Grille"+"Standard" | "Steel Door"+"Standard" | "Roofing"+"Polycarbonate" | "Roofing"+"Zinc" | "Roofing"+"PU Metal" | "Roofing"+"Aluminium Panel" | "Roofing"+"Composite"
     Cleaning:      "Post-renovation Cleaning"+"Standard" | "Deep Cleaning"+"Standard"
     Curtain:       "Curtain"+"Day Night" | "Curtain Track"+"Standard" | "Roller Blind"+"Standard" | "Sheer Curtain"+"Standard"
-    NOTE: Vanity/basin cabinet = Carpentry. Countertop/tabletop = Tabletop (not Carpentry).
+    NOTE: Vanity/basin cabinet = Carpentry. Table top/tabletop = Tabletop (not Carpentry).
 13. estMinPrice + estMaxPrice: designer-to-homeowner quote price in MY/SG. NOT contractor cost. Match item's unit + supplyType + material grade. Never leave as 0.
-14. missingCritical: ≤6 critical absent items. Each: item, reason, estimatedCost (use price reference + projectSqft), urgency.
+    CRITICAL — match supplyType strictly:
+    • Item says "Supply To Build-up / Supply and Install / S&I" → use S&I reference price (e.g. brick wall S&I = RM 20-40/sqft, NOT labour-only RM 12-20/sqft)
+    • Item says "Labour Only / Install Only" → use labour-only reference price
+    • Never use labour-only range for a supply_install item or vice versa — this causes false price anomalies.
+14. missingCritical: List critical absent items. Each: item, reason, estimatedCost (use price reference + projectSqft), urgency.
+    PROJECT TYPE DETECTION — derive from address + quotation scope:
+    - "Jalan"/"Lorong" + residential context, no "Lot/Industrial" → landed house
+    - "Unit"/"Blok"/"Kondominium"/"Residensi"/floor number in address → condo/apartment
+    - "Lot"/"Industrial"/"Kilang"/"Warehouse" → factory/warehouse
+    - "Shoplot"/"Kedai"/"Ground Floor" commercial → shop lot
+    - "Mall"/"Retail Podium"/"Shopping Complex" → mall/retail
+    CRITICAL MISSING by project type:
+    • Landed house: upper floor (1F+) bathrooms → waterproofing CRITICAL; GF wet area → NOT required
+    • Condo/Apartment: ALL wet areas → waterproofing CRITICAL; also flag "Submit renovation notice & obtain JMB/MC management approval + renovation deposit before works commence" as CRITICAL
+    • Factory/Warehouse: fire-rated partition CRITICAL if office scope present; 3-phase DB if machinery; roof drainage if roof works
+    • Shop lot: grease trap + fire suppression if F&B kitchen; DB upgrade to commercial spec
+    • Mall/Retail: fire-rated ceiling, emergency lighting, hoarding/barricade
+    SCOPE-TRIGGERED MISSING (apply regardless of project type):
+    • Hack/Demolition items present → flag "Clear debris & lorry skip bin disposal" as warning if not quoted
+    • Extension / New RC slab / RC beam present → flag "Plan submission & approval from City Council (MBPJ/DBKL/local authority) required BEFORE works commence" as CRITICAL
+    • Condo/Apartment ONLY — and ONLY if projectType was set to "condo" or "apartment" per Rule 8 above (explicit keyword required) → flag "Submit renovation notice & obtain JMB/MC management approval" as CRITICAL. If projectType is landed/shop/commercial/factory → SKIP this item entirely, do not add it.
+
+    OPEN-ENDED QS JUDGMENT — beyond the triggers above, apply your professional QS knowledge:
+    After checking all the triggers, review the FULL quotation scope holistically. Ask: "What would a real senior QS flag as missing or incomplete given this specific project?" Consider:
+    • Coordination gaps (e.g. carpentry installed before painting — sequence risk)
+    • Safety/compliance items implied by scope but not quoted (e.g. earthing/bonding if DB upgrade; fire-rated door if structural opening created)
+    • Omitted preliminaries for the project scale (e.g. no site manager fee for large project)
+    • Items commonly forgotten in MY/SG renovations specific to this scope
+    Flag additional missing items if genuinely applicable. Do not invent items that aren't relevant to the actual scope.
 15. Unit normalization: "lot"/"set" with qty>1 → derive per-unit. Lump-sum → qty=1, unitPrice=total, unitPriceDerived=true.
+16. TILE UNIT DERIVATION — when tiles are priced per pcs/pc/piece, convert to per-sqft for accurate price audit:
+    Tile size → sqft per piece (approx):
+      300×300 mm  = 1 sqft/pcs   | 300×600 mm  = 2 sqft/pcs
+      600×600 mm  = 4 sqft/pcs   | 800×800 mm  = 7 sqft/pcs
+      900×900 mm  = 9 sqft/pcs   | 600×1200 mm = 8 sqft/pcs
+      1200×600 mm = 8 sqft/pcs   | 1200×1200 mm = 15 sqft/pcs
+    Formula: sqft_per_tile ≈ (W_mm × H_mm) / 92903
+    → derived_unit_price_sqft = tile_price_per_pcs / sqft_per_tile
+    → set unitPriceDerived=true, convert qty to sqft, recalculate unitPrice in /sqft
+    Per m²: divide by 10.764 to get per-sqft equivalent.
+    SPLIT SUPPLY + LABOUR: when a quotation has SEPARATE tile material (per pcs/m²) + labour (per sqft) as two line items:
+    → combined_sqft = material_per_pcs / sqft_per_tile + labour_per_sqft
+    → compare combined_sqft to S&I reference price for status/flag decision
+    → label material item supplyType="supply_only", labour item supplyType="labour_only"
+    → cite in note: e.g. "Material RM3.75/sqft + Labour RM15/sqft = RM18.75/sqft total"
+    LABOUR NOTE: "Labour Only" in MY/SG tiling trade typically INCLUDES cement, sand & grout (not pure workmanship). Market rate = RM12-18/sqft. Pure workmanship-only (owner supplies cement & sand) = RM6-10/sqft. When a quotation says "Labour" for tiling, assume RM12-18/sqft unless explicitly stated otherwise.
+    Example: Tile 600×600 at RM15/pcs → RM3.75/sqft material + RM15/sqft labour (incl. cement & sand) = RM18.75/sqft S&I (ok vs RM15-28/sqft reference)
+
+17. CARPENTRY DIMENSION DERIVATION — for cabinet/wardrobe/carpentry items with a SIZE column:
+    Pattern: item has a size in ft (e.g. "4.5ft", "13.5ft", "7ft") in the size/length column,
+    qty=1 (one lot of that specific size), and a lump total price.
+    → qty = numeric ft value, unit = "ft", unitPrice = total ÷ ft_value, unitPriceDerived = true
+
+    Examples:
+    • Tall Cabinet 4.5ft, qty=1, total=RM2,790 → qty=4.5, unit=ft, unitPrice=620.00 ✓
+    • Base Cabinet 13.5ft, qty=1, total=RM5,670 → qty=13.5, unit=ft, unitPrice=420.00 ✓
+    • Wall Hung Cabinet 13.5ft, qty=1, total=RM6,750 → qty=13.5, unit=ft, unitPrice=500.00 ✓
+    • Wardrobe 8ft, qty=1, total=RM6,400 → qty=8, unit=ft, unitPrice=800.00 ✓
+
+    Applies to: cabinets, wardrobes, TV consoles, shelving, shoe cabinets, table tops with ft dimensions.
+    Trigger: item is carpentry/tabletop category AND original qty ≤ 1 AND a ft/mm/inch size value exists in the row.
+    Do NOT apply if qty > 1 (e.g. 3 units × 2ft = treat as 3 pcs).
+
+    MM → FT CONVERSION — dimensions in quotation notes/descriptions may be in mm or inches:
+    • mm → ft: divide by 304.8 (exact) or 300 (trade approximation). 300mm ≈ 1ft.
+    • inches → ft: divide by 12. 12" = 1ft.
+    • "(4100mmL × 800mmH)" → length = 4100 ÷ 300 ≈ 13.5ft ✓
+    • "(1300mmL × 2100mmH)" → length = 1300 ÷ 300 ≈ 4.3ft → size column shows 4.5ft → use 4.5ft ✓
+    • "(600mmL × 2700mmH)" → length = 600 ÷ 300 = 2ft ✓
+    Cross-check: if both size column (ft) and description (mm) exist, use the ft column value; mm is for verification.
 
 IMPORTANT: Output missing/missingCritical/alerts BEFORE items array to ensure they are not truncated.
 
@@ -96,7 +224,12 @@ STEP 3 — Calculate days from ACTUAL quantities + material types.
 STEP 4 — Generate subTasks per trade (break down into specific work items with individual durations).
 STEP 5 — Identify risks and lead times per trade.
 
-Standard keys: demolition|masonry|tiling|electrical|plumbing|painting|carpentry|falseCeiling|waterproofing|flooring|aluminium|aircon|glass|metalwork|stone|tabletop
+Standard keys: demolition|masonry|tiling|electrical|plumbing|painting|wallpaper|carpentry|falseCeiling|waterproofing|flooring|aluminium|aircon|glass|metalwork|stone|tabletop
+
+IMPORTANT trade classification rules:
+- wallpaper key: ANY item with "wall paper", "wallpaper", "wall paper laminate", "wallcovering", "vinyl wallpaper", "壁纸", "墙纸" in name/section → MUST use wallpaper key, NOT carpentry
+- carpentry key: cabinets, wardrobes, built-in furniture, solid plywood panels, feature walls (wood/plywood), TV consoles
+- If a section contains BOTH wall panel (carpentry) and wall paper laminate (wallpaper), output BOTH keys separately
 
 Non-standard → customPhases with: name, name_zh, trade, estimatedDays, insertAfter (phase ID), subTasks, risks.
 
@@ -117,6 +250,7 @@ Day rules (assume multi-worker crews):
 - electrical=ceil(pts/5) min3; pts = count of power/light/fan/data points in items
 - plumbing=ceil(units/2) min2; units = count of basins/wc/showers/taps
 - painting=ceil(sqft/150/2) min4 (2-person crew)
+- wallpaper=ceil(rooms/1) min1 max5; rooms = count of rooms/areas getting wallpaper (wall paper laminate, wallcovering — includes SC/LO/KW laminate product codes)
 - falseCeiling=ceil(ceilingSqft/100/2) min2 max8 (2-person crew)
 - waterproofing=ceil(wetAreaSqft/70/2) min2 max5
 - flooring=ceil(floorSqft/70/2) min2 max8
@@ -126,7 +260,7 @@ Day rules (assume multi-worker crews):
     • ft = total linear ft of all carpentry items
     • itemCount = count of distinct carpentry items (cabinets, wardrobes, etc.)
     • Output BOTH: ft and itemCount fields in tradeScope.carpentry
-    (mfg days = max(10, itemCount×3) capped at 42; install = max(3, ceil(ft/8/3)) 3-person team)
+    (mfg days CAPPED by itemCount: ≤3 items→max 15d, ≤6→max 18d, ≤10→max 21d, >10→max 25d; install = max(3, ceil(ft/8/3)) 3-person team)
 
 subTasks per trade: break down into specific work items from the quotation. Each subTask has:
   - name: specific work (e.g. "Kitchen floor tiling 600×600 (120sqft)")

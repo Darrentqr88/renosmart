@@ -429,6 +429,18 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     ],
   },
   {
+    id: 'wallpaper', name: 'Wallpaper Installation', name_zh: '壁纸安装',
+    trade: 'Wallpaper', baseDays: 2, deps: ['painting2'],
+    prepChecklist: [
+      { icon: '🖼️', text: 'Wallpaper delivered & inspected', text_zh: '壁纸已到货并检查', type: 'check' },
+      { icon: '🧴', text: 'Wall primer/base coat done', text_zh: '底漆已完成', type: 'check' },
+    ],
+    subItems: [
+      { name: 'Surface preparation', name_zh: '基面处理' },
+      { name: 'Wallpaper installation', name_zh: '壁纸安装' },
+    ],
+  },
+  {
     id: 'landscape', name: 'Landscape Works', name_zh: '景观工程',
     trade: 'Landscape', baseDays: 10, deps: ['painting2'],
     prepChecklist: [
@@ -1007,7 +1019,7 @@ const PHASE_TRADE_REQUIRED: Record<string, string[]> = {
   measurement:       [],
   design_conf:       [],
   demolition:        ['demolition'],
-  masonry:           ['demolition', 'masonry', 'construction'],
+  masonry:           ['masonry', 'construction'],
   electrical1:       ['electrical'],
   plumbing1:         ['plumbing'],
   waterproofing:     ['waterproofing', 'tiling'],
@@ -1024,6 +1036,7 @@ const PHASE_TRADE_REQUIRED: Record<string, string[]> = {
   plumbing2:         ['plumbing'],
   ac_install:        ['aircon'],
   painting2:         ['painting'],
+  wallpaper:         ['wallpaper'],
   stone_marble:      ['stonework'],
   glass_work:        ['glass'],
   metal_work:        ['metalwork'],
@@ -1079,9 +1092,10 @@ export function generateGanttFromAIParams(
     const itemCount = (ts.carpentry as { itemCount?: number }).itemCount
       ?? (ts.carpentry.itemNames || []).length
       ?? 3;
-    // mfg: min 10 days, +3 per item, cap 42
-    const minMfgDays = Math.min(42, Math.max(10, itemCount * 3));
-    overrides['carpentry_mfg'] = Math.min(42, Math.max(minMfgDays, ts.carpentry.estimatedDays || minMfgDays));
+    // mfg: tiered cap by item count (≤3→15d, ≤6→18d, ≤10→21d, >10→25d); AI estimate capped by tier, min 7d
+    const tieredCap = itemCount <= 3 ? 15 : itemCount <= 6 ? 18 : itemCount <= 10 ? 21 : 25;
+    const aiMfg = ts.carpentry.estimatedDays || tieredCap;
+    overrides['carpentry_mfg'] = Math.max(7, Math.min(tieredCap, aiMfg));
     // install: 3-person crew, ceil(ft/8/3), min 3
     overrides['carpentry_install'] = ts.carpentry.ft
       ? Math.max(3, Math.ceil(ts.carpentry.ft / 8 / 3))
@@ -1101,8 +1115,9 @@ export function generateGanttFromAIParams(
   if (ts.stonework?.estimatedDays || ts.stone?.estimatedDays)
     overrides['stone_marble'] = (ts.stone?.estimatedDays || ts.stonework?.estimatedDays)!;
   if (ts.tabletop?.estimatedDays)   overrides['tabletop']     = ts.tabletop.estimatedDays;
-  if (ts.curtain?.estimatedDays)   overrides['curtains']   = ts.curtain.estimatedDays;
-  if (ts.delivery?.estimatedDays)  overrides['delivery']   = ts.delivery.estimatedDays;
+  if (ts.curtain?.estimatedDays)    overrides['curtains']   = ts.curtain.estimatedDays;
+  if (ts.delivery?.estimatedDays)   overrides['delivery']   = ts.delivery.estimatedDays;
+  if (ts.wallpaper?.estimatedDays)  overrides['wallpaper']  = ts.wallpaper.estimatedDays;
 
   // ── Filter phases: only include those whose trade exists in tradeScope ───────
   const hasTradeKey = (required: string[]) =>
@@ -1594,6 +1609,7 @@ const TRADE_PATTERNS_SHARED: Record<string, RegExp[]> = {
   tiling:         [/\btil(?:e[sd]?|ing)\b/, /\bceram/, /\bporcel/, /\bceramic/, /\bporcelain/, /\bmosaic/, /\bhomogeneous/, /anti.?slip/, /\bjubin/, /floor\s*tile/, /wall\s*tile/, /\d{3}.?x.?\d{3}/, /homogenous/],
   flooring:       [/\bvinyl/, /timber\s*floor/, /\bparquet/, /laminate\s*floor/, /\bspc\b/, /\blvt\b/, /engineered.*floor/, /\bcarpet\s*floor/, /\bmerbau/, /\b木地板/, /composite\s*deck/],
   painting:       [/\bpaint(?:ing)?\b/, /\bprimer/, /skim.?coat/, /\bputty/, /\bemulsion/, /\bsealer/, /\bnippon/, /\bdulux/, /\bjotun/, /texture.*paint/, /\b油漆/, /\b漆\b/, /\btopcoat/],
+  wallpaper:      [/\bwallpaper\b/, /\bwall\s*paper\b/, /wall\s*paper\s*laminate/, /wall\s*cover(?:ing)?/, /\bwallcovering/, /\bvinyl\s*wall/, /feature\s*wallpaper/, /\b壁纸/, /\b墙纸/],
   carpentry:      [/\bcabinet/, /\bcarpent/, /\bwardrobe/, /\bjoiner/, /\bshelf\b|\bshelv/, /\bvanity/, /\bbasin\s*cabinet/, /base\s*cabinet/, /wall\s*cabinet/, /tall\s*cabinet/, /kitchen.*cabinet/, /\bcupboard/, /\bsolid\s*plywood/, /\bhob\b/, /\bhood\b/, /tv\s*console/, /feature\s*wall/, /built.?in/, /shoe\s*rack/, /\bisland\b/, /bar\s*counter/, /\bpanel\b.*(?:wall|cabinet)/, /mirror\s*cabinet/, /\blaminated\b/, /\bmelamine\b/, /\b衣柜/, /\b衣橱/, /\b厨房\s*(?:柜|家具)/, /\b客厅\s*(?:柜|背景)/, /\b背景墙/, /\b木工/],
   tabletop:       [/\bcountertop/, /\bcounter\s*top/, /table\s*top/, /\btabletop/, /\bsolid\s*surface/, /\bquartz\s*top/, /\bpostform/, /\bsintered/, /\bdekton/, /\bneolith/, /worktop/, /marble.*top/, /granite.*top/, /\bcorian/, /vanity\s*top/, /basin\s*top/, /kitchen\s*top/, /bar.*top/, /island.*top/],
   aluminium:      [/\balumi?n/, /\baluminum/, /\bwindow\b.*(?:frame|instal|replac)/, /sliding\s*door/, /door\s*frame/, /\bcasement/, /casement\s*door/, /bi.?fold.*door/, /folding.*door/, /fixed\s*glass.*door/, /fix(?:ed)?\s*window/, /\bupvc/, /\bwindow\s*frame/, /powder\s*coat/, /\bpcw\b/, /toilet\s*door/],
@@ -1640,6 +1656,7 @@ export function tradeMatches(taskTrade: string, classifiedTrade: string): boolea
     'landscape': ['landscape works'],
     'aircon': ['aircon', 'ac'],
     'ac': ['aircon'],
+    'wallpaper': ['wall paper', 'wallcovering'],
   };
   return ALIASES[t]?.includes(c) ?? false;
 }
@@ -1676,6 +1693,7 @@ const TRADE_DISPLAY_NAMES: Record<string, string> = {
   stonework: 'Stone & Marble', metalwork: 'Metal Work',
   landscape: 'Landscape', curtain: 'Curtain', delivery: 'Delivery',
   alarm: 'Alarm & CCTV', preliminary: 'Preliminary', cleaning: 'Cleaning',
+  wallpaper: 'Wallpaper',
 };
 
 export function detectTradeForVO(text: string): string {
