@@ -41,7 +41,46 @@ export interface ConstructionPhase {
   aiLeadTimeDays?: number;
   aiLeadTimeNote?: string;
   aiMaterialNotes?: string[];
+  _isOverride?: boolean; // transient: baseDays already includes amtScale, skip typeMultiplier
 }
+
+// ─── Duration bounds per phase: physical minimums & reasonable maximums ───────
+// Used by calculateDuration, validateDurations, and AI compression validation.
+export const PHASE_MIN_DURATIONS: Record<string, number> = {
+  design_conf: 1, measurement: 1,
+  demolition: 2, masonry: 3,
+  electrical1: 2, electrical2: 1, electrical3: 1,
+  plumbing1: 2, plumbing2: 1,
+  waterproofing: 3, tiling: 3, flooring: 2,
+  stone_marble: 2, ac_piping: 1,
+  ceiling: 2, painting1: 2, painting2: 2,
+  carpentry_measure: 1, carpentry_mfg: 7, carpentry_install: 2,
+  door_window: 1, ac_install: 1,
+  glass_work: 1,
+  metal_roofing: 3, metal_work: 2,
+  landscape: 3,
+  tabletop: 1, wallpaper: 1, curtains: 1, delivery: 1,
+  smart_home: 1, kitchen_appliance: 1,
+  cleaning: 1, handover: 1,
+};
+
+export const PHASE_MAX_DURATIONS: Record<string, number> = {
+  design_conf: 5, measurement: 3,
+  demolition: 15, masonry: 30,
+  electrical1: 12, electrical2: 5, electrical3: 5,
+  plumbing1: 8, plumbing2: 5,
+  waterproofing: 8, tiling: 25, flooring: 15,
+  stone_marble: 8, ac_piping: 3,
+  ceiling: 12, painting1: 8, painting2: 7,
+  carpentry_measure: 3, carpentry_mfg: 35, carpentry_install: 15,
+  door_window: 5, ac_install: 3,
+  glass_work: 5,
+  metal_roofing: 12, metal_work: 10,
+  landscape: 15,
+  tabletop: 3, wallpaper: 5, curtains: 2, delivery: 3,
+  smart_home: 5, kitchen_appliance: 3,
+  cleaning: 3, handover: 2,
+};
 
 export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
   {
@@ -321,19 +360,35 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     ],
   },
   {
-    id: 'metal_work', name: 'Metal Work / Ironwork', name_zh: '铁工工程',
+    id: 'metal_roofing', name: 'Metal Roofing & Structure', name_zh: '金属屋顶/结构',
+    hint_MY: 'Metal roofing (zinc, polycarbonate) must be installed after masonry. Ensure proper waterproofing at flashing joints.',
+    hint_SG: 'Roof structures need BCA approval for landed properties. Use approved materials per fire safety requirements.',
+    hint_zh: '金属屋顶（锌板、聚碳酸酯）必须在砌筑完成后安装。注意防水收口处理。',
+    trade: 'Metal Work', baseDays: 5, deps: ['masonry'],
+    prepChecklist: [
+      { icon: '🔩', text: 'Roof structure design approved', text_zh: '屋顶结构设计已确认', type: 'check' },
+      { icon: '📦', text: 'Roofing materials ordered', text_zh: '屋顶材料已订购', type: 'order' },
+    ],
+    subItems: [
+      { name: 'Steel structure / framing', name_zh: '钢结构骨架' },
+      { name: 'Metal roofing sheets', name_zh: '金属屋面板' },
+      { name: 'Awning / canopy', name_zh: '雨棚/遮阳篷' },
+    ],
+  },
+  {
+    id: 'metal_work', name: 'Metal Work — Gates & Fencing', name_zh: '铁门/围栏工程',
     hint_MY: 'Custom metalwork (gates, grilles) needs 2-3 weeks fabrication. Hot-dip galvanize for outdoor items. Powder coat finish preferred.',
     hint_SG: 'Metal railings must comply with BCA requirements. Min 1m height for balcony railings. Use stainless steel 304 for outdoor.',
     hint_zh: '定制铁艺（门、栏杆）需2-3周制作。户外铁件必须热镀锌防锈。建议粉末喷涂表面处理。',
-    trade: 'Metal Work', baseDays: 3, deps: ['masonry'],
+    trade: 'Metal Work', baseDays: 3, deps: ['tiling'],
     prepChecklist: [
       { icon: '🔩', text: 'Metal work design approved', text_zh: '铁艺设计已确认', type: 'check' },
-      { icon: '📦', text: 'Fabrication order placed', text_zh: '已下单制作', type: 'order' },
+      { icon: '📦', text: 'Fabrication order placed (2-3 weeks)', text_zh: '已下单制作（需2-3周）', type: 'order' },
     ],
     subItems: [
       { name: 'Gate & grille installation', name_zh: '铁门/铁花安装' },
       { name: 'Railing & handrail', name_zh: '栏杆/扶手' },
-      { name: 'Awning / canopy', name_zh: '雨棚/遮阳篷' },
+      { name: 'Fencing', name_zh: '围栏' },
     ],
   },
   {
@@ -415,8 +470,44 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
     ],
   },
   {
+    id: 'smart_home', name: 'Smart Home & Security System', name_zh: '智能家居/安防系统',
+    hint_MY: 'CCTV/alarm cabling should be done during electrical rough-in. Final device installation after painting. Autogate motor needs dedicated power supply.',
+    hint_SG: 'CCTV systems must comply with PDPA. Access control for condos needs MCST approval. Smart lock installations require fire-rated doors.',
+    hint_zh: '安防线缆应在水电阶段预埋。设备终端安装在油漆后。自动门电机需独立电源。',
+    trade: 'Smart Home', baseDays: 3, deps: ['electrical3'],
+    parallel: ['plumbing2'],
+    prepChecklist: [
+      { icon: '📡', text: 'CCTV/alarm system selected', text_zh: 'CCTV/报警系统已选定', type: 'check' },
+      { icon: '📦', text: 'Devices & sensors delivered', text_zh: '设备及传感器已到货', type: 'order' },
+    ],
+    subItems: [
+      { name: 'CCTV camera installation', name_zh: 'CCTV摄像头安装' },
+      { name: 'Alarm panel & sensors', name_zh: '报警主机及传感器' },
+      { name: 'Autogate / smart lock', name_zh: '自动门/智能锁' },
+      { name: 'Smart home hub & config', name_zh: '智能家居中枢配置' },
+    ],
+  },
+  {
+    id: 'kitchen_appliance', name: 'Kitchen Appliance Installation', name_zh: '厨房电器安装',
+    hint_MY: 'Gas hob needs licensed gas fitter for connection. Extraction hood must vent to outside (not recirculate in closed kitchen). Built-in oven needs dedicated 15A socket.',
+    hint_SG: 'PUB-approved plumber for gas connection. Hood extraction rate min 400 m³/hr for open kitchen. Check BTO/resale flat gas supply type.',
+    hint_zh: '燃气灶需持证气工接驳。油烟机必须外排（密闭厨房禁止内循环）。嵌入式烤箱需独立15A插座。',
+    trade: 'Kitchen Appliance', baseDays: 2, deps: ['carpentry_install', 'electrical3', 'plumbing2'],
+    prepChecklist: [
+      { icon: '🍳', text: 'Hob, hood & oven delivered', text_zh: '灶台、油烟机、烤箱已到货', type: 'order' },
+      { icon: '⚡', text: 'Dedicated power points ready', text_zh: '专用电源插座已就位', type: 'check' },
+      { icon: '🔥', text: 'Gas line connection confirmed', text_zh: '燃气管路接驳确认', type: 'warn' },
+    ],
+    subItems: [
+      { name: 'Hob & extraction hood', name_zh: '灶台及油烟机' },
+      { name: 'Built-in oven / microwave', name_zh: '嵌入式烤箱/微波炉' },
+      { name: 'Dishwasher hookup', name_zh: '洗碗机接驳' },
+      { name: 'Water filter system', name_zh: '净水器安装' },
+    ],
+  },
+  {
     id: 'painting2', name: 'Painting Phase 2 — Topcoat', name_zh: '面漆工程',
-    trade: 'Painting', baseDays: 3, deps: ['electrical3', 'plumbing2', 'ac_install'],
+    trade: 'Painting', baseDays: 3, deps: ['electrical3', 'plumbing2', 'ac_install', 'smart_home', 'kitchen_appliance'],
     scaleBy: 'sqft', scaleFactor: 1 / 1200,
     prepChecklist: [
       { icon: '🎨', text: 'Final touch-up color code ready', text_zh: '补漆色号准备', type: 'check' },
@@ -426,6 +517,24 @@ export const CONSTRUCTION_PHASES: ConstructionPhase[] = [
       { name: 'Touch-up & patch', name_zh: '补灰及修补' },
       { name: 'Wall topcoat (2 coats)', name_zh: '墙面面漆(2道)' },
       { name: 'Ceiling topcoat', name_zh: '天花面漆' },
+    ],
+  },
+  {
+    id: 'flooring', name: 'Flooring Works (Timber/Vinyl)', name_zh: '地板工程',
+    hint_MY: 'Vinyl/SPC flooring is click-lock — fast to install. Timber flooring needs acclimatization (48hrs in room). Ensure subfloor is level and dry.',
+    hint_SG: 'Timber flooring must meet fire rating requirements for condos. SPC/vinyl preferred for wet-area adjacent rooms.',
+    hint_zh: 'SPC/vinyl地板为锁扣式安装，速度快。实木地板需提前48小时放置现场适应温湿度。确保地面平整干燥。',
+    trade: 'Flooring', baseDays: 5, deps: ['painting2'],
+    scaleBy: 'sqft', scaleFactor: 1 / 120,
+    prepChecklist: [
+      { icon: '🪵', text: 'Flooring material delivered & acclimatized', text_zh: '地板材料已送达并适应环境', type: 'order' },
+      { icon: '📐', text: 'Subfloor leveled and clean', text_zh: '基层已找平清洁', type: 'check' },
+    ],
+    subItems: [
+      { name: 'Subfloor preparation', name_zh: '基层处理' },
+      { name: 'Underlay / moisture barrier', name_zh: '防潮垫铺设' },
+      { name: 'Flooring installation', name_zh: '地板安装' },
+      { name: 'Skirting / trim', name_zh: '踢脚线收口' },
     ],
   },
   {
@@ -535,6 +644,7 @@ const TRADE_COLORS: Record<string, string> = {
   'Metal Work':      '#6B7280',
   Ironwork:          '#6B7280',
   'Metal Work/Ironwork': '#6B7280',
+  'Kitchen Appliance': '#F97316',
   'Alarm & CCTV':    '#E11D48',
   CCTV:              '#E11D48',
   Landscaping:       '#22C55E',
@@ -597,33 +707,36 @@ function calculateDuration(phase: ConstructionPhase, sqft: number, typeMultiplie
   let days = phase.baseDays;
 
   // Masonry with extension/build work: min 20 days (14-day curing + plastering + drying)
-  // Larger scope adds only marginal time since curing period is fixed
   if (phase.id === 'masonry' && hasExtension) {
     days = Math.max(20, 20 + Math.ceil(Math.max(0, sqft - 300) / 200));
-    days = Math.max(1, Math.round(days * typeMultiplier));
-    return days;
+    if (!phase._isOverride) days = Math.max(1, Math.round(days * typeMultiplier));
+    return clampDuration(phase.id, days);
+  }
+
+  // Carpentry manufacturing: factory production, not affected by project type or sqft
+  if (phase.id === 'carpentry_mfg') {
+    return clampDuration(phase.id, phase.baseDays);
   }
 
   if (phase.scaleBy === 'sqft' && phase.scaleFactor && sqft > 0) {
     days = Math.max(phase.baseDays, Math.ceil(sqft * phase.scaleFactor));
   }
 
-  // Apply project type multiplier
-  days = Math.max(1, Math.round(days * typeMultiplier));
-
-  // Carpentry manufacturing: factory production not affected by project type
-  // Min 7 days, max 42 days (6 weeks)
-  if (phase.id === 'carpentry_mfg') {
-    return Math.max(7, Math.min(42, phase.baseDays));
+  // Apply project type multiplier ONLY if baseDays was NOT already scaled by amtScale
+  if (!phase._isOverride) {
+    days = Math.max(1, Math.round(days * typeMultiplier));
   }
 
-  // Cap painting phases: primer max 8 days, topcoat max 7 days
-  if (phase.id === 'painting1') return Math.min(days, 8);
-  if (phase.id === 'painting2') return Math.min(days, 7);
-  // Cap door/window: max 5 days (count-based, not sqft)
-  if (phase.id === 'door_window') return Math.min(days, 5);
+  return clampDuration(phase.id, days);
+}
 
-  return days;
+/** Clamp duration to [PHASE_MIN, PHASE_MAX] bounds */
+function clampDuration(phaseId: string, days: number): number {
+  const min = PHASE_MIN_DURATIONS[phaseId];
+  const max = PHASE_MAX_DURATIONS[phaseId];
+  if (min != null) days = Math.max(min, days);
+  if (max != null) days = Math.min(max, days);
+  return Math.max(1, days);
 }
 
 // Detect extension/build work from quotation item names
@@ -1023,7 +1136,7 @@ const PHASE_TRADE_REQUIRED: Record<string, string[]> = {
   electrical1:       ['electrical'],
   plumbing1:         ['plumbing'],
   waterproofing:     ['waterproofing', 'tiling'],
-  tiling:            ['tiling', 'flooring'],
+  tiling:            ['tiling'],
   ac_piping:         ['aircon'],
   ceiling:           ['falseCeiling'],
   painting1:         ['painting'],
@@ -1035,10 +1148,14 @@ const PHASE_TRADE_REQUIRED: Record<string, string[]> = {
   electrical3:       ['electrical'],
   plumbing2:         ['plumbing'],
   ac_install:        ['aircon'],
+  smart_home:        ['alarm'],
+  kitchen_appliance: ['kitchenAppliance'],
   painting2:         ['painting'],
+  flooring:          ['flooring'],
   wallpaper:         ['wallpaper'],
   stone_marble:      ['stonework'],
   glass_work:        ['glass'],
+  metal_roofing:     ['metalRoofing'],
   metal_work:        ['metalwork'],
   tabletop:          ['tabletop'],
   landscape:         ['landscape'],
@@ -1109,24 +1226,32 @@ export function generateGanttFromAIParams(
     overrides['ac_piping'] = Math.max(1, Math.ceil(a * 0.4));
     overrides['ac_install'] = Math.max(1, Math.ceil(a * 0.6));
   }
-  if (ts.glass?.estimatedDays)      overrides['glass_work']   = ts.glass.estimatedDays;
-  if (ts.landscape?.estimatedDays)  overrides['landscape']    = ts.landscape.estimatedDays;
-  if (ts.metalwork?.estimatedDays)  overrides['metal_work']   = ts.metalwork.estimatedDays;
+  if (ts.glass?.estimatedDays)            overrides['glass_work']        = ts.glass.estimatedDays;
+  if (ts.landscape?.estimatedDays)        overrides['landscape']         = ts.landscape.estimatedDays;
+  if (ts.metalRoofing?.estimatedDays)     overrides['metal_roofing']     = ts.metalRoofing.estimatedDays;
+  if (ts.metalwork?.estimatedDays)        overrides['metal_work']        = ts.metalwork.estimatedDays;
   if (ts.stonework?.estimatedDays || ts.stone?.estimatedDays)
     overrides['stone_marble'] = (ts.stone?.estimatedDays || ts.stonework?.estimatedDays)!;
-  if (ts.tabletop?.estimatedDays)   overrides['tabletop']     = ts.tabletop.estimatedDays;
-  if (ts.curtain?.estimatedDays)    overrides['curtains']   = ts.curtain.estimatedDays;
-  if (ts.delivery?.estimatedDays)   overrides['delivery']   = ts.delivery.estimatedDays;
-  if (ts.wallpaper?.estimatedDays)  overrides['wallpaper']  = ts.wallpaper.estimatedDays;
+  if (ts.tabletop?.estimatedDays)         overrides['tabletop']          = ts.tabletop.estimatedDays;
+  if (ts.alarm?.estimatedDays)            overrides['smart_home']        = ts.alarm.estimatedDays;
+  if (ts.kitchenAppliance?.estimatedDays) overrides['kitchen_appliance'] = ts.kitchenAppliance.estimatedDays;
+  if (ts.flooring?.estimatedDays)         overrides['flooring']          = ts.flooring.estimatedDays;
+  if (ts.curtain?.estimatedDays)          overrides['curtains']          = ts.curtain.estimatedDays;
+  if (ts.delivery?.estimatedDays)         overrides['delivery']          = ts.delivery.estimatedDays;
+  if (ts.wallpaper?.estimatedDays)        overrides['wallpaper']         = ts.wallpaper.estimatedDays;
 
   // ── Filter phases: only include those whose trade exists in tradeScope ───────
   const hasTradeKey = (required: string[]) =>
     required.length === 0 || required.some(k => ts[k as keyof typeof ts] != null);
 
+  const hasMasonry = ts.masonry != null || ts.construction != null;
   const includedIds = new Set(
     CONSTRUCTION_PHASES
       .filter(p => {
-        if (!params.hasDemolition && (p.id === 'demolition' || p.id === 'masonry')) return false;
+        // Skip demolition if no demolition items
+        if (p.id === 'demolition' && !params.hasDemolition) return false;
+        // Allow masonry if masonry items exist, even without demolition
+        if (p.id === 'masonry' && !params.hasDemolition && !hasMasonry) return false;
         return hasTradeKey(PHASE_TRADE_REQUIRED[p.id] ?? []);
       })
       .map(p => p.id),
@@ -1153,6 +1278,7 @@ export function generateGanttFromAIParams(
     plumbing2:         'plumbing',
     waterproofing:     'waterproofing',
     tiling:            'tiling',
+    flooring:          'flooring',
     ac_piping:         'aircon',
     ceiling:           'falseCeiling',
     painting1:         'painting',
@@ -1162,8 +1288,11 @@ export function generateGanttFromAIParams(
     carpentry_install: 'carpentry',
     door_window:       'aluminium',
     ac_install:        'aircon',
+    smart_home:        'alarm',
+    kitchen_appliance: 'kitchenAppliance',
     stone_marble:      'stonework',
     glass_work:        'glass',
+    metal_roofing:     'metalRoofing',
     metal_work:        'metalwork',
     tabletop:          'tabletop',
     landscape:         'landscape',
@@ -1212,7 +1341,7 @@ export function generateGanttFromAIParams(
       if (overrides[p.id] !== undefined) {
         return {
           ...p, ...aiEnhanced, deps: remappedDeps, baseDays: overrides[p.id], scaleBy: undefined, scaleFactor: undefined,
-          sourceItems,
+          _isOverride: true, sourceItems,
         };
       }
       return { ...p, ...aiEnhanced, deps: remappedDeps, sourceItems };
@@ -1222,9 +1351,13 @@ export function generateGanttFromAIParams(
   // NOTE: glass, landscape, metalwork, stonework are now standard phases — skip them here
   const STANDARD_CUSTOM_TRADES = new Set([
     'glass', 'glass work', 'landscape', 'landscaping',
-    'metal work', 'metalwork', 'ironwork', 'stone', 'stonework', 'marble', 'stone work',
+    'metal work', 'metalwork', 'ironwork', 'metal roofing', 'roofing',
+    'stone', 'stonework', 'marble', 'stone work',
     // Construction/masonry items belong to the standard masonry phase
     'construction', 'masonry', 'brickwork', 'structural', 'plastering', 'plaster', 'screed',
+    // Smart home / alarm / kitchen appliance are now standard phases
+    'alarm', 'cctv', 'smart home', 'security', 'autogate',
+    'kitchen appliance', 'hob', 'hood', 'oven',
   ]);
   // Patterns to detect construction-related customPhase names (broader than exact Set match)
   const CONSTRUCTION_NAME_PATTERNS = /\b(construct|masonry|brickwork|rc\s|reinforc|structural|plaster(?!.*ceil)|screed|slab)\b/i;
@@ -1536,14 +1669,13 @@ export function generateGanttFromQuotation(
   }
 
   // ── 4. Contract amount scale factor ─────────────────────────────────────
-  // Larger projects take proportionally longer. Scale base durations by contract value.
+  // Smooth logarithmic curve: scales gently with contract value, capped at 1.8x.
+  // 20k→1.06, 50k→1.26, 100k→1.41, 200k→1.56, 400k→1.72, 800k→1.80
   const totalAmt = dedupedItems.reduce((s, i) => s + (i.total || 0), 0);
   let amtScale = 1.0;
-  if      (totalAmt > 300000) amtScale = 2.5;
-  else if (totalAmt > 150000) amtScale = 1.8;
-  else if (totalAmt > 80000)  amtScale = 1.4;
-  else if (totalAmt > 40000)  amtScale = 1.2;
-  else if (totalAmt > 20000)  amtScale = 1.1;
+  if (totalAmt > 15000) {
+    amtScale = 1.0 + Math.min(0.8, Math.log10(totalAmt / 15000) * 0.5);
+  }
   const sc = (days: number) => Math.round(days * amtScale);
 
   if (tradeSections.demolition)    tradeScope.demolition    = { estimatedDays: sc(5), ...makeName('demolition', 'Demolition Works', '拆除工程') };
@@ -1563,13 +1695,16 @@ export function generateGanttFromQuotation(
   if (tradeSections.aluminium)     tradeScope.aluminium     = { estimatedDays: sc(3), ...makeName('aluminium', 'Doors & Windows Installation', '门窗安装') };
   if (tradeSections.aircon)        tradeScope.aircon        = { estimatedDays: sc(2), ...makeName('aircon', 'Aircon Installation', '空调安装') };
   // Standard trades
-  if (tradeSections.glass)         tradeScope.glass         = { estimatedDays: sc(5), ...makeName('glass', 'Glass Work', '玻璃工程') };
-  if (tradeSections.landscape)     tradeScope.landscape     = { estimatedDays: sc(10), ...makeName('landscape', 'Landscape Works', '景观工程') };
-  if (tradeSections.metalwork)     tradeScope.metalwork     = { estimatedDays: sc(7), ...makeName('metalwork', 'Metal Work', '金属工程') };
-  if (tradeSections.stonework)     tradeScope.stonework     = { estimatedDays: sc(5), ...makeName('stonework', 'Stone & Marble Work', '石材工程') };
-  if (tradeSections.tabletop)      tradeScope.tabletop      = { estimatedDays: sc(3), ...makeName('tabletop', 'Table Top / Countertop', '台面工程') };
-  if (tradeSections.curtain)       tradeScope.curtain       = { estimatedDays: 1, ...makeName('curtain', 'Curtain & Blinds', '窗帘安装') };
-  if (tradeSections.delivery)      tradeScope.delivery      = { estimatedDays: 2, ...makeName('delivery', 'Appliance & Furniture Delivery', '电器家具交付') };
+  if (tradeSections.glass)            tradeScope.glass            = { estimatedDays: sc(5), ...makeName('glass', 'Glass Work', '玻璃工程') };
+  if (tradeSections.landscape)        tradeScope.landscape        = { estimatedDays: sc(10), ...makeName('landscape', 'Landscape Works', '景观工程') };
+  if (tradeSections.metalRoofing)     tradeScope.metalRoofing     = { estimatedDays: sc(5), ...makeName('metalRoofing', 'Metal Roofing & Structure', '金属屋顶/结构') };
+  if (tradeSections.metalwork)        tradeScope.metalwork        = { estimatedDays: sc(7), ...makeName('metalwork', 'Metal Work — Gates & Fencing', '铁门/围栏工程') };
+  if (tradeSections.stonework)        tradeScope.stonework        = { estimatedDays: sc(5), ...makeName('stonework', 'Stone & Marble Work', '石材工程') };
+  if (tradeSections.tabletop)         tradeScope.tabletop         = { estimatedDays: sc(3), ...makeName('tabletop', 'Table Top / Countertop', '台面工程') };
+  if (tradeSections.alarm)            tradeScope.alarm            = { estimatedDays: sc(3), ...makeName('alarm', 'Smart Home & Security', '智能家居/安防') };
+  if (tradeSections.kitchenAppliance) tradeScope.kitchenAppliance = { estimatedDays: sc(2), ...makeName('kitchenAppliance', 'Kitchen Appliance Installation', '厨房电器安装') };
+  if (tradeSections.curtain)          tradeScope.curtain          = { estimatedDays: 1, ...makeName('curtain', 'Curtain & Blinds', '窗帘安装') };
+  if (tradeSections.delivery)         tradeScope.delivery         = { estimatedDays: 2, ...makeName('delivery', 'Appliance & Furniture Delivery', '电器家具交付') };
 
   // If no specific trades detected, fall back to full default schedule
   if (Object.keys(tradeScope).length === 0) {
@@ -1610,15 +1745,17 @@ const TRADE_PATTERNS_SHARED: Record<string, RegExp[]> = {
   flooring:       [/\bvinyl/, /timber\s*floor/, /\bparquet/, /laminate\s*floor/, /\bspc\b/, /\blvt\b/, /engineered.*floor/, /\bcarpet\s*floor/, /\bmerbau/, /\b木地板/, /composite\s*deck/],
   painting:       [/\bpaint(?:ing)?\b/, /\bprimer/, /skim.?coat/, /\bputty/, /\bemulsion/, /\bsealer/, /\bnippon/, /\bdulux/, /\bjotun/, /texture.*paint/, /\b油漆/, /\b漆\b/, /\btopcoat/],
   wallpaper:      [/\bwallpaper\b/, /\bwall\s*paper\b/, /wall\s*paper\s*laminate/, /wall\s*cover(?:ing)?/, /\bwallcovering/, /\bvinyl\s*wall/, /feature\s*wallpaper/, /\b壁纸/, /\b墙纸/],
-  carpentry:      [/\bcabinet/, /\bcarpent/, /\bwardrobe/, /\bjoiner/, /\bshelf\b|\bshelv/, /\bvanity/, /\bbasin\s*cabinet/, /base\s*cabinet/, /wall\s*cabinet/, /tall\s*cabinet/, /kitchen.*cabinet/, /\bcupboard/, /\bsolid\s*plywood/, /\bhob\b/, /\bhood\b/, /tv\s*console/, /feature\s*wall/, /built.?in/, /shoe\s*rack/, /\bisland\b/, /bar\s*counter/, /\bpanel\b.*(?:wall|cabinet)/, /mirror\s*cabinet/, /\blaminated\b/, /\bmelamine\b/, /\b衣柜/, /\b衣橱/, /\b厨房\s*(?:柜|家具)/, /\b客厅\s*(?:柜|背景)/, /\b背景墙/, /\b木工/],
+  carpentry:      [/\bcabinet/, /\bcarpent/, /\bwardrobe/, /\bjoiner/, /\bshelf\b|\bshelv/, /\bvanity/, /\bbasin\s*cabinet/, /base\s*cabinet/, /wall\s*cabinet/, /tall\s*cabinet/, /kitchen.*cabinet/, /\bcupboard/, /\bsolid\s*plywood/, /tv\s*console/, /feature\s*wall/, /built.?in/, /shoe\s*rack/, /\bisland\b/, /bar\s*counter/, /\bpanel\b.*(?:wall|cabinet)/, /mirror\s*cabinet/, /\blaminated\b/, /\bmelamine\b/, /\b衣柜/, /\b衣橱/, /\b厨房\s*(?:柜|家具)/, /\b客厅\s*(?:柜|背景)/, /\b背景墙/, /\b木工/],
   tabletop:       [/\bcountertop/, /\bcounter\s*top/, /table\s*top/, /\btabletop/, /\bsolid\s*surface/, /\bquartz\s*top/, /\bpostform/, /\bsintered/, /\bdekton/, /\bneolith/, /worktop/, /marble.*top/, /granite.*top/, /\bcorian/, /vanity\s*top/, /basin\s*top/, /kitchen\s*top/, /bar.*top/, /island.*top/],
   aluminium:      [/\balumi?n/, /\baluminum/, /\bwindow\b.*(?:frame|instal|replac)/, /sliding\s*door/, /door\s*frame/, /\bcasement/, /casement\s*door/, /bi.?fold.*door/, /folding.*door/, /fixed\s*glass.*door/, /fix(?:ed)?\s*window/, /\bupvc/, /\bwindow\s*frame/, /powder\s*coat/, /\bpcw\b/, /toilet\s*door/],
   glass:          [/\bglass\b/, /shower\s*screen/, /\bmirror\b/, /\btempered/, /glass\s*panel/, /fix(?:ed)?\s*glass(?!\s*door)/, /\b玻璃/],
   stonework:      [/\bmarble/, /\bgranite/, /\bquartz(?!\s*top)/, /\bstone\b/, /natural\s*stone/],
-  metalwork:      [/metal\s*work/, /iron\s*work/, /\bwrought/, /stainless\s*steel/, /\bmetal\s*(gate|fence|railing|roof)/, /\bms\s*(gate|fence|railing)/, /mild\s*steel/, /\bgrille\b/, /\bgate\b/, /\bawning/, /metal.*roof/, /polycarbonate/, /composite\s*panel/, /pu\s*metal/, /\bdeck.*steel/, /\brailing/],
+  metalRoofing:   [/metal.*roof/, /\bawning/, /\bcanopy/, /polycarbonate/, /\broof\s*(sheet|panel|structure)/, /zinc\s*roof/, /\bpergola/, /car\s*porch.*roof/, /\bskylight/],
+  metalwork:      [/metal\s*work/, /iron\s*work/, /\bwrought/, /stainless\s*steel/, /\bmetal\s*(gate|fence|railing)/, /\bms\s*(gate|fence|railing)/, /mild\s*steel/, /\bgrille\b/, /\bgate\b/, /composite\s*panel/, /pu\s*metal/, /\bdeck.*steel/, /\brailing/],
   landscape:      [/\blandscap/, /\bgarden\b/, /\bturf\b/, /\bplanting/, /\bpaving\b/, /\bfenc(?:e|ing)\b/, /\bgrassturf/, /\bdecking\b/, /\b植草/],
   curtain:        [/\bcurtain/, /\bblind\b/, /roller\s*blind/, /\bsheer/, /\bdrape/],
   delivery:       [/\bappliance/, /furniture\s*deliver/, /loose\s*furniture/],
+  kitchenAppliance: [/\bhob\b/, /\bhood\b/, /extraction\s*hood/, /\bcooktop/, /\boven\b/, /\bmicrowave/, /\bdishwasher/, /water\s*filter/, /\bdispenser/, /\bwasher\b.*built|built.*\bwasher/, /gas\s*stove/, /induction\s*hob/, /\b灶/, /\b油烟机/, /\b烤箱/],
   preliminary:    [/\bfloor\s*protect/, /\bsite\s*protect/, /\bhoarding/, /\bpreliminar/, /\bmobiliz/, /\bsite\s*prep/],
   cleaning:       [/\bclean/, /\bdefect/, /\btouch.?up/, /\bsnag/, /\bpunch\s*list/, /\bconclus/, /\bdisposal/, /remove\s*waste/, /\brubbish/, /\bdebris/],
 };
@@ -1638,12 +1775,17 @@ export function tradeMatches(taskTrade: string, classifiedTrade: string): boolea
     'false ceiling': ['falseceil', 'falseceiling', 'ceiling'],
     'ceiling': ['falseceil', 'falseceiling', 'false ceiling'],
     'alarm & cctv': ['alarm'],
+    'smart home': ['alarm'],
     'electrical': ['alarm'],
     'window & door': ['aluminium'],
     'aluminium': ['window & door'],
-    'metal work': ['metalwork'],
+    'metal work': ['metalwork', 'metalroofing'],
     'metal work / ironwork': ['metalwork'],
+    'metal work — gates & fencing': ['metalwork'],
+    'metal roofing & structure': ['metalroofing'],
     'metalwork': ['metal work'],
+    'metalroofing': ['metal work'],
+    'kitchen appliance': ['kitchenappliance'],
     'stone': ['stonework'],
     'stonework': ['stone'],
     'stone & marble works': ['stonework'],
@@ -1651,8 +1793,8 @@ export function tradeMatches(taskTrade: string, classifiedTrade: string): boolea
     'glass work': ['glass'],
     'tabletop': ['table top', 'countertop'],
     'table top / countertop': ['tabletop'],
-    'tiling': ['flooring'],
-    'flooring': ['tiling'],
+    'tiling': [],
+    'flooring': [],
     'landscape': ['landscape works'],
     'aircon': ['aircon', 'ac'],
     'ac': ['aircon'],
@@ -1993,4 +2135,32 @@ export function forwardReschedule(tasks: GanttTask[], workSat = false, workSun =
   }
   if (shifted.size === 0) return tasks;
   return tasks.map(t => updMap.get(t.id)!);
+}
+
+/**
+ * Post-validation: clamp all task durations to [min, max] per phase_id.
+ * Skips tasks with is_duration_locked (manually adjusted by designer/worker).
+ * Recalculates end_date for clamped tasks and runs forwardReschedule if needed.
+ */
+export function validateDurations(tasks: GanttTask[], workSat = false, workSun = false): GanttTask[] {
+  let changed = false;
+  const changedIds: string[] = [];
+  const validated = tasks.map(t => {
+    if (t.is_duration_locked) return t;
+    const phaseId = t.phase_id;
+    if (!phaseId) return t;
+    const min = PHASE_MIN_DURATIONS[phaseId];
+    const max = PHASE_MAX_DURATIONS[phaseId];
+    if (min == null && max == null) return t;
+    const clamped = Math.max(min ?? 1, Math.min(max ?? 999, t.duration || 1));
+    if (clamped === (t.duration || 1)) return t;
+    changed = true;
+    changedIds.push(t.id);
+    const newEnd = clamped > 1
+      ? addWorkdays_simple(parseISO(t.start_date), clamped - 1, workSat, workSun)
+      : parseISO(t.start_date);
+    return { ...t, duration: clamped, end_date: format(newEnd, 'yyyy-MM-dd') };
+  });
+  if (!changed) return tasks;
+  return forwardReschedule(validated, workSat, workSun, changedIds);
 }
