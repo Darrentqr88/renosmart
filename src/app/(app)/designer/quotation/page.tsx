@@ -133,6 +133,45 @@ function sanitizeAnalysis(raw: QuotationAnalysis): QuotationAnalysis {
   };
 }
 
+// Group alerts with the same title into one combined alert (merges repeated per-item alerts)
+function groupAlertsByTitle<T extends { title: string; desc: string; level: string }>(alerts: T[]): T[] {
+  const seen = new Map<string, { base: T; descs: string[] }>();
+  for (const a of alerts) {
+    const key = `${a.level}::${a.title}`;
+    if (seen.has(key)) {
+      seen.get(key)!.descs.push(a.desc);
+    } else {
+      seen.set(key, { base: a, descs: [a.desc] });
+    }
+  }
+  return Array.from(seen.values()).map(({ base, descs }) => ({
+    ...base,
+    desc: descs.length === 1 ? descs[0] : descs.map(d => `• ${d}`).join('\n'),
+  }));
+}
+
+// Filter out false-positive warning alerts:
+// 1. Price alerts where calculation/price is confirmed correct/within range
+// 2. "Calculation Error" alerts where the description concludes it is actually correct
+function isFalsePositiveAlert(alert: { title: string; desc: string }): boolean {
+  const d = (alert.desc || '').toLowerCase();
+  const t = (alert.title || '').toLowerCase();
+
+  // Price "within range" false positives
+  const isWithinRange =
+    (t.includes('price anomaly') || t.includes('price')) &&
+    (d.includes('within range') || d.includes('within the range') || d.includes('is in range') ||
+     d.includes('this is within') || d.includes('reasonable for') || d.includes('in range'));
+
+  // Calculation "error" that actually confirms it is correct
+  const isCorrectCalc =
+    t.includes('calculation') &&
+    (d.includes('calculation is correct') || d.includes('is correct') ||
+     d.includes('= correct') || d.includes('matches') || d.endsWith('correct.'));
+
+  return isWithinRange || isCorrectCalc;
+}
+
 /* ─── Main Page ─────────────────────────────────────────────────────────── */
 export default function QuotationPage() {
   const { lang, region } = useI18n();
@@ -165,6 +204,9 @@ export default function QuotationPage() {
 
   // Full report
   const [showFullReport, setShowFullReport] = useState(false);
+  const [expandMissing, setExpandMissing] = useState(false);
+  const [expandFlags, setExpandFlags] = useState(false);
+  const [expandTips, setExpandTips] = useState(false);
 
   // Save to project
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -210,6 +252,9 @@ export default function QuotationPage() {
     setActiveSection('all');
     setClientInfo(null);
     setShowFullReport(false);
+    setExpandMissing(false);
+    setExpandFlags(false);
+    setExpandTips(false);
     setScoreBreakdown(null);
     setSavedProjectId(null);
     setStep('idle');
@@ -702,43 +747,95 @@ export default function QuotationPage() {
   const handleExportPDF = () => {
     if (!analysis) return;
     const criticals = analysis.alerts.filter(a => a.level === 'critical');
-    const warnings = analysis.alerts.filter(a => a.level === 'warning');
-    const infos = analysis.alerts.filter(a => a.level === 'info');
+    const warnings  = analysis.alerts.filter(a => a.level === 'warning' && !isFalsePositiveAlert(a));
+    const infos     = analysis.alerts.filter(a => a.level === 'info');
+
+    // Use blended scores from scoreBreakdown when available, otherwise fall back to AI scores
+    const totalScore        = scoreBreakdown ? scoreBreakdown.total                         : analysis.score.total;
+    const completenessScore = scoreBreakdown ? scoreBreakdown.completeness.blendedScore     : analysis.score.completeness;
+    const priceScore        = scoreBreakdown ? scoreBreakdown.price.blendedScore            : analysis.score.price;
+    const logicScore        = scoreBreakdown ? scoreBreakdown.logic.blendedScore            : analysis.score.logic;
+    const riskScore         = scoreBreakdown ? scoreBreakdown.risk.blendedScore             : analysis.score.risk;
+
+    // Score detail lines (e.g. "AI: 75 | Data: 80 | 数据库 5项 + AI估算 3项")
+    const scoreDetailRow = (label: string, blended: number, dim?: DimensionBreakdown) =>
+      `<tr>
+        <td>${label}</td>
+        <td style="text-align:center"><b>${blended}</b>/100</td>
+        <td style="text-align:center">${blended >= 75 ? '✓ 良好' : blended >= 50 ? '⚠ 一般' : '✗ 偏低'}</td>
+        <td style="font-size:11px;color:#6B7A94">${dim ? `AI ${dim.aiScore} · 数据 ${dim.dataScore} · ${dim.detail}` : ''}</td>
+      </tr>`;
+
+    // Price flags from score calculator (only data-sourced, not ai_status)
+    const priceFlags = (scoreBreakdown?.priceComparisons ?? []).filter(
+      c => c.source !== 'ai_status' && c.source !== 'ai_estimate' && (c.verdict === 'flag_high' || c.verdict === 'flag_low' || c.verdict === 'warn_high'),
+    );
+
+    // Missing items — prefer missingCritical (with urgency/reason/cost) over plain missing
+    const hasMissingCritical = (analysis.missingCritical ?? []).length > 0;
+    const missingHtml = hasMissingCritical
+      ? (analysis.missingCritical ?? []).map(m =>
+          `<div class="missing-card ${m.urgency === 'critical' ? 'miss-critical' : 'miss-warn'}">
+            <div class="miss-title">${m.urgency === 'critical' ? '✗' : '⚠'} ${m.item}</div>
+            ${m.reason ? `<div class="miss-reason">${m.reason}</div>` : ''}
+            ${m.estimatedCost ? `<div class="miss-cost">预估费用：${m.estimatedCost}</div>` : ''}
+          </div>`
+        ).join('')
+      : analysis.missing.map(m => `<div class="missing-card miss-warn"><div class="miss-title">⚠ ${m}</div></div>`).join('');
+
     const win = window.open('', '_blank');
     if (!win) return;
     win.document.write(`
 <!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8">
-<title>AI 报价审核报告 — ${fileName}</title>
+<title>AI 完整审核报告 — ${fileName}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; padding: 40px; color: #1B2336; line-height: 1.6; }
-  h1 { font-size: 22px; margin-bottom: 4px; } h2 { font-size: 16px; color: #4F8EF7; margin: 24px 0 10px; border-bottom: 2px solid #4F8EF7; padding-bottom: 6px; }
-  h3 { font-size: 14px; margin: 16px 0 6px; }
-  .meta { color: #6B7A94; font-size: 13px; margin-bottom: 24px; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-  .field { padding: 8px 0; border-bottom: 1px solid #E4E7F0; }
-  .label { font-size: 11px; color: #6B7A94; } .value { font-size: 13px; font-weight: 600; }
-  .score-row { display: flex; gap: 16px; align-items: center; margin-bottom: 16px; }
-  .score-big { font-size: 36px; font-weight: 800; color: #4F8EF7; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
-  th { background: #F0F2F7; padding: 8px; text-align: left; border: 1px solid #E4E7F0; }
-  td { padding: 7px 8px; border: 1px solid #E4E7F0; }
-  .total-row td { background: rgba(79,142,247,0.1); font-weight: 700; font-size: 14px; }
+  body { font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; padding: 40px; color: #1B2336; line-height: 1.6; font-size: 13px; }
+  h1 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+  h2 { font-size: 15px; font-weight: 700; color: #4F8EF7; margin: 28px 0 10px; border-bottom: 2px solid #4F8EF7; padding-bottom: 6px; }
+  .meta { color: #6B7A94; font-size: 12px; margin-bottom: 28px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; margin-bottom: 20px; }
+  .field { padding: 7px 0; border-bottom: 1px solid #E4E7F0; }
+  .label { font-size: 10px; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.5px; }
+  .value { font-size: 13px; font-weight: 600; margin-top: 1px; }
+  /* Score */
+  .score-header { display: flex; gap: 20px; align-items: center; background: #F8F9FB; border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; }
+  .score-circle { width: 72px; height: 72px; border-radius: 50%; border: 3px solid #F0B90B; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(240,185,11,0.08); flex-shrink: 0; }
+  .score-num { font-size: 26px; font-weight: 800; line-height: 1; }
+  .score-sub { font-size: 9px; color: #9CA3AF; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 16px; }
+  th { background: #F0F2F7; padding: 8px 10px; text-align: left; border: 1px solid #E4E7F0; font-size: 11px; color: #6B7A94; font-weight: 600; }
+  td { padding: 7px 10px; border: 1px solid #E4E7F0; vertical-align: top; }
+  .total-row td { background: rgba(79,142,247,0.08); font-weight: 700; font-size: 13px; }
+  /* Alerts */
   .alert { padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; }
-  .critical { background: rgba(229,57,53,0.08); border-left: 3px solid #E53935; }
-  .warning  { background: rgba(249,115,22,0.08); border-left: 3px solid #F97316; }
-  .info     { background: rgba(46,107,230,0.08); border-left: 3px solid #2E6BE6; }
+  .critical { background: rgba(229,57,53,0.07); border-left: 3px solid #E53935; }
+  .warning  { background: rgba(249,115,22,0.07); border-left: 3px solid #F97316; }
+  .info     { background: rgba(46,107,230,0.07); border-left: 3px solid #2E6BE6; }
   .alert-title { font-weight: 700; font-size: 13px; margin-bottom: 2px; }
   .alert-desc  { font-size: 12px; color: #3D4A60; }
-  .missing-item { padding: 4px 0; border-bottom: 1px solid #F0F2F7; font-size: 13px; color: #E53935; }
-  @media print { body { padding: 20px; } }
+  /* Missing */
+  .missing-card { border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; }
+  .miss-critical { background: rgba(229,57,53,0.07); border-left: 3px solid #E53935; }
+  .miss-warn { background: rgba(249,115,22,0.07); border-left: 3px solid #F97316; }
+  .miss-title { font-weight: 700; font-size: 13px; }
+  .miss-reason { font-size: 12px; color: #6B7A94; margin-top: 3px; }
+  .miss-cost { font-size: 12px; font-weight: 700; color: #E53935; margin-top: 3px; }
+  /* Price flags */
+  .flag-high { color: #E53935; font-weight: 700; }
+  .flag-low  { color: #2E6BE6; font-weight: 700; }
+  .warn-high { color: #F97316; }
+  /* Summary box */
+  .summary-box { background: #F8F9FB; border-radius: 10px; padding: 12px 16px; font-size: 13px; color: #3D4A60; margin-bottom: 20px; line-height: 1.7; }
+  @media print { body { padding: 20px; } h2 { page-break-before: auto; } }
 </style></head><body>
-<h1>AI 报价审核报告</h1>
-<div class="meta">${fileName} &nbsp;·&nbsp; 生成于 ${new Date().toLocaleString('zh-MY')} &nbsp;·&nbsp; Based on MY/SG 2025 market data</div>
+
+<h1>AI 完整审核报告</h1>
+<div class="meta">${fileName} &nbsp;·&nbsp; ${analysis.items.length} 项工程 &nbsp;·&nbsp; ${fmtCurrency(analysis.totalAmount)} &nbsp;·&nbsp; 生成于 ${new Date().toLocaleString('zh-MY')}</div>
 
 <h2>客户资料</h2>
 <div class="grid2">
-  <div class="field"><div class="label">公司</div><div class="value">${analysis.client.company || '—'}</div></div>
+  <div class="field"><div class="label">公司 / 业主</div><div class="value">${analysis.client.company || '—'}</div></div>
   <div class="field"><div class="label">联系人</div><div class="value">${analysis.client.attention || '—'}</div></div>
   <div class="field"><div class="label">电话</div><div class="value">${analysis.client.tel || '—'}</div></div>
   <div class="field"><div class="label">邮箱</div><div class="value">${analysis.client.email || '—'}</div></div>
@@ -747,30 +844,54 @@ export default function QuotationPage() {
 </div>
 
 <h2>AI 审核评分</h2>
-<div class="score-row"><div class="score-big">${analysis.score.total}</div><div style="font-size:13px;color:#6B7A94">/ 100 综合评分</div></div>
-<table><thead><tr><th>维度</th><th>分数</th><th>评级</th></tr></thead><tbody>
-  ${[['项目完整性', analysis.score.completeness], ['单价合理性', analysis.score.price], ['工序逻辑性', analysis.score.logic], ['遗项风险', analysis.score.risk]].map(([l, v]) =>
-    `<tr><td>${l}</td><td><b>${v}</b>/100</td><td>${(v as number) >= 75 ? '✓ 良好' : (v as number) >= 50 ? '⚠ 一般' : '✗ 偏低'}</td></tr>`
-  ).join('')}
-</tbody></table>
-<div style="background:#F8F9FB;padding:12px;border-radius:8px;font-size:13px;margin-bottom:20px;"><b>AI 总结：</b>${analysis.summary}</div>
+<div class="score-header">
+  <div class="score-circle">
+    <div class="score-num" style="color:${totalScore >= 80 ? '#16A34A' : totalScore >= 60 ? '#F0B90B' : '#E53935'}">${totalScore}</div>
+    <div class="score-sub">/ 100</div>
+  </div>
+  <div style="flex:1">
+    <table style="margin:0">
+      <thead><tr><th>维度</th><th style="text-align:center">分数</th><th style="text-align:center">评级</th><th>数据来源</th></tr></thead>
+      <tbody>
+        ${scoreDetailRow('项目完整性', completenessScore, scoreBreakdown?.completeness)}
+        ${scoreDetailRow('单价合理性', priceScore,        scoreBreakdown?.price)}
+        ${scoreDetailRow('工序逻辑性', logicScore,        scoreBreakdown?.logic)}
+        ${scoreDetailRow('漏项风险',   riskScore,         scoreBreakdown?.risk)}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+${analysis.summary ? `<div class="summary-box">🤖 <strong>AI 总结：</strong>${analysis.summary}</div>` : ''}
+
+${(hasMissingCritical || analysis.missing.length > 0) ? `
+<h2>📋 关键缺失项目 (${hasMissingCritical ? (analysis.missingCritical?.length ?? 0) : analysis.missing.length} 项)</h2>
+${missingHtml}` : ''}
+
+${priceFlags.length > 0 ? `
+<h2>价格异常项目 (${priceFlags.length} 项)</h2>
+<table><thead><tr><th>#</th><th>工程描述</th><th style="text-align:right">报价单价</th><th style="text-align:right">市场区间</th><th>来源</th><th>结论</th></tr></thead><tbody>
+${priceFlags.map((c, i) => {
+  const verdictLabel = c.verdict === 'flag_high' ? '<span class="flag-high">严重偏高</span>' : c.verdict === 'flag_low' ? '<span class="flag-low">严重偏低</span>' : '<span class="warn-high">偏高注意</span>';
+  const range = c.dbMin != null && c.dbMax != null ? `${c.dbMin.toFixed(0)} – ${c.dbMax.toFixed(0)}` : '—';
+  return `<tr><td>${i+1}</td><td>${c.itemName}</td><td style="text-align:right">${c.quotedPrice.toFixed(2)}</td><td style="text-align:right">${range}</td><td>${c.source === 'database' ? '数据库' : c.source === 'known_range' ? '已知区间' : 'AI估算'}</td><td>${verdictLabel}</td></tr>`;
+}).join('')}
+</tbody></table>` : ''}
+
+${criticals.length > 0 ? `<h2>🔴 严重问题（需立即处理）</h2>${criticals.map(a => `<div class="alert critical"><div class="alert-title">${a.title}</div><div class="alert-desc">${a.desc}</div></div>`).join('')}` : ''}
+${warnings.length > 0 ? `<h2>🟡 警告（建议确认）</h2>${warnings.map(a => `<div class="alert warning"><div class="alert-title">${a.title}</div><div class="alert-desc">${a.desc}</div></div>`).join('')}` : ''}
+${infos.length > 0 ? `<h2>💡 提示（可选考虑）</h2>${infos.map(a => `<div class="alert info"><div class="alert-title">${a.title}</div><div class="alert-desc">${a.desc}</div></div>`).join('')}` : ''}
 
 <h2>报价工程项目 (${analysis.items.length} 项)</h2>
-<table><thead><tr><th>#</th><th>工程描述</th><th>单位</th><th style="text-align:right">数量</th><th style="text-align:right">单价</th><th style="text-align:right">金额</th><th>状态</th></tr></thead>
+<table><thead><tr><th>#</th><th>工程描述</th><th>类型</th><th>单位</th><th style="text-align:right">数量</th><th style="text-align:right">单价</th><th style="text-align:right">金额</th><th>状态</th></tr></thead>
 <tbody>
-${analysis.items.map(item => `<tr><td>${item.no}</td><td><div style="font-size:10px;color:#6B7A94">${item.section||''}</div>${item.name}</td><td>${item.unit}</td><td style="text-align:right">${item.qty}</td><td style="text-align:right">${item.unitPrice.toFixed(2)}${item.unitPriceDerived ? '*' : ''}</td><td style="text-align:right;font-weight:600">${fmtCurrency(item.total)}</td><td>${STATUS_CONFIG[item.status].label}${item.note ? '<br><span style="font-size:10px;color:#6B7A94">'+item.note+'</span>' : ''}</td></tr>`).join('')}
+${analysis.items.map(item => `<tr><td>${item.no}</td><td><div style="font-size:10px;color:#9CA3AF">${item.section||''}</div>${item.name}</td><td><span style="font-size:10px;color:#6B7A94">${item.supplyType === 'labour_only' ? 'Labour' : item.supplyType === 'supply_only' ? 'Supply' : 'S&I'}</span></td><td>${item.unit}</td><td style="text-align:right">${item.qty}</td><td style="text-align:right">${item.unitPrice.toFixed(2)}${item.unitPriceDerived ? '*' : ''}</td><td style="text-align:right;font-weight:600">${fmtCurrency(item.total)}</td><td style="white-space:nowrap">${STATUS_CONFIG[item.status].label}${item.note ? '<br><span style="font-size:10px;color:#6B7A94">'+item.note+'</span>' : ''}</td></tr>`).join('')}
 </tbody>
-${analysis.subtotals.map(s => `<tfoot><tr><td colspan="5" style="text-align:right;font-weight:600">${s.label}</td><td style="text-align:right;font-weight:700">${fmtCurrency(s.amount)}</td><td></td></tr></tfoot>`).join('')}
-<tfoot><tr class="total-row"><td colspan="5" style="text-align:right">报价总额</td><td style="text-align:right;color:#4F8EF7">${fmtCurrency(analysis.totalAmount)}</td><td></td></tr></tfoot></table>
-
-${analysis.missing.length > 0 ? `<h2>可能漏算项目 (${analysis.missing.length} 项)</h2>${analysis.missing.map(m => `<div class="missing-item">✗ ${m}</div>`).join('')}` : ''}
-
-${criticals.length > 0 ? `<h2>严重问题（需立即处理）</h2>${criticals.map(a => `<div class="alert critical"><div class="alert-title">🔴 ${a.title}</div><div class="alert-desc">${a.desc}</div></div>`).join('')}` : ''}
-${warnings.length > 0 ? `<h2>警告（建议确认）</h2>${warnings.map(a => `<div class="alert warning"><div class="alert-title">🟡 ${a.title}</div><div class="alert-desc">${a.desc}</div></div>`).join('')}` : ''}
-${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div class="alert info"><div class="alert-title">💡 ${a.title}</div><div class="alert-desc">${a.desc}</div></div>`).join('')}` : ''}
+${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:right;font-weight:600">${s.label}</td><td style="text-align:right;font-weight:700">${fmtCurrency(s.amount)}</td><td></td></tr></tfoot>`).join('')}
+<tfoot><tr class="total-row"><td colspan="6" style="text-align:right">报价总额</td><td style="text-align:right;color:#4F8EF7">${fmtCurrency(analysis.totalAmount)}</td><td></td></tr></tfoot></table>
 
 <div style="margin-top:40px;padding-top:16px;border-top:1px solid #E4E7F0;font-size:11px;color:#9CA3AF">
-  * 单价标* 表示由「总价 ÷ 数量」计算得出，非原始报价直接提供<br>
+  * 单价标 * 表示由「总价 ÷ 数量（尺寸）」计算得出，非原始报价直接提供<br>
   Generated by RenoSmart AI · Based on MY/SG 2025 market data
 </div>
 <script>window.print(); setTimeout(() => window.close(), 1000);</script>
@@ -1082,128 +1203,130 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                   <span className="text-[11px] text-rs-text3 ml-2">Powered by price_database + AI</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#F0F2F7]">
-                  {/* Column 1: Missing Items — use missingCritical (with costs) if available, fallback to missing strings */}
-                  <div className="p-4">
-                    {(() => {
-                      const mc = analysis.missingCritical ?? [];
-                      const missingCount = mc.length > 0 ? mc.length : analysis.missing.length;
-                      return (
-                        <>
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="w-2 h-2 rounded-full bg-red-500" />
-                            <span className="text-[12px] font-bold text-red-600 tracking-wide">MISSING ITEMS</span>
-                            <span className="bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{missingCount}</span>
-                          </div>
-                          {mc.length > 0 ? (
+                  {/* Column 1: Missing Items */}
+                  {(() => {
+                    const mc = analysis.missingCritical ?? [];
+                    const allItems = mc.length > 0 ? mc : analysis.missing.map(m => ({ item: m, reason: '', estimatedCost: '', urgency: 'critical' as const }));
+                    const visible = expandMissing ? allItems : allItems.slice(0, 5);
+                    return (
+                      <div className="p-4 flex flex-col">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="w-2 h-2 rounded-full bg-red-500" />
+                          <span className="text-[12px] font-bold text-red-600 tracking-wide">MISSING ITEMS</span>
+                          <span className="bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{allItems.length}</span>
+                        </div>
+                        {allItems.length > 0 ? (
+                          <>
                             <div className="space-y-2">
-                              {mc.map((m, i) => (
-                                <div key={i} className={`rounded-lg p-3 ${m.urgency === 'critical' ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
-                                  <div className={`text-[12px] font-semibold flex items-start gap-1.5 ${m.urgency === 'critical' ? 'text-red-700' : 'text-amber-700'}`}>
-                                    <span className="flex-shrink-0">{m.urgency === 'critical' ? '✗' : '⚠'}</span>
+                              {visible.map((m, i) => (
+                                <div key={i} className={`rounded-lg p-3 ${'urgency' in m && m.urgency === 'critical' ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
+                                  <div className={`text-[12px] font-semibold flex items-start gap-1.5 ${'urgency' in m && m.urgency === 'critical' ? 'text-red-700' : 'text-amber-700'}`}>
+                                    <span className="flex-shrink-0">{'urgency' in m && m.urgency === 'critical' ? '✗' : '⚠'}</span>
                                     <span>{m.item}</span>
                                   </div>
-                                  <div className="text-[11px] text-gray-500 mt-1 leading-relaxed">{m.reason}</div>
-                                  {m.estimatedCost && (
-                                    <div className="text-[11px] font-semibold text-red-600 mt-1">Est. {m.estimatedCost}</div>
-                                  )}
+                                  {m.reason && <div className="text-[11px] text-gray-500 mt-1 leading-relaxed">{m.reason}</div>}
+                                  {m.estimatedCost && <div className="text-[11px] font-semibold text-red-600 mt-1">Est. {m.estimatedCost}</div>}
                                 </div>
                               ))}
                             </div>
-                          ) : analysis.missing.length > 0 ? (
-                            <div className="space-y-2">
-                              {analysis.missing.map((m, i) => (
-                                <div key={i} className="bg-red-50 border border-red-100 rounded-lg p-3">
-                                  <div className="text-[12px] font-semibold text-red-700 flex items-start gap-1.5">
-                                    <span className="text-red-400 flex-shrink-0">✗</span>
-                                    <span>{m}</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-[12px] text-green-600">✓ No missing items detected</p>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
-
-                  {/* Column 2: Price Flags — full item name, unit, correct percentage */}
-                  <div className="p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="w-2 h-2 rounded-full bg-amber-500" />
-                      <span className="text-[12px] font-bold text-amber-600 tracking-wide">PRICE FLAGS</span>
-                      <span className="bg-amber-100 text-amber-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                        {scoreBreakdown?.priceComparisons.filter(c => c.verdict === 'flag_high' || c.verdict === 'flag_low' || c.verdict === 'warn_high').length ?? 0}
-                      </span>
-                    </div>
-                    {scoreBreakdown?.priceComparisons
-                      .filter(c => c.verdict === 'flag_high' || c.verdict === 'flag_low' || c.verdict === 'warn_high')
-                      .slice(0, 8)
-                      .map((comp, i) => {
-                        const item = analysis.items[comp.itemIndex];
-                        if (!item) return null;
-                        const isHigh = comp.verdict === 'flag_high' || comp.verdict === 'warn_high';
-                        const pct = comp.deviation != null ? Math.abs(Math.round(comp.deviation * 100)) : null;
-                        const marketRange = comp.dbMin != null && comp.dbMax != null
-                          ? `${currency} ${comp.dbMin.toFixed(0)}-${comp.dbMax.toFixed(0)}`
-                          : comp.aiEstMin != null && comp.aiEstMax != null
-                            ? `${currency} ${comp.aiEstMin.toFixed(0)}-${comp.aiEstMax.toFixed(0)}`
-                            : null;
-                        return (
-                          <div key={i} className={`rounded-lg p-3 mb-2 ${comp.verdict === 'flag_high' ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
-                            <div className="text-[12px] font-semibold text-gray-800 leading-snug">{item.name}</div>
-                            <div className="text-[11px] text-gray-500 mt-1">
-                              Quoted: {currency} {(item.unitPrice ?? 0).toFixed(2)}/{item.unit || 'unit'}
-                            </div>
-                            {marketRange && (
-                              <div className="text-[11px] text-gray-500">Market: {marketRange}/{item.unit || 'unit'}</div>
+                            {allItems.length > 5 && (
+                              <button onClick={() => setExpandMissing(v => !v)} className="mt-2 text-[11px] text-red-500 hover:text-red-700 font-medium self-start">
+                                {expandMissing ? '▲ 收起' : `▼ 展开全部 (${allItems.length})`}
+                              </button>
                             )}
-                            {pct != null && (
-                              <div className={`text-[11px] font-semibold mt-1 ${isHigh ? 'text-red-500' : 'text-blue-500'}`}>
-                                {isHigh ? '▲' : '▼'} {isHigh ? 'Above' : 'Below'} {pct}%
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }) ?? null}
-                    {(!scoreBreakdown || scoreBreakdown.priceComparisons.filter(c => c.verdict === 'flag_high' || c.verdict === 'flag_low' || c.verdict === 'warn_high').length === 0) && (
-                      <p className="text-[12px] text-green-600">✓ No price anomalies detected</p>
-                    )}
-                  </div>
-
-                  {/* Column 3: Suggestions — critical alerts first, then warnings, then tips */}
-                  <div className="p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="w-2 h-2 rounded-full bg-blue-500" />
-                      <span className="text-[12px] font-bold text-blue-600 tracking-wide">SUGGESTIONS</span>
-                      <span className="bg-blue-100 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{analysis.alerts.length}</span>
-                    </div>
-                    {analysis.alerts.length > 0 ? (
-                      <div className="space-y-2">
-                        {[...analysis.alerts]
-                          .sort((a, b) => {
-                            const order: Record<string, number> = { critical: 0, warning: 1, info: 2 };
-                            return (order[a.level] ?? 3) - (order[b.level] ?? 3);
-                          })
-                          .slice(0, 8)
-                          .map((alert, i) => {
-                          const isCrit = alert.level === 'critical';
-                          const isWarn = alert.level === 'warning';
-                          return (
-                            <div key={i} className={`rounded-lg p-3 ${isCrit ? 'bg-red-50 border border-red-100' : isWarn ? 'bg-amber-50 border border-amber-100' : 'bg-blue-50 border border-blue-100'}`}>
-                              <div className={`text-[12px] font-semibold ${isCrit ? 'text-red-700' : isWarn ? 'text-amber-700' : 'text-blue-700'}`}>
-                                {isCrit ? '🚨' : isWarn ? '⚠️' : '💡'} {alert.title}
-                              </div>
-                              <div className="text-[11px] text-gray-500 mt-1 leading-relaxed">{alert.desc}</div>
-                            </div>
-                          );
-                        })}
+                          </>
+                        ) : (
+                          <p className="text-[12px] text-green-600">✓ No missing items detected</p>
+                        )}
                       </div>
-                    ) : (
-                      <p className="text-[12px] text-green-600">✓ No additional notes</p>
-                    )}
-                  </div>
+                    );
+                  })()}
+
+                  {/* Column 2: Price Flags — scoreBreakdown only, no AI alerts */}
+                  {(() => {
+                    const flagged = (scoreBreakdown?.priceComparisons ?? [])
+                      .filter(c => (c.verdict === 'flag_high' || c.verdict === 'flag_low' || c.verdict === 'warn_high') && c.source !== 'ai_status');
+                    const visible = expandFlags ? flagged : flagged.slice(0, 5);
+                    return (
+                      <div className="p-4 flex flex-col">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="w-2 h-2 rounded-full bg-amber-500" />
+                          <span className="text-[12px] font-bold text-amber-600 tracking-wide">PRICE FLAGS</span>
+                          <span className="bg-amber-100 text-amber-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{flagged.length}</span>
+                        </div>
+                        {flagged.length > 0 ? (
+                          <>
+                            <div className="space-y-2">
+                              {visible.map((comp, i) => {
+                                const item = analysis.items[comp.itemIndex];
+                                if (!item) return null;
+                                const isHigh = comp.verdict === 'flag_high' || comp.verdict === 'warn_high';
+                                const pct = comp.deviation != null ? Math.abs(Math.round(comp.deviation * 100)) : null;
+                                const marketRange = comp.dbMin != null && comp.dbMax != null
+                                  ? `${currency} ${comp.dbMin.toFixed(0)}-${comp.dbMax.toFixed(0)}`
+                                  : comp.aiEstMin != null && comp.aiEstMax != null
+                                    ? `${currency} ${comp.aiEstMin.toFixed(0)}-${comp.aiEstMax.toFixed(0)}`
+                                    : null;
+                                return (
+                                  <div key={i} className={`rounded-lg p-3 ${comp.verdict === 'flag_high' ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
+                                    <div className="text-[12px] font-semibold text-gray-800 leading-snug">{item.name}</div>
+                                    <div className="text-[11px] text-gray-500 mt-1">Quoted: {currency} {(item.unitPrice ?? 0).toFixed(2)}/{item.unit || 'unit'}</div>
+                                    {marketRange && <div className="text-[11px] text-gray-500">Market: {marketRange}/{item.unit || 'unit'}</div>}
+                                    {pct != null && (
+                                      <div className={`text-[11px] font-semibold mt-1 ${isHigh ? 'text-red-500' : 'text-blue-500'}`}>
+                                        {isHigh ? '▲' : '▼'} {isHigh ? 'Above' : 'Below'} {pct}%
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {flagged.length > 5 && (
+                              <button onClick={() => setExpandFlags(v => !v)} className="mt-2 text-[11px] text-amber-600 hover:text-amber-800 font-medium self-start">
+                                {expandFlags ? '▲ 收起' : `▼ 展开全部 (${flagged.length})`}
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-[12px] text-green-600">✓ No price anomalies detected</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Column 3: SUGGESTIONS — info-level tips only, NO pricing anomaly (those belong in PRICE FLAGS) */}
+                  {(() => {
+                    const tips = groupAlertsByTitle(analysis.alerts.filter(a => a.level === 'info' && !/pric(e|ing)\s*anomal/i.test(a.title ?? '')));
+                    const visible = expandTips ? tips : tips.slice(0, 5);
+                    return (
+                      <div className="p-4 flex flex-col">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="w-2 h-2 rounded-full bg-blue-500" />
+                          <span className="text-[12px] font-bold text-blue-600 tracking-wide">SUGGESTIONS</span>
+                          <span className="bg-blue-100 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{tips.length}</span>
+                        </div>
+                        {tips.length > 0 ? (
+                          <>
+                            <div className="space-y-2">
+                              {visible.map((alert, i) => (
+                                <div key={i} className="rounded-lg p-3 bg-blue-50 border border-blue-100">
+                                  <div className="text-[12px] font-semibold text-blue-700">💡 {alert.title}</div>
+                                  <div className="text-[11px] text-gray-500 mt-1 leading-relaxed whitespace-pre-line">{alert.desc}</div>
+                                </div>
+                              ))}
+                            </div>
+                            {tips.length > 5 && (
+                              <button onClick={() => setExpandTips(v => !v)} className="mt-2 text-[11px] text-blue-500 hover:text-blue-700 font-medium self-start">
+                                {expandTips ? '▲ 收起' : `▼ 展开全部 (${tips.length})`}
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-[12px] text-green-600">✓ 没有额外提示</p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             )}
@@ -1533,53 +1656,59 @@ ${infos.length > 0 ? `<h2>提示（可选考虑）</h2>${infos.map(a => `<div cl
                 </div>
               )}
 
-              {/* Criticals */}
-              {analysis.alerts.filter(a => a.level === 'critical').length > 0 && (
+              {/* Criticals — grouped by title */}
+              {groupAlertsByTitle(analysis.alerts.filter(a => a.level === 'critical')).length > 0 && (
                 <div>
                   <h4 className="font-bold text-red-600 text-sm mb-2 uppercase tracking-wide">严重问题（需立即处理）</h4>
-                  {analysis.alerts.filter(a => a.level === 'critical').map((alert, i) => (
+                  {groupAlertsByTitle(analysis.alerts.filter(a => a.level === 'critical')).map((alert, i) => (
                     <div key={i} className="flex gap-3 p-4 rounded-xl mb-2 bg-[rgba(229,57,53,0.06)] border border-[rgba(229,57,53,0.2)]">
                       <span className="text-lg flex-shrink-0">🔴</span>
                       <div>
                         <div className="text-[13px] font-semibold text-red-600 mb-1">{alert.title}</div>
-                        <div className="text-[13px] text-rs-text2 leading-relaxed">{alert.desc}</div>
+                        <div className="text-[13px] text-rs-text2 leading-relaxed whitespace-pre-line">{alert.desc}</div>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Warnings */}
-              {analysis.alerts.filter(a => a.level === 'warning').length > 0 && (
-                <div>
-                  <h4 className="font-bold text-amber-600 text-sm mb-2 uppercase tracking-wide">警告（建议确认）</h4>
-                  {analysis.alerts.filter(a => a.level === 'warning').map((alert, i) => (
-                    <div key={i} className="flex gap-3 p-4 rounded-xl mb-2 bg-[rgba(251,191,36,0.08)] border border-[rgba(251,191,36,0.25)]">
-                      <span className="text-lg flex-shrink-0">🟡</span>
-                      <div>
-                        <div className="text-[13px] font-semibold text-amber-700 mb-1">{alert.title}</div>
-                        <div className="text-[13px] text-rs-text2 leading-relaxed">{alert.desc}</div>
+              {/* Warnings — grouped by title, false-positives removed */}
+              {(() => {
+                const grouped = groupAlertsByTitle(analysis.alerts.filter(a => a.level === 'warning' && !isFalsePositiveAlert(a)));
+                return grouped.length > 0 ? (
+                  <div>
+                    <h4 className="font-bold text-amber-600 text-sm mb-2 uppercase tracking-wide">警告（建议确认）</h4>
+                    {grouped.map((alert, i) => (
+                      <div key={i} className="flex gap-3 p-4 rounded-xl mb-2 bg-[rgba(251,191,36,0.08)] border border-[rgba(251,191,36,0.25)]">
+                        <span className="text-lg flex-shrink-0">🟡</span>
+                        <div>
+                          <div className="text-[13px] font-semibold text-amber-700 mb-1">{alert.title}</div>
+                          <div className="text-[13px] text-rs-text2 leading-relaxed whitespace-pre-line">{alert.desc}</div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                ) : null;
+              })()}
 
-              {/* Infos */}
-              {analysis.alerts.filter(a => a.level === 'info').length > 0 && (
-                <div>
-                  <h4 className="font-bold text-blue-600 text-sm mb-2 uppercase tracking-wide">提示（可选考虑）</h4>
-                  {analysis.alerts.filter(a => a.level === 'info').map((alert, i) => (
-                    <div key={i} className="flex gap-3 p-4 rounded-xl mb-2 bg-[rgba(46,107,230,0.06)] border border-[rgba(46,107,230,0.2)]">
-                      <span className="text-lg flex-shrink-0">💡</span>
-                      <div>
-                        <div className="text-[13px] font-semibold text-blue-700 mb-1">{alert.title}</div>
-                        <div className="text-[13px] text-rs-text2 leading-relaxed">{alert.desc}</div>
+              {/* Infos — grouped by title */}
+              {(() => {
+                const grouped = groupAlertsByTitle(analysis.alerts.filter(a => a.level === 'info'));
+                return grouped.length > 0 ? (
+                  <div>
+                    <h4 className="font-bold text-blue-600 text-sm mb-2 uppercase tracking-wide">提示（可选考虑）</h4>
+                    {grouped.map((alert, i) => (
+                      <div key={i} className="flex gap-3 p-4 rounded-xl mb-2 bg-[rgba(46,107,230,0.06)] border border-[rgba(46,107,230,0.2)]">
+                        <span className="text-lg flex-shrink-0">💡</span>
+                        <div>
+                          <div className="text-[13px] font-semibold text-blue-700 mb-1">{alert.title}</div>
+                          <div className="text-[13px] text-rs-text2 leading-relaxed whitespace-pre-line">{alert.desc}</div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                ) : null;
+              })()}
             </div>
 
             {/* Full Report footer action buttons */}

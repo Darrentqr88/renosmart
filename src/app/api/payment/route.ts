@@ -31,13 +31,13 @@ export async function POST(req: NextRequest) {
 
     // Get authenticated user
     const supabase = await createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const userId = session.user.id;
-    const userEmail = session.user.email;
+    const userId = user.id;
+    const userEmail = user.email;
 
     // Demo mode if no Stripe key
     if (!stripeKey) {

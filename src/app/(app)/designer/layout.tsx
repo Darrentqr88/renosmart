@@ -5,17 +5,17 @@ import { DesignerShell } from '@/components/designer/DesignerShell';
 
 export default async function DesignerLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { user } } = await supabase.auth.getUser();
 
   let profile = null;
   let aiUsed = 0;
   let aiLimit = 3;
 
-  if (session) {
+  if (user) {
     const { data: p } = await supabase
       .from('profiles')
       .select('*')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .single();
     profile = p;
 
@@ -66,7 +66,7 @@ export default async function DesignerLayout({ children }: { children: React.Rea
       const { data: usage } = await supabase
         .from('ai_usage')
         .select('usage_count')
-        .eq('user_id', session.user.id)
+        .eq('user_id', user.id)
         .eq('year_month', yearMonth)
         .single();
       aiUsed = usage?.usage_count || 0;
@@ -83,7 +83,7 @@ export default async function DesignerLayout({ children }: { children: React.Rea
         const { data: ownedTeam } = await admin
           .from('teams')
           .select('elite_slots')
-          .eq('owner_user_id', session.user.id)
+          .eq('owner_user_id', user.id)
           .single();
         if (ownedTeam) aiLimit = (ownedTeam.elite_slots ?? 1) * 250;
       } catch { /* keep Infinity */ }

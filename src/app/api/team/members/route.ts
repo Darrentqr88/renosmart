@@ -19,9 +19,9 @@ export async function GET(req: NextRequest) {
       { cookies: { get: (name: string) => cookieStore.get(name)?.value } }
     );
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const userId = session.user.id;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const userId = user.id;
 
     // Step 1: Check profile.team_id FIRST — this is the authoritative team link
     // (covers both owners and invited members)
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
 
     // Get owner email if this is owner viewing
     if (isOwner) {
-      ownerEmail = session.user.email || '';
+      ownerEmail = user.email || '';
     }
 
     return NextResponse.json({

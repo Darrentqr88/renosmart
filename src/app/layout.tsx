@@ -3,6 +3,7 @@ import './globals.css';
 import { I18nProvider } from '@/lib/i18n/context';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
   title: 'RenoSmart — AI Renovation Management',
   description: 'AI-powered renovation management for Malaysia and Singapore designers.',
   openGraph: {

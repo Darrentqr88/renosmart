@@ -12,8 +12,8 @@ export async function POST(req: NextRequest) {
   try {
     // Auth check
     const supabase = await createServerClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     }
 
     const ext = file.name.split('.').pop() || 'jpg';
-    const path = `avatars/${session.user.id}.${ext}`;
+    const path = `avatars/${user.id}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
     // Upload using admin client (bypasses RLS)
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     const { error: updateErr } = await supabaseAdmin.from('profiles').update({
       avatar_url: url,
       updated_at: new Date().toISOString(),
-    }).eq('user_id', session.user.id);
+    }).eq('user_id', user.id);
 
     if (updateErr) {
       console.error('Profile avatar_url update error:', updateErr);

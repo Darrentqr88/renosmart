@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
       const { data: { user } } = await supabase.auth.getUser(token);
       userId = user?.id || null;
     } else {
-      const { data: { session } } = await supabase.auth.getSession();
-      userId = session?.user?.id || null;
+      const { data: { user: sessionUser } } = await supabase.auth.getUser();
+      userId = sessionUser?.id || null;
     }
 
     if (userId && !isSecondaryCall) {

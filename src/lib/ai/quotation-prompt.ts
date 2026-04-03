@@ -92,6 +92,11 @@ RULES:
     - Landed upper floors (1F+): REQUIRED for bathrooms, balcony, laundry.
     - Condo/apartment ALL floors: REQUIRED for all wet areas.
     - RC roof / Balcony / Extension / water feature: ALWAYS required.
+    WATERPROOFING ANTI-ASSUMPTION RULE (HARD):
+    - NEVER flag waterproofing for areas where the quotation does NOT include explicit wet area work (bathroom tiling, plumbing, sanitary fittings, shower, WC, basin, floor trap, waterproofing scope).
+    - Do NOT assume or infer that a room is a wet area. Only flag waterproofing for areas where wet area scope is EXPLICITLY quoted in the quotation.
+    - "Assumed Wet Area" is NEVER acceptable as a reason. The wet area work MUST be present in the quotation text.
+    - If a room (bedroom, hall, living room, study) has NO wet area items quoted, do NOT flag waterproofing for it — even if it might have an en-suite bathroom.
     PRICE: flag >50% above; warn 20-50% above or >30% below.
     Cite: "Market RM X-Y/unit, Quoted RM Z/unit". Match unit types. Consider supplyType + material grade.
     IMPORTANT: For tiles priced per pcs, apply Rule 16 derivation BEFORE comparing to sqft reference. For split supply+labour, combine both before comparing to S&I reference. Never flag a correctly-split supply_only+labour_only pair as anomaly unless their COMBINED price is out of range.
@@ -99,7 +104,19 @@ RULES:
     COORDINATION: tiling + no waterproofing (condo/upper floor) → critical.
     ALERTS — strict rules:
     - level="critical"/"warning": ONLY for items with status="warn" or "flag", calculation errors, missing critical scope, coordination failures. NEVER for status="ok" items.
-    - level="info": ONLY for non-price tips — lead time warnings, coordination reminders, spec ambiguity (e.g. "Tile size not specified"), construction sequence notes. NEVER for price observations.
+    - level="info": ONLY for non-price SUGGESTIONS — practical tips relevant to THIS quotation's scope. NEVER for price observations. NEVER create "Pricing Anomaly" alerts at info level — price issues belong ONLY in the per-item status/note fields and in warning/critical level alerts.
+      GOOD info alert examples (use these as reference, generate ONLY those applicable to the actual scope):
+      • "Carpentry Lead Time" — "Factory production typically 4-6 weeks. Confirm order date to avoid schedule delay."
+      • "Tile Size Not Specified" — "Items 3, 7: tile size affects labour cost and wastage. Confirm with supplier."
+      • "Large Format Tile" — "600x1200mm tiles require leveling system + experienced tiler. Budget for 10% wastage."
+      • "Electrical Coordination" — "DB upgrade should be completed before ceiling works. Coordinate sequence."
+      • "Paint Colour Selection" — "Confirm paint colour code before ordering. Custom tinting adds 2-3 days lead time."
+      • "Waterproofing Curing" — "Allow 7-14 days curing before tiling. Factor into schedule."
+      • "AC Piping Roughin" — "AC copper piping must be installed before ceiling closes. Coordinate with AC contractor."
+      • "Site Protection" — "Existing flooring/fixtures not being replaced should be protected during works."
+      • "Material Delivery" — "Confirm site access for large items (cabinets, tiles). Condo may require booking goods lift."
+      • "Warranty Terms" — "No warranty terms stated. Recommend confirming defect liability period with contractor."
+      Each info alert must be specific to items/scope found in THIS quotation. Do NOT generate generic tips unrelated to the actual work scope. Max 8 info alerts.
     - ABSOLUTE RULE: If price is within range → NO ALERT AT ALL. Do NOT create any alert mentioning "within range", "reasonable", "in range", "on the higher end but within", or any phrase implying the price is acceptable. Silence = ok.
     - "Price Anomaly" alerts ONLY for genuine outliers (status="flag" or status="warn"). If status="ok" → NO Price Anomaly alert ever.
     - GROUPING RULE: If multiple items share the SAME issue type (e.g. several items all have ambiguous 'sq' unit, or several wallpaper items all exceed market price), create ONE alert with a combined desc listing all affected items (e.g. "Items 1, 2, 3: ..."). Do NOT create separate alerts for each item with the same issue.
@@ -156,6 +173,7 @@ RULES:
     • Omitted preliminaries for the project scale (e.g. no site manager fee for large project)
     • Items commonly forgotten in MY/SG renovations specific to this scope
     Flag additional missing items if genuinely applicable. Do not invent items that aren't relevant to the actual scope.
+    HARD CONSTRAINT: NEVER use open-ended judgment to add waterproofing items. Waterproofing missing items are ONLY governed by the trigger-based rules above. If the trigger conditions (wet area work explicitly present) are not met, waterproofing MUST NOT appear in missingCritical regardless of QS judgment.
 15. Unit normalization: "lot"/"set" with qty>1 → derive per-unit. Lump-sum → qty=1, unitPrice=total, unitPriceDerived=true.
 16. TILE UNIT DERIVATION — when tiles are priced per pcs/pc/piece, convert to per-sqft for accurate price audit:
     Tile size → sqft per piece (approx):
@@ -201,7 +219,7 @@ RULES:
 IMPORTANT: Output missing/missingCritical/alerts BEFORE items array to ensure they are not truncated.
 
 JSON structure:
-{"projectType":"landed_terrace","projectSqft":1200,"client":{"company":"","address":"","attention":"","tel":"","email":null,"projectRef":"","projectName":""},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"one-line summary","missing":["item1","item2"],"missingCritical":[{"item":"Waterproofing (3 bathrooms)","reason":"Wet areas present but no waterproofing","estimatedCost":"RM 3,500–6,000","urgency":"critical"}],"alerts":[{"level":"critical","title":"Title","desc":"Short desc under 150 chars"},{"level":"warning","title":"Title","desc":"desc"},{"level":"info","title":"Title","desc":"desc"}],"items":[{"no":"1","section":"Section","name":"Item name verbatim","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"supplyType":"supply_install","status":"ok","note":"","subcategory":"Floor Tiles","materialMethod":"600x600","estMinPrice":5.0,"estMaxPrice":12.0,"page":1}],"subtotals":[{"label":"Section Total","amount":1000}],"totalAmount":50000,"paymentTerms":[]}`;
+{"projectType":"landed_terrace","projectSqft":1200,"client":{"company":"","address":"","attention":"","tel":"","email":null,"projectRef":"","projectName":""},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"one-line summary","missing":["item1","item2"],"missingCritical":[{"item":"Post-renovation cleaning","reason":"Full renovation scope but no cleaning item quoted","estimatedCost":"RM 800–1,500","urgency":"warning"}],"alerts":[{"level":"critical","title":"Title","desc":"Short desc under 150 chars"},{"level":"warning","title":"Title","desc":"desc"},{"level":"info","title":"Title","desc":"desc"}],"items":[{"no":"1","section":"Section","name":"Item name verbatim","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"supplyType":"supply_install","status":"ok","note":"","subcategory":"Floor Tiles","materialMethod":"600x600","estMinPrice":5.0,"estMaxPrice":12.0,"page":1}],"subtotals":[{"label":"Section Total","amount":1000}],"totalAmount":50000,"paymentTerms":[]}`;
 }
 
 /**

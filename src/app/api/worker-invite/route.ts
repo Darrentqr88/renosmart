@@ -4,8 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
     const { error } = await supabase.from('invite_tokens').insert({
       token,
-      created_by: session.user.id,
+      created_by: user.id,
       project_id: projectId,
       role: 'worker',
       status: 'pending',

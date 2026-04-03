@@ -40,7 +40,7 @@ type CostRecordLocal = {
   receipt_number?: string;
   receipt_url?: string;
 };
-type QAuditAlert = { level: 'critical' | 'warning' | 'tip'; title: string; desc?: string };
+type QAuditAlert = { level: 'critical' | 'warning' | 'info'; title: string; desc?: string };
 type QAuditScore = { total?: number; completeness?: number; price?: number; logic?: number; risk?: number };
 type QAnalysisResult = {
   score?: QAuditScore;
@@ -48,6 +48,8 @@ type QAnalysisResult = {
   alerts?: QAuditAlert[];
   missing?: string[];
   ganttParams?: GanttParams;
+  totalAmount?: number;
+  paymentTerms?: { label: string; percentage: number; amount: number; condition?: string }[];
 };
 type QuotationVersionLocal = {
   id: string;
@@ -387,7 +389,7 @@ export default function ProjectDetailPage() {
     }
 
     const { data: pay } = await supabase.from('payment_phases').select('*').eq('project_id', id).order('phase_number');
-    if (pay) setPayments(pay.map(p => ({ ...p, status: normalizePaymentStatus(p.status) })));
+    if (pay) setPayments(pay.map(p => ({ ...p, label: p.label || `Payment ${p.phase_number}`, status: normalizePaymentStatus(p.status) })));
     else {
       const contractAmount = p?.contract_amount || 0;
       setPayments([
@@ -418,7 +420,13 @@ export default function ProjectDetailPage() {
 
   const handleTaskUpdate = (taskId: string, updates: Partial<GanttTask>) => {
     setGanttTasks(prev => {
-      const withUpdate = prev.map(t => t.id === taskId ? { ...t, ...updates } : t);
+      // If duration is explicitly changed by the user, lock it so date reschedules won't scale it
+      const lockDuration = 'duration' in updates;
+      const withUpdate = prev.map(t =>
+        t.id === taskId
+          ? { ...t, ...updates, ...(lockDuration ? { is_duration_locked: true } : {}) }
+          : t,
+      );
       return forwardReschedule(withUpdate, workOnSaturday, workOnSunday, taskId);
     });
     setIsDirty(true);
@@ -564,8 +572,9 @@ export default function ProjectDetailPage() {
     const targetWorkdays  = countWorkdays(startDate, targetEndDate);
     const scaleFactor = targetWorkdays / currentWorkdays;
 
-    // Scale durations proportionally (min 1 day each), then cascade to close gaps
+    // Scale durations proportionally (min 1 day each), skip manually-locked tasks
     const scaled = ganttTasks.map(t => {
+      if (t.is_duration_locked) return t;
       const newDur = Math.max(1, Math.round(t.duration * scaleFactor));
       const start = new Date(t.start_date + 'T00:00:00');
       const newEnd = addWorkdays(start, newDur - 1, projectRegion, workOnSaturday, workOnSunday);
@@ -576,6 +585,77 @@ export default function ProjectDetailPage() {
     setIsDirty(true);
     const savedDays = Math.round(currentWorkdays - targetWorkdays);
     toast({ title: `🎯 AI 智能压缩完成`, description: `已压缩 ${savedDays} 工作日，截止日期：${ganttDeadline}` });
+  };
+
+  // ── Shift all tasks when start date changes ──────────────────────────────
+  const handleStartDateChange = (newDate: string) => {
+    setGanttStartDate(newDate);
+    saveGanttSetting('gantt_start_date', newDate);
+    if (ganttTasks.length === 0 || !newDate) return;
+
+    // Find earliest task start across all tasks
+    const currentEarliest = ganttTasks.reduce(
+      (m, t) => (t.start_date < m ? t.start_date : m),
+      ganttTasks[0].start_date,
+    );
+    const diffDays = Math.round(
+      (new Date(newDate + 'T00:00:00').getTime() - new Date(currentEarliest + 'T00:00:00').getTime())
+      / 86400000,
+    );
+    if (diffDays === 0) return;
+
+    // Shift every task by diffDays calendar days, then fullReschedule to snap to workdays
+    const shifted = ganttTasks.map(t => {
+      const s = new Date(t.start_date + 'T00:00:00');
+      const e = new Date(t.end_date   + 'T00:00:00');
+      s.setDate(s.getDate() + diffDays);
+      e.setDate(e.getDate() + diffDays);
+      return { ...t, start_date: s.toISOString().split('T')[0], end_date: e.toISOString().split('T')[0] };
+    });
+    setGanttTasks(fullReschedule(shifted, workOnSaturday, workOnSunday));
+    setIsDirty(true);
+  };
+
+  // ── Compress/expand tasks when deadline changes ───────────────────────────
+  const handleDeadlineChange = (newDeadline: string) => {
+    setGanttDeadline(newDeadline);
+    saveGanttSetting('gantt_deadline', newDeadline);
+    if (ganttTasks.length === 0 || !newDeadline) return;
+
+    const currentStart = ganttTasks.reduce((m, t) => t.start_date < m ? t.start_date : m, ganttTasks[0].start_date);
+    const currentEnd   = ganttTasks.reduce((m, t) => t.end_date   > m ? t.end_date   : m, ganttTasks[0].end_date);
+    const startDate      = new Date(currentStart   + 'T00:00:00');
+    const currentEndDate = new Date(currentEnd     + 'T00:00:00');
+    const targetEndDate  = new Date(newDeadline    + 'T00:00:00');
+
+    if (targetEndDate <= startDate || targetEndDate >= currentEndDate) return; // no compression needed
+
+    const countWorkdays = (from: Date, to: Date): number => {
+      let count = 0;
+      const d = new Date(from);
+      d.setDate(d.getDate() + 1);
+      while (d <= to) {
+        if (isWorkday(d, projectRegion, workOnSaturday, workOnSunday)) count++;
+        d.setDate(d.getDate() + 1);
+      }
+      return Math.max(1, count);
+    };
+    const currentWorkdays = countWorkdays(startDate, currentEndDate);
+    const targetWorkdays  = countWorkdays(startDate, targetEndDate);
+    const scaleFactor = targetWorkdays / currentWorkdays;
+
+    const scaled = ganttTasks.map(t => {
+      // Preserve manually-set durations — only scale AI-generated ones
+      if (t.is_duration_locked) return t;
+      const newDur = Math.max(1, Math.round(t.duration * scaleFactor));
+      const start  = new Date(t.start_date + 'T00:00:00');
+      const newEnd = addWorkdays(start, newDur - 1, projectRegion, workOnSaturday, workOnSunday);
+      return { ...t, duration: newDur, end_date: newEnd.toISOString().split('T')[0] };
+    });
+    setGanttTasks(fullReschedule(scaled, workOnSaturday, workOnSunday));
+    setIsDirty(true);
+    const savedDays = Math.round(currentWorkdays - targetWorkdays);
+    toast({ title: `🎯 已按截止日期压缩`, description: `压缩 ${savedDays} 工作日以符合 ${newDeadline}` });
   };
 
   // ── Recalculate dates when workday settings change (preserve existing tasks) ──
@@ -1736,7 +1816,7 @@ export default function ProjectDetailPage() {
                       <input
                         type="date"
                         value={ganttStartDate}
-                        onChange={e => { setGanttStartDate(e.target.value); saveGanttSetting('gantt_start_date', e.target.value); }}
+                        onChange={e => handleStartDateChange(e.target.value)}
                         className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:outline-none focus:border-[#4F8EF7] bg-gray-50 w-36"
                       />
                     </div>
@@ -1769,7 +1849,7 @@ export default function ProjectDetailPage() {
                       <input
                         type="date"
                         value={ganttDeadline}
-                        onChange={e => { setGanttDeadline(e.target.value); saveGanttSetting('gantt_deadline', e.target.value); }}
+                        onChange={e => handleDeadlineChange(e.target.value)}
                         className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:outline-none focus:border-[#4F8EF7] bg-gray-50 w-36"
                       />
                     </div>
@@ -2273,8 +2353,8 @@ export default function ProjectDetailPage() {
               const savePayments = async () => {
                 try {
                   // Get live user id — don't rely on sessionUserId state (may be null on first render)
-                  const { data: { session: liveSession } } = await supabase.auth.getSession();
-                  const userId = liveSession?.user?.id;
+                  const { data: { user: liveUser } } = await supabase.auth.getUser();
+                  const userId = liveUser?.id;
                   if (!userId) throw new Error('Not authenticated');
 
                   // Delete existing phases — RLS requires user_id match, so also wipe null-user_id orphans
@@ -2320,6 +2400,27 @@ export default function ProjectDetailPage() {
 
               const deletePhase = (payId: string) => {
                 setPayments(prev => prev.filter(p => p.id !== payId));
+              };
+
+              // Import payment terms from active quotation
+              const importFromQuotation = () => {
+                const activeQ = quotationVersions.find(q => q.is_active);
+                const terms = activeQ?.analysis_result?.paymentTerms;
+                if (!terms || terms.length === 0) {
+                  toast({ title: '报价单中未找到付款条件', description: '请确认报价单包含付款条款', variant: 'destructive' });
+                  return;
+                }
+                const base = activeQ?.analysis_result?.totalAmount || project?.contract_amount || 0;
+                setPayments(terms.map((term, idx) => ({
+                  id: `new-${Date.now()}-${idx}`,
+                  project_id: id as string,
+                  phase_number: idx + 1,
+                  label: term.label || `Payment ${idx + 1}`,
+                  percentage: term.percentage || 0,
+                  amount: term.amount || (base * (term.percentage || 0) / 100),
+                  status: 'not_due' as PaymentStatus,
+                })));
+                toast({ title: `✅ 已导入 ${terms.length} 期付款条件`, description: '请确认金额后保存' });
               };
 
               const updatePhase = (payId: string, field: 'label' | 'amount' | 'percentage' | 'due_date', value: string) => {
@@ -2491,13 +2592,23 @@ export default function ProjectDetailPage() {
                     </table>
                   </div>
 
-                  {/* Add phase button */}
-                  <button
-                    onClick={addPhase}
-                    className="w-full py-3 rounded-xl border-2 border-dashed border-gray-200 text-sm text-gray-500 hover:border-[#4F8EF7] hover:text-[#4F8EF7] transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" /> {t.pay.addPhase.replace('+ ', '')}
-                  </button>
+                  {/* Add phase / Import from Quotation buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={addPhase}
+                      className="flex-1 py-3 rounded-xl border-2 border-dashed border-gray-200 text-sm text-gray-500 hover:border-[#4F8EF7] hover:text-[#4F8EF7] transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" /> {t.pay.addPhase.replace('+ ', '')}
+                    </button>
+                    {quotationVersions.some(q => q.is_active && q.analysis_result?.paymentTerms?.length) && (
+                      <button
+                        onClick={importFromQuotation}
+                        className="py-3 px-4 rounded-xl border-2 border-dashed border-[#F0B90B]/50 text-sm text-amber-600 hover:border-[#F0B90B] hover:bg-amber-50 transition-colors flex items-center gap-2 whitespace-nowrap"
+                      >
+                        <FileText className="w-4 h-4" /> 从报价单导入付款条件
+                      </button>
+                    )}
+                  </div>
                 </>
               );
             })()}
@@ -2775,9 +2886,9 @@ export default function ProjectDetailPage() {
                                 ⚠️ {warnCount} 警告
                               </span>
                             )}
-                            {alerts.filter(a => a.level === 'tip').length > 0 && (
+                            {alerts.filter(a => a.level === 'info').length > 0 && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-xs font-medium text-blue-700">
-                                💡 {alerts.filter(a => a.level === 'tip').length} 建议
+                                💡 {alerts.filter(a => a.level === 'info').length} 建议
                               </span>
                             )}
                           </div>
@@ -2809,9 +2920,9 @@ export default function ProjectDetailPage() {
                         )}
 
                         {/* Alerts (critical + warning) */}
-                        {alerts.filter(a => a.level !== 'tip').length > 0 && (
+                        {alerts.filter(a => a.level !== 'info').length > 0 && (
                           <div className="space-y-1.5 mb-3">
-                            {alerts.filter(a => a.level !== 'tip').slice(0, 4).map((alert, i) => (
+                            {alerts.filter(a => a.level !== 'info').slice(0, 4).map((alert, i) => (
                               <div key={i} className={`flex items-start gap-2 rounded-lg px-3 py-2 text-xs ${alert.level === 'critical' ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
                                 <span>{alert.level === 'critical' ? '🔴' : '⚠️'}</span>
                                 <div>
@@ -2820,9 +2931,9 @@ export default function ProjectDetailPage() {
                                 </div>
                               </div>
                             ))}
-                            {alerts.filter(a => a.level !== 'tip').length > 4 && (
+                            {alerts.filter(a => a.level !== 'info').length > 4 && (
                               <button className="text-xs text-gray-400 hover:text-gray-600 pl-1" onClick={() => { setViewingQuotation(aq); setQuotationViewTab('audit'); }}>
-                                + {alerts.filter(a => a.level !== 'tip').length - 4} {t.proj.more} — {t.proj.viewFullReport} →
+                                + {alerts.filter(a => a.level !== 'info').length - 4} {t.proj.more} — {t.proj.viewFullReport} →
                               </button>
                             )}
                           </div>
@@ -3249,7 +3360,7 @@ export default function ProjectDetailPage() {
               const ALERT_CFG: Record<string, { bg: string; border: string; dot: string; label: string }> = {
                 critical: { bg: 'bg-red-50',    border: 'border-red-200',    dot: 'bg-red-500',    label: '⚠ 严重' },
                 warning:  { bg: 'bg-amber-50',  border: 'border-amber-200',  dot: 'bg-amber-400',  label: '⚡ 警告' },
-                tip:      { bg: 'bg-blue-50',   border: 'border-blue-200',   dot: 'bg-blue-400',   label: '💡 建议' },
+                info:     { bg: 'bg-blue-50',   border: 'border-blue-200',   dot: 'bg-blue-400',   label: '💡 建议' },
               };
               return (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
@@ -3382,7 +3493,7 @@ export default function ProjectDetailPage() {
                                   <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">提示 & 警告</h4>
                                   <div className="space-y-2">
                                     {alerts.map((a, i) => {
-                                      const cfg = ALERT_CFG[a.level] || ALERT_CFG.tip;
+                                      const cfg = ALERT_CFG[a.level] || ALERT_CFG.info;
                                       return (
                                         <div key={i} className={`flex gap-3 p-3 rounded-xl border ${cfg.bg} ${cfg.border}`}>
                                           <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${cfg.dot}`} />
