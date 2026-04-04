@@ -50,16 +50,24 @@ function ScoreCircle({ score }: { score: number }) {
 }
 
 function ScoreBar({ label, value, color, breakdown }: { label: string; value: number; color: string; breakdown?: DimensionBreakdown }) {
+  const [open, setOpen] = React.useState(false);
   return (
     <div className="group relative flex items-center gap-2.5">
       <span style={{ fontSize: 12, color: '#6B7A94', width: 100, flexShrink: 0 }}>{label}</span>
-      <div style={{ flex: 1, height: 6, background: '#E4E7F0', borderRadius: 3, overflow: 'hidden', border: '1px solid #E4E7F0' }}>
+      <div
+        style={{ flex: 1, height: 6, background: '#E4E7F0', borderRadius: 3, overflow: 'hidden', border: '1px solid #E4E7F0', cursor: breakdown ? 'pointer' : undefined }}
+        onClick={() => breakdown && setOpen(o => !o)}
+        onKeyDown={e => { if (breakdown && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setOpen(o => !o); } }}
+        tabIndex={breakdown ? 0 : undefined}
+        role={breakdown ? 'button' : undefined}
+        aria-expanded={breakdown ? open : undefined}
+      >
         <div style={{ height: '100%', borderRadius: 3, width: `${value}%`, background: color, transition: 'width 1s ease' }} />
       </div>
       <span style={{ fontSize: 12, fontWeight: 600, color: '#1B2336', width: 30, textAlign: 'right' }}>{value}</span>
       {breakdown && (
-        <div className="hidden group-hover:block absolute left-0 top-full mt-1 z-50
-                        bg-white border border-rs-surface3 rounded-lg shadow-lg p-3 w-72 text-[11px]">
+        <div className={`${open ? 'block' : 'hidden md:group-hover:block'} absolute left-0 top-full mt-1 z-50
+                        bg-white border border-rs-surface3 rounded-lg shadow-lg p-3 w-72 text-[11px]`}>
           <div className="flex justify-between mb-1">
             <span className="text-rs-text3">AI Score:</span>
             <span className="font-medium">{breakdown.aiScore}</span>
@@ -174,7 +182,7 @@ function isFalsePositiveAlert(alert: { title: string; desc: string }): boolean {
 
 /* ─── Main Page ─────────────────────────────────────────────────────────── */
 export default function QuotationPage() {
-  const { lang, region } = useI18n();
+  const { lang, region, t } = useI18n();
   const currency = getCurrencySymbol(region);
   const fmtCurrency = (amount: number) => formatCurrency(amount, currency);
   const router = useRouter();
@@ -270,21 +278,22 @@ export default function QuotationPage() {
 
     try {
       setStep('extracting');
-      setProgressLabel(lang === 'ZH' ? '正在读取文件...' : lang === 'BM' ? 'Membaca fail...' : 'Reading file...');
+      setProgressLabel(lang === 'ZH' ? '正在读取文件...' : 'Reading file...');
       setProgress(20);
       const text = await extractTextFromFile(file);
       setProgress(50);
 
       setStep('analyzing');
-      setProgressLabel(lang === 'ZH' ? 'AI 正在分析报价单...' : lang === 'BM' ? 'AI menganalisis sebut harga...' : 'AI analyzing quotation...');
+      setProgressLabel(lang === 'ZH' ? 'AI 正在分析报价单...' : 'AI analyzing quotation...');
       setProgress(60);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      const outputLang = lang === 'ZH' ? 'Chinese (Simplified)' : lang === 'BM' ? 'Bahasa Malaysia' : 'English';
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const { data: { session: tokenSession } } = await supabase.auth.getSession();
+      const outputLang = lang === 'ZH' ? 'Chinese (Simplified)' : 'English';
       // Fetch live price reference from DB (falls back to hardcoded PRICE_REFERENCE if DB empty)
       const dbPriceRef = await fetchDbPriceReference(supabase, region === 'SG' ? 'SG' : 'MY_KL');
       const prompt = buildQuotationPrompt(text, outputLang, dbPriceRef);
-      const authHeaders: Record<string, string> = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+      const authHeaders: Record<string, string> = tokenSession?.access_token ? { Authorization: `Bearer ${tokenSession.access_token}` } : {};
 
       // ── Streaming AI call for items + score (no ganttParams) ──
       const res = await fetch('/api/claude/stream', {
@@ -355,7 +364,7 @@ export default function QuotationPage() {
       setProgress(98);
       setAnalysis(sanitizeAnalysis(parsed));
       setStep('done');
-      setProgressLabel(lang === 'ZH' ? '分析完成' : lang === 'BM' ? 'Analisis selesai' : 'Analysis complete');
+      setProgressLabel(lang === 'ZH' ? '分析完成' : 'Analysis complete');
       toast({ title: '✅ 分析完成', description: parsed.summary?.slice(0, 80) });
       setProgress(100);
 
@@ -569,8 +578,8 @@ export default function QuotationPage() {
     if (savedProjectId) return savedProjectId; // already saved
     setIsSaving(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('请先登录');
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw new Error('请先登录');
 
       // Update project with AI-extracted client data
       await supabase.from('projects').update({
@@ -585,7 +594,7 @@ export default function QuotationPage() {
       const nextVer = existingQvs2 && existingQvs2.length > 0 ? (existingQvs2[0].version || 1) + 1 : 1;
       await supabase.from('project_quotations').insert({
         project_id: linkedProjectId,
-        user_id: session.user.id,
+        user_id: authUser.id,
         file_name: fileName,
         version: nextVer,
         is_active: true,
@@ -611,7 +620,7 @@ export default function QuotationPage() {
         const phases = terms && terms.length > 0
           ? terms.map((t, i) => ({
               project_id: linkedProjectId,
-              user_id: session.user.id,
+              user_id: authUser.id,
               phase_number: i + 1,
               label: t.label + (t.condition ? ` — ${t.condition}` : ''),
               amount: t.amount || (total * t.percentage / 100),
@@ -619,16 +628,16 @@ export default function QuotationPage() {
               status: 'pending',
             }))
           : [
-              { project_id: linkedProjectId, user_id: session.user.id, phase_number: 1, label: '第一期 — 签约订金 (30%)', amount: total * 0.3, percentage: 30, status: 'pending' },
-              { project_id: linkedProjectId, user_id: session.user.id, phase_number: 2, label: '第二期 — 工程中期 (30%)', amount: total * 0.3, percentage: 30, status: 'pending' },
-              { project_id: linkedProjectId, user_id: session.user.id, phase_number: 3, label: '第三期 — 接近完工 (30%)', amount: total * 0.3, percentage: 30, status: 'pending' },
-              { project_id: linkedProjectId, user_id: session.user.id, phase_number: 4, label: '第四期 — 竣工尾款 (10%)', amount: total * 0.1, percentage: 10, status: 'pending' },
+              { project_id: linkedProjectId, user_id: authUser.id, phase_number: 1, label: '第一期 — 签约订金 (30%)', amount: total * 0.3, percentage: 30, status: 'pending' },
+              { project_id: linkedProjectId, user_id: authUser.id, phase_number: 2, label: '第二期 — 工程中期 (30%)', amount: total * 0.3, percentage: 30, status: 'pending' },
+              { project_id: linkedProjectId, user_id: authUser.id, phase_number: 3, label: '第三期 — 接近完工 (30%)', amount: total * 0.3, percentage: 30, status: 'pending' },
+              { project_id: linkedProjectId, user_id: authUser.id, phase_number: 4, label: '第四期 — 竣工尾款 (10%)', amount: total * 0.1, percentage: 10, status: 'pending' },
             ];
         await supabase.from('payment_phases').insert(phases);
       }
 
       // Smart merge Gantt: preserve existing progress, only extend durations for new scope
-      await saveGanttFromAnalysis(linkedProjectId, analysis, session.user.id, true);
+      await saveGanttFromAnalysis(linkedProjectId, analysis, authUser.id, true);
 
       setSavedProjectId(linkedProjectId);
       toast({ title: '✅ 已保存至项目', description: linkedProjectName });
@@ -654,11 +663,11 @@ export default function QuotationPage() {
 
   /* ─── Save to project ──────────────────────────────────────────────────── */
   const handleOpenSaveDialog = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { toast({ variant: 'destructive', title: '请先登录' }); return; }
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) { toast({ variant: 'destructive', title: '请先登录' }); return; }
     // Query by both designer_id and user_id to catch all owned projects
     const { data } = await supabase.from('projects').select('id, name, status')
-      .or(`designer_id.eq.${session.user.id},user_id.eq.${session.user.id}`)
+      .or(`designer_id.eq.${authUser.id},user_id.eq.${authUser.id}`)
       .order('updated_at', { ascending: false });
     const projects = data || [];
     setExistingProjects(projects);
@@ -673,15 +682,15 @@ export default function QuotationPage() {
     if (!analysis || !clientInfo) return;
     setIsSaving(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('请先登录');
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw new Error('请先登录');
 
       let projectId: string;
 
       if (saveMode === 'new') {
         const { data, error } = await supabase.from('projects').insert({
-          designer_id: session.user.id,
-          user_id: session.user.id,
+          designer_id: authUser.id,
+          user_id: authUser.id,
           name: newProjectName || clientInfo.company || '新项目',
           address: clientInfo.address || '',
           client_name: clientInfo.attention || clientInfo.company || '',
@@ -705,7 +714,7 @@ export default function QuotationPage() {
       const nextVersion = existingQvs && existingQvs.length > 0 ? (existingQvs[0].version || 1) + 1 : 1;
       await supabase.from('project_quotations').insert({
         project_id: projectId,
-        user_id: session.user.id,
+        user_id: authUser.id,
         file_name: fileName,
         version: nextVersion,
         is_active: true,
@@ -729,7 +738,7 @@ export default function QuotationPage() {
       }
 
       // Smart merge for existing projects, full replace for new
-      await saveGanttFromAnalysis(projectId, analysis, session.user.id, isExisting);
+      await saveGanttFromAnalysis(projectId, analysis, authUser.id, isExisting);
 
       setSavedProjectId(projectId);
       setShowSaveDialog(false);
@@ -862,7 +871,7 @@ export default function QuotationPage() {
   </div>
 </div>
 
-${analysis.summary ? `<div class="summary-box">🤖 <strong>AI 总结：</strong>${analysis.summary}</div>` : ''}
+${analysis.summary ? `<div class="summary-box">🤖 <strong>{t.quotation.aiSummary}:</strong>${analysis.summary}</div>` : ''}
 
 ${(hasMissingCritical || analysis.missing.length > 0) ? `
 <h2>📋 关键缺失项目 (${hasMissingCritical ? (analysis.missingCritical?.length ?? 0) : analysis.missing.length} 项)</h2>
@@ -999,9 +1008,9 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                 {/* Step indicators */}
                 <div className="flex items-center justify-center gap-3 mb-6">
                   {[
-                    { key: 'extract', label: lang === 'ZH' ? '读取文件' : lang === 'BM' ? 'Baca fail' : 'Reading', threshold: 0 },
-                    { key: 'parse', label: lang === 'ZH' ? '解析结构' : lang === 'BM' ? 'Analisis' : 'Parsing', threshold: 40 },
-                    { key: 'ai', label: lang === 'ZH' ? 'AI 审核' : lang === 'BM' ? 'AI Semakan' : 'AI Review', threshold: 60 },
+                    { key: 'extract', label: t.quotation.reading, threshold: 0 },
+                    { key: 'parse', label: t.quotation.parsing, threshold: 40 },
+                    { key: 'ai', label: t.quotation.aiReview, threshold: 60 },
                   ].map((s, i) => {
                     const active = progress >= s.threshold;
                     const done = progress >= [40, 60, 100][i];
@@ -1028,13 +1037,11 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                 {/* Status text */}
                 <p className="text-sm text-rs-text2 font-medium">{progressLabel}</p>
                 <p className="text-xs text-rs-text3 mt-1">
-                  {step === 'extracting'
-                    ? (lang === 'ZH' ? '正在识别文件格式与表格结构...' : lang === 'BM' ? 'Mengenal pasti format fail...' : 'Identifying file format and table structure...')
-                    : (lang === 'ZH' ? '正在分析价格、风险及缺失项目...' : lang === 'BM' ? 'Menganalisis harga dan risiko...' : 'Analyzing prices, risks and missing items...')}
+                  {step === 'extracting' ? t.quotation.identifyingFormat : t.quotation.analyzingPrices}
                 </p>
                 {step === 'analyzing' && (
                   <p className="text-[11px] text-rs-text3/60 mt-2">
-                    {lang === 'ZH' ? '⏳ 可能需要几分钟分析，请耐心等待' : lang === 'BM' ? '⏳ Mungkin mengambil beberapa minit' : '⏳ This may take a few minutes, please wait'}
+                    {t.quotation.waitMinutes}
                   </p>
                 )}
               </div>
@@ -1165,21 +1172,21 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                 <div className="flex items-start gap-6 mb-4">
                   <ScoreCircle score={analysis.score.total} />
                   <div className="flex-1 space-y-2 pt-1">
-                    <ScoreBar label="项目完整性" value={analysis.score.completeness} color="#F97316" breakdown={scoreBreakdown?.completeness} />
-                    <ScoreBar label="单价合理性" value={analysis.score.price} color="#16A34A" breakdown={scoreBreakdown?.price} />
-                    <ScoreBar label="工序逻辑性" value={analysis.score.logic} color="#16A34A" breakdown={scoreBreakdown?.logic} />
-                    <ScoreBar label="漏项风险" value={analysis.score.risk} color="#E53935" breakdown={scoreBreakdown?.risk} />
+                    <ScoreBar label={t.quotation.scoreCompleteness} value={analysis.score.completeness} color="#F97316" breakdown={scoreBreakdown?.completeness} />
+                    <ScoreBar label={t.quotation.scorePrice} value={analysis.score.price} color="#16A34A" breakdown={scoreBreakdown?.price} />
+                    <ScoreBar label={t.quotation.scoreLogic} value={analysis.score.logic} color="#16A34A" breakdown={scoreBreakdown?.logic} />
+                    <ScoreBar label={t.quotation.scoreRisk} value={analysis.score.risk} color="#E53935" breakdown={scoreBreakdown?.risk} />
                   </div>
                 </div>
                 {scoreBreakdown && (
                   <div className="flex items-center gap-2 mb-3">
                     <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded">
-                      数据支撑
+                      {t.quotation.dataSupport}
                     </span>
                     <span className="text-[11px] text-rs-text3">
                       {scoreBreakdown.dbMatchCount > 0 && <span className="text-green-600 font-medium">{scoreBreakdown.dbMatchCount} DB</span>}
                       {scoreBreakdown.dbMatchCount > 0 && scoreBreakdown.aiEstimateCount > 0 && ' + '}
-                      {scoreBreakdown.aiEstimateCount > 0 && <span className="text-blue-600 font-medium">{scoreBreakdown.aiEstimateCount} AI估算</span>}
+                      {scoreBreakdown.aiEstimateCount > 0 && <span className="text-blue-600 font-medium">{scoreBreakdown.aiEstimateCount} {t.quotation.aiEstimate}</span>}
                       {(scoreBreakdown.dbMatchCount > 0 || scoreBreakdown.aiEstimateCount > 0) && ' / '}
                       {scoreBreakdown.dbMatchTotal} items
                     </span>
@@ -1346,12 +1353,12 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                     <div className="flex bg-gray-100 rounded-lg p-0.5">
                       <button onClick={() => { setFilterMode('section'); setActivePage('all'); }}
                         className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${filterMode === 'section' ? 'bg-white text-[#F0B90B] shadow-sm' : 'text-gray-500'}`}>
-                        {lang === 'ZH' ? '按分类' : lang === 'BM' ? 'Kategori' : 'By Section'}
+                        {t.quotation.bySection}
                       </button>
                       {pages.length > 1 && (
                         <button onClick={() => { setFilterMode('page'); setActiveSection('all'); }}
                           className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${filterMode === 'page' ? 'bg-white text-[#F0B90B] shadow-sm' : 'text-gray-500'}`}>
-                          {lang === 'ZH' ? '按页码' : lang === 'BM' ? 'Halaman' : 'By Page'}
+                          {t.quotation.byPage}
                         </button>
                       )}
                     </div>
@@ -1518,10 +1525,10 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
             {showGantt && <GanttAutoGenerator analysis={analysis} onSave={async (tasks) => {
               const pid = savedProjectId || linkedProjectId;
               if (!pid) return;
-              const { data: { session } } = await supabase.auth.getSession();
-              if (!session?.user?.id) return;
+              const { data: { user: authUser } } = await supabase.auth.getUser();
+              if (!authUser?.id) return;
               const upsertData = tasks.map(t => ({
-                id: t.id, project_id: pid, user_id: session.user.id,
+                id: t.id, project_id: pid, user_id: authUser.id,
                 name: t.name, name_zh: t.name_zh, trade: t.trade,
                 start_date: t.start_date, end_date: t.end_date, duration: t.duration,
                 progress: t.progress, dependencies: t.dependencies, color: t.color,
@@ -1583,14 +1590,14 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
             onClick={() => { clearAllState(); }}
             className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-500 rounded-lg text-[13px] font-medium hover:border-gray-400 hover:text-gray-700 transition-colors"
           >
-            <RefreshCw className="w-4 h-4" /> {lang === 'ZH' ? '重新上传' : lang === 'BM' ? 'Muat naik semula' : 'Re-upload'}
+            <RefreshCw className="w-4 h-4" /> {t.quotation.reUpload}
           </button>
           <button
             onClick={() => setShowSaveDialog(true)}
             className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[13px] font-bold transition-all text-white shadow-md hover:shadow-lg"
             style={{ background: 'linear-gradient(135deg, #4F8EF7, #8B5CF6)' }}
           >
-            <Save className="w-4 h-4" /> {lang === 'ZH' ? '保存并继续' : lang === 'BM' ? 'Simpan & Teruskan' : 'Save & Continue'}
+            <Save className="w-4 h-4" /> {t.quotation.saveContinue}
           </button>
         </div>
       )}
@@ -1607,7 +1614,7 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
               <div className="flex items-center gap-2">
                 <button onClick={handleExportPDF}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-lg text-[12px] text-gray-700 hover:bg-gray-200">
-                  <Printer className="w-3.5 h-3.5" /> 导出 PDF
+                  <Printer className="w-3.5 h-3.5" /> {t.quotation.exportPdf}
                 </button>
                 <button onClick={() => setShowFullReport(false)} className="p-2 rounded-xl hover:bg-gray-100">
                   <X className="w-5 h-5 text-gray-500" />
@@ -1627,14 +1634,14 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
               </div>
               {analysis.summary && (
                 <div className="bg-[#F8F9FB] rounded-xl px-4 py-3 text-[13px] text-rs-text2 leading-relaxed">
-                  🤖 <strong>AI 总结：</strong>{analysis.summary}
+                  🤖 <strong>{t.quotation.aiSummary}:</strong>{analysis.summary}
                 </div>
               )}
 
               {/* Missing — use missingCritical with cost estimates if available */}
               {((analysis.missingCritical ?? []).length > 0 || analysis.missing.length > 0) && (
                 <div>
-                  <h4 className="font-semibold text-gray-900 text-sm mb-2">📋 关键缺失项目</h4>
+                  <h4 className="font-semibold text-gray-900 text-sm mb-2">📋 {t.quotation.missingCritical}</h4>
                   <div className="space-y-1.5">
                     {(analysis.missingCritical ?? []).length > 0
                       ? (analysis.missingCritical ?? []).map((m, i) => (

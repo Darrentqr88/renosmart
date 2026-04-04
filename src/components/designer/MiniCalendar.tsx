@@ -58,7 +58,6 @@ export function MiniCalendar({ events = [], onAddEvent, onDeleteEvent, onToggleR
   const { t, lang: language } = useI18n();
 
   const WEEKDAYS_I18N = language === 'ZH' ? ['日', '一', '二', '三', '四', '五', '六']
-    : language === 'BM' ? ['Ah', 'Is', 'Se', 'Ra', 'Kh', 'Ju', 'Sa']
     : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   const TYPE_LABELS: Record<string, string> = {
@@ -75,12 +74,6 @@ export function MiniCalendar({ events = [], onAddEvent, onDeleteEvent, onToggleR
       if (diff === 1) return '明天';
       if (diff === -1) return '昨天';
       return diff > 0 ? `${diff}天后` : `${Math.abs(diff)}天前`;
-    }
-    if (language === 'BM') {
-      if (diff === 0) return 'Hari ini';
-      if (diff === 1) return 'Esok';
-      if (diff === -1) return 'Semalam';
-      return diff > 0 ? `${diff} hari lagi` : `${Math.abs(diff)} hari lalu`;
     }
     if (diff === 0) return 'Today';
     if (diff === 1) return 'Tomorrow';
@@ -161,7 +154,7 @@ export function MiniCalendar({ events = [], onAddEvent, onDeleteEvent, onToggleR
             </button>
             <button onClick={() => setCurrentMonth(new Date())}
               className="px-2 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-[10px] text-gray-500 font-medium">
-              {language === 'ZH' ? '今天' : language === 'BM' ? 'Hari ini' : 'Today'}
+              {language === 'ZH' ? '今天' : 'Today'}
             </button>
             <button onClick={() => setCurrentMonth(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
@@ -322,7 +315,7 @@ export function MiniCalendar({ events = [], onAddEvent, onDeleteEvent, onToggleR
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 12px rgba(27,35,54,.06)' }}>
         <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
           <h4 className="text-xs font-bold text-gray-800">📅 {t.dash.upcoming}</h4>
-          <span className="text-[10px] text-gray-400">{language === 'ZH' ? '未来 21 天' : language === 'BM' ? '21 hari akan datang' : 'Next 21 days'}</span>
+          <span className="text-[10px] text-gray-400">{language === 'ZH' ? '未来 21 天' : 'Next 21 days'}</span>
         </div>
         {upcomingByDate.size === 0 ? (
           <div className="px-4 py-5 text-center">

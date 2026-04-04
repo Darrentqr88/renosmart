@@ -25,78 +25,65 @@ const PRICING = {
 const T = {
   hero: {
     EN: 'Renovations Run Smarter\nWhen AI Has Your Back',
-    BM: 'Pengubahsuaian Lebih Pintar\nDengan Sokongan AI',
     ZH: '有 AI 把关的装修\n每一步都更聪明',
   },
   heroSub: {
     EN: 'From quotation audit to progress tracking — RenoSmart gives designers, owners, and contractors the tools to deliver projects on time, on budget.',
-    BM: 'Dari audit sebut harga hingga penjejakan kemajuan — RenoSmart memberi pereka, pemilik, dan kontraktor alat untuk menyiapkan projek tepat masa dan bajet.',
     ZH: '从报价审核到进度追踪 — RenoSmart 让设计师、业主和施工方按时按预算交付每一个项目。',
   },
-  startFree: { EN: 'Start Free', BM: 'Mula Percuma', ZH: '免费开始' },
-  watchDemo: { EN: 'Watch Demo', BM: 'Tonton Demo', ZH: '观看演示' },
-  login: { EN: 'Login', BM: 'Log Masuk', ZH: '登录' },
+  startFree: { EN: 'Start Free', ZH: '免费开始' },
+  watchDemo: { EN: 'Watch Demo', ZH: '观看演示' },
+  login: { EN: 'Login', ZH: '登录' },
   trustBadge: {
     EN: 'Trusted by 500+ renovation firms across Malaysia & Singapore',
-    BM: 'Dipercayai 500+ firma pengubahsuaian di Malaysia & Singapura',
     ZH: '深受马来西亚和新加坡 500+ 装修公司信赖',
   },
   painTitle: {
     EN: 'The Problems We Solve',
-    BM: 'Masalah Yang Kami Selesaikan',
     ZH: '我们解决的行业痛点',
   },
   painSubtitle: {
     EN: 'Every renovation project faces the same costly mistakes. RenoSmart eliminates them.',
-    BM: 'Setiap projek pengubahsuaian menghadapi kesilapan yang sama. RenoSmart menghapuskannya.',
     ZH: '每个装修项目都在重复同样的代价高昂的错误。RenoSmart 一一消除。',
   },
   videoTitle: {
     EN: 'See RenoSmart in Action',
-    BM: 'Lihat RenoSmart Beraksi',
     ZH: '观看 RenoSmart 实际操作',
   },
   videoSub: {
     EN: 'Watch how designers use AI to audit quotations and manage projects in minutes, not hours.',
-    BM: 'Lihat bagaimana pereka menggunakan AI untuk mengaudit sebut harga dalam beberapa minit.',
     ZH: '看设计师如何用 AI 在几分钟内完成报价审核和项目管理。',
   },
   roleTitle: {
     EN: 'Choose Your Portal',
-    BM: 'Pilih Portal Anda',
     ZH: '选择您的入口',
   },
   roleSub: {
     EN: 'RenoSmart serves every stakeholder in the renovation process.',
-    BM: 'RenoSmart melayani setiap pihak dalam proses pengubahsuaian.',
     ZH: 'RenoSmart 服务装修流程中的每一个角色。',
   },
   howTitle: {
     EN: 'How It Works',
-    BM: 'Cara Ia Berfungsi',
     ZH: '如何运作',
   },
   pricingTitle: {
     EN: 'Simple, Transparent Pricing',
-    BM: 'Harga Mudah & Telus',
     ZH: '简单透明的定价',
   },
   pricingSub: {
     EN: 'Start free. Upgrade when you need more power.',
-    BM: 'Mula percuma. Naik taraf apabila anda perlukan lebih.',
     ZH: '免费开始，按需升级。',
   },
   ctaTitle: {
     EN: 'Your next renovation project\ndeserves better tools.',
-    BM: 'Projek pengubahsuaian seterusnya\nlayak alat yang lebih baik.',
     ZH: '你的下一个装修项目\n值得更好的工具。',
   },
-  free: { EN: 'Free', BM: 'Percuma', ZH: '免费' },
-  pro: { EN: 'Pro', BM: 'Pro', ZH: '专业版' },
-  elite: { EN: 'Elite', BM: 'Elite', ZH: '旗舰版' },
-  month: { EN: '/month', BM: '/bulan', ZH: '/月' },
-  getStarted: { EN: 'Get Started', BM: 'Mula Sekarang', ZH: '立即开始' },
-  currentPlan: { EN: 'Current Plan', BM: 'Pelan Semasa', ZH: '当前方案' },
+  free: { EN: 'Free', ZH: '免费' },
+  pro: { EN: 'Pro', ZH: '专业版' },
+  elite: { EN: 'Elite', ZH: '旗舰版' },
+  month: { EN: '/month', ZH: '/月' },
+  getStarted: { EN: 'Get Started', ZH: '立即开始' },
+  currentPlan: { EN: 'Current Plan', ZH: '当前方案' },
 };
 
 /* ── pain points data (with photos) ────────────────────────── */
@@ -106,24 +93,20 @@ const PAIN_POINTS = [
     photo: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800&q=80',
     pain: {
       EN: 'Quotation errors eat your profit',
-      BM: 'Kesilapan sebut harga makan keuntungan',
       ZH: '报价出错，利润蒸发',
     },
     painDetail: {
       EN: 'A missed waterproofing scope. A wrong tile calculation. One overlooked item can cost RM 8,000+ per project — and most designers don\'t catch it until it\'s too late.',
-      BM: 'Skop kalis air tertinggal. Kiraan jubin salah. Satu item terlepas pandang boleh menelan kos RM 8,000+ setiap projek.',
       ZH: '防水范围遗漏、瓷砖算错、一个漏项就损失 RM 8,000+ — 大多数设计师直到亏了才发现。',
     },
     stat: 'RM 8,000+',
-    statLabel: { EN: 'lost per project on average', BM: 'kerugian purata setiap projek', ZH: '每项目平均损失' },
+    statLabel: { EN: 'lost per project on average', ZH: '每项目平均损失' },
     solution: {
       EN: 'AI audits every line in 30 seconds',
-      BM: 'AI mengaudit setiap baris dalam 30 saat',
       ZH: 'AI 30 秒逐行审核',
     },
     solutionDetail: {
       EN: 'Upload your PDF or Excel quotation. AI scores completeness, flags missing scopes, detects pricing anomalies, and highlights items that don\'t add up.',
-      BM: 'Muat naik PDF atau Excel. AI menilai kelengkapan, menanda skop yang hilang, dan mengesan anomali harga.',
       ZH: '上传 PDF 或 Excel 报价单，AI 评分完整度、标记遗漏范围、检测价格异常、高亮不合理项目。',
     },
     color: '#4F8EF7',
@@ -133,24 +116,20 @@ const PAIN_POINTS = [
     photo: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80',
     pain: {
       EN: 'Schedules break, owners panic',
-      BM: 'Jadual rosak, pemilik panik',
       ZH: '进度一改全崩，业主焦虑',
     },
     painDetail: {
       EN: 'You spend 3 hours making a Gantt chart in Excel. One subcontractor delays, and the whole timeline collapses. Meanwhile, owners keep calling: "When will my house be done?"',
-      BM: 'Anda habiskan 3 jam buat carta Gantt di Excel. Seorang subkontraktor lewat, seluruh jadual runtuh. Pemilik terus bertanya: "Bila siap?"',
       ZH: '花 3 小时在 Excel 排甘特图，一个工种延误，整条时间线全崩。业主不停问："我的房子什么时候好？"',
     },
     stat: '3+ hrs',
-    statLabel: { EN: 'wasted every time you reschedule', BM: 'terbuang setiap kali jadual semula', ZH: '每次重排都浪费' },
+    statLabel: { EN: 'wasted every time you reschedule', ZH: '每次重排都浪费' },
     solution: {
       EN: 'AI builds your Gantt from the quotation',
-      BM: 'AI bina Gantt dari sebut harga anda',
       ZH: 'AI 从报价单自动生成排程',
     },
     solutionDetail: {
       EN: 'Dependency-driven schedules auto-generate from your quotation items. Drag to adjust. Holidays skipped. Owners track progress like tracking a delivery parcel.',
-      BM: 'Jadual berasaskan kebergantungan dijana automatik. Seret untuk laras. Cuti dilangkau. Pemilik jejak kemajuan seperti jejak bungkusan.',
       ZH: '依赖驱动排程从报价项自动生成，拖拽调整，跳过假日。业主像追快递一样追踪装修进度。',
     },
     color: '#3B82F6',
@@ -160,24 +139,20 @@ const PAIN_POINTS = [
     photo: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&q=80',
     pain: {
       EN: 'Workers show up, materials don\'t',
-      BM: 'Pekerja tiba, bahan tak sampai',
       ZH: '工人到了，材料没到',
     },
     painDetail: {
       EN: 'The tiler arrives on Monday. But tiles weren\'t ordered. Measurements weren\'t confirmed. Now 4 workers wait idle while you scramble — that\'s RM 1,200/day burned.',
-      BM: 'Tukang jubin tiba Isnin. Tetapi jubin belum dipesan. Ukuran belum disahkan. Kini 4 pekerja menunggu — RM 1,200/hari terbuang.',
       ZH: '贴砖师傅周一到场，但瓷砖没订、尺寸没确认。4 个工人干等着 — 每天白烧 RM 1,200。',
     },
     stat: '60%',
-    statLabel: { EN: 'of delays caused by prep failures', BM: 'kelewatan disebabkan kegagalan persediaan', ZH: '的延期源于准备不足' },
+    statLabel: { EN: 'of delays caused by prep failures', ZH: '的延期源于准备不足' },
     solution: {
       EN: 'Step-by-step prep reminders before each task',
-      BM: 'Peringatan persediaan langkah demi langkah',
       ZH: '每项施工前逐步提醒确认',
     },
     solutionDetail: {
       EN: 'Every construction task has a prep checklist. Tile selected? Ordered? Delivered? Just confirm each step — no more surprises on site.',
-      BM: 'Setiap tugas pembinaan ada senarai semak. Jubin dipilih? Dipesan? Dihantar? Sahkan setiap langkah.',
       ZH: '每个施工任务都有准备清单。瓷砖选了？订了？到了？逐步确认，工地再无意外。',
     },
     color: '#10B981',
@@ -187,24 +162,20 @@ const PAIN_POINTS = [
     photo: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=800&q=80',
     pain: {
       EN: 'Receipts vanish, profit is a guess',
-      BM: 'Resit hilang, keuntungan hanya tekaan',
       ZH: '收据丢了，利润靠猜',
     },
     painDetail: {
       EN: 'Workers buy materials, lose receipts, forget to report costs. By project end, you discover the "profitable" job actually lost money. Sound familiar?',
-      BM: 'Pekerja beli bahan, hilang resit, lupa lapor kos. Akhir projek, anda dapati projek "menguntungkan" sebenarnya rugi.',
       ZH: '工人买材料、丢收据、忘记报账。项目结束才发现，"赚钱的"项目其实亏了。听着耳熟？',
     },
     stat: '???',
-    statLabel: { EN: 'is what most designers know about their real profit', BM: 'apa yang pereka tahu tentang untung sebenar', ZH: '大多数设计师对真实利润一无所知' },
+    statLabel: { EN: 'is what most designers know about their real profit', ZH: '大多数设计师对真实利润一无所知' },
     solution: {
       EN: 'Workers snap receipts, AI tracks every cost',
-      BM: 'Pekerja tangkap resit, AI jejak setiap kos',
       ZH: '工人拍单据，AI 追踪每一笔开支',
     },
     solutionDetail: {
       EN: 'Workers photograph receipts on their phone. AI reads them instantly. Costs auto-categorize by trade. You see real-time profit margins — no more guessing.',
-      BM: 'Pekerja ambil gambar resit di telefon. AI membaca serta-merta. Kos dikategorikan mengikut perdagangan. Anda lihat margin keuntungan masa nyata.',
       ZH: '工人用手机拍单据，AI 即时识别归类。每个工种实时利润率一目了然 — 再也不用猜。',
     },
     color: '#A855F7',
@@ -215,39 +186,36 @@ const PAIN_POINTS = [
 const ROLES = [
   {
     id: 'designer',
-    title: { EN: 'Designer', BM: 'Pereka', ZH: '设计师' },
-    subtitle: { EN: 'Interior Design Firms', BM: 'Firma Rekabentuk Dalaman', ZH: '室内设计公司' },
+    title: { EN: 'Designer', ZH: '设计师' },
+    subtitle: { EN: 'Interior Design Firms', ZH: '室内设计公司' },
     color: '#4F8EF7',
     photo: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80',
     features: {
       EN: ['AI Quotation Audit & Scoring', 'Auto Gantt Scheduling', 'Price Intelligence Database', 'Real-time Profit Tracking', 'Multi-project Management'],
-      BM: ['Audit Sebut Harga AI', 'Penjadualan Gantt Auto', 'Pangkalan Data Harga', 'Jejak Keuntungan Masa Nyata', 'Pengurusan Pelbagai Projek'],
       ZH: ['AI 报价审核与评分', '自动甘特排程', '价格智能数据库', '实时利润追踪', '多项目管理'],
     },
     popular: true,
   },
   {
     id: 'owner',
-    title: { EN: 'Homeowner', BM: 'Pemilik Rumah', ZH: '业主' },
-    subtitle: { EN: 'Property Owners', BM: 'Pemilik Hartanah', ZH: '房产业主' },
+    title: { EN: 'Homeowner', ZH: '业主' },
+    subtitle: { EN: 'Property Owners', ZH: '房产业主' },
     color: '#14B8A6',
     photo: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&q=80',
     features: {
       EN: ['Track progress like a parcel', 'View shared documents', 'Payment schedule overview', 'Approve variation orders', 'Site photo gallery'],
-      BM: ['Jejak kemajuan seperti bungkusan', 'Lihat dokumen dikongsi', 'Gambaran jadual bayaran', 'Luluskan perintah variasi', 'Galeri foto tapak'],
       ZH: ['像追踪包裹一样追踪进度', '查看共享文件', '付款计划概览', '审批变更单', '工地照片库'],
     },
     popular: false,
   },
   {
     id: 'contractor',
-    title: { EN: 'Contractor', BM: 'Kontraktor', ZH: '施工工人' },
-    subtitle: { EN: 'Workers & Subcontractors', BM: 'Pekerja & Subkontraktor', ZH: '工人和分包商' },
+    title: { EN: 'Contractor', ZH: '施工工人' },
+    subtitle: { EN: 'Workers & Subcontractors', ZH: '工人和分包商' },
     color: '#6366F1',
     photo: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&q=80',
     features: {
       EN: ['Daily task assignments', 'Check-in / Check-out', 'Receipt photo upload + OCR', 'Site photo submissions', 'Prep checklist confirmations'],
-      BM: ['Tugasan harian', 'Daftar Masuk / Keluar', 'Muat naik resit + OCR', 'Hantar foto tapak', 'Senarai semak persediaan'],
       ZH: ['每日任务分配', '签到 / 签退', '单据拍照上传 + OCR', '工地照片提交', '事前准备逐步确认'],
     },
     popular: false,
@@ -258,18 +226,18 @@ const ROLES = [
 const STEPS = [
   {
     num: '01',
-    title: { EN: 'Upload Quotation', BM: 'Muat Naik Sebut Harga', ZH: '上传报价单' },
-    desc: { EN: 'Drop your PDF or Excel file. We handle any format.', BM: 'Lepaskan fail PDF atau Excel anda.', ZH: '拖放 PDF 或 Excel 文件，兼容任何格式。' },
+    title: { EN: 'Upload Quotation', ZH: '上传报价单' },
+    desc: { EN: 'Drop your PDF or Excel file. We handle any format.', ZH: '拖放 PDF 或 Excel 文件，兼容任何格式。' },
   },
   {
     num: '02',
-    title: { EN: 'AI Analyzes', BM: 'AI Menganalisis', ZH: 'AI 分析审核' },
-    desc: { EN: 'Score, flag, price-check — all in 30 seconds.', BM: 'Skor, tandakan, semak harga — 30 saat.', ZH: '评分、标记、价格核查 — 30 秒搞定。' },
+    title: { EN: 'AI Analyzes', ZH: 'AI 分析审核' },
+    desc: { EN: 'Score, flag, price-check — all in 30 seconds.', ZH: '评分、标记、价格核查 — 30 秒搞定。' },
   },
   {
     num: '03',
-    title: { EN: 'Manage & Profit', BM: 'Urus & Untung', ZH: '管理并获利' },
-    desc: { EN: 'Gantt auto-generates. Workers report. You track profit.', BM: 'Gantt dijana automatik. Pekerja melapor. Anda jejak keuntungan.', ZH: '甘特图自动生成，工人汇报，实时追踪利润。' },
+    title: { EN: 'Manage & Profit', ZH: '管理并获利' },
+    desc: { EN: 'Gantt auto-generates. Workers report. You track profit.', ZH: '甘特图自动生成，工人汇报，实时追踪利润。' },
   },
 ];
 
@@ -277,17 +245,14 @@ const STEPS = [
 const PLAN_FEATURES = {
   free: {
     EN: ['3 lifetime AI audits', 'Basic Gantt chart', '1 project', 'Email support'],
-    BM: ['3 audit AI seumur hidup', 'Carta Gantt asas', '1 projek', 'Sokongan e-mel'],
     ZH: ['3 次终身 AI 审核', '基础甘特图', '1 个项目', '邮件支持'],
   },
   pro: {
     EN: ['50 AI audits / month', 'Full Gantt + dependencies', 'Price Intelligence DB', '10 projects', 'Priority support'],
-    BM: ['50 audit AI / bulan', 'Gantt penuh + kebergantungan', 'Pangkalan Data Harga', '10 projek', 'Sokongan keutamaan'],
     ZH: ['每月 50 次 AI 审核', '完整甘特图 + 依赖', '价格智能数据库', '10 个项目', '优先支持'],
   },
   elite: {
     EN: ['250 AI audits / month (shared)', 'Everything in Pro', 'Cost Database + Profit', 'Unlimited projects', 'Team members (5 accounts)', 'Receipt OCR'],
-    BM: ['250 audit AI / bulan (dikongsi)', 'Semua dalam Pro', 'Pangkalan Kos + Untung', 'Projek tanpa had', 'Ahli pasukan (5 akaun)', 'OCR Resit'],
     ZH: ['每月 250 次 AI 审核（共享）', 'Pro 全部功能', '成本数据库 + 利润', '无限项目', '团队成员（5 账号）', '单据 OCR'],
   },
 };
@@ -428,7 +393,7 @@ export default function LandingPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* Language toggle */}
           <div className="ld-nav-hide-mobile" style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
-            {(['EN', 'BM', 'ZH'] as Language[]).map((l) => (
+            {(['EN', 'ZH'] as Language[]).map((l) => (
               <button key={l} onClick={() => setLang(l)} style={{
                 padding: '6px 10px', fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer',
                 background: lang === l ? 'rgba(79,142,247,0.15)' : 'transparent',
@@ -515,7 +480,7 @@ export default function LandingPage() {
             marginBottom: 32,
             animation: 'ldFadeUp 0.8s cubic-bezier(0.16,1,0.3,1) both',
           }}>
-            {lang === 'EN' ? 'AI-Powered Renovation Management' : lang === 'BM' ? 'Pengurusan Pengubahsuaian AI' : 'AI 驱动装修管理'}
+            {lang === 'ZH' ? 'AI 驱动装修管理' : 'AI-Powered Renovation Management'}
           </div>
 
           <h1 style={{
@@ -643,7 +608,7 @@ export default function LandingPage() {
                       letterSpacing: '0.06em', textTransform: 'uppercase',
                       background: 'rgba(239,68,68,0.12)', color: '#EF4444', marginBottom: 12,
                     }}>
-                      {lang === 'EN' ? 'THE PROBLEM' : lang === 'BM' ? 'MASALAH' : '痛点'}
+                      {lang === 'ZH' ? '痛点' : 'THE PROBLEM'}
                     </div>
                     <h3 style={{ fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: 700, lineHeight: 1.2, marginBottom: 12 }}>
                       {pp.pain[lang]}
@@ -662,7 +627,7 @@ export default function LandingPage() {
                       background: `${pp.color}15`, color: pp.color, marginBottom: 12,
                     }}>
                       <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                      {lang === 'EN' ? 'RENOSMART SOLUTION' : lang === 'BM' ? 'PENYELESAIAN' : '解决方案'}
+                      {lang === 'ZH' ? '解决方案' : 'RENOSMART SOLUTION'}
                     </div>
                     <h4 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8, color: pp.color }}>{pp.solution[lang]}</h4>
                     <p style={{ fontSize: 14, lineHeight: 1.7, color: '#94A3B8' }}>{pp.solutionDetail[lang]}</p>
@@ -721,7 +686,7 @@ export default function LandingPage() {
             position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
             fontSize: 13, color: '#94A3B8', fontWeight: 500,
           }}>
-            {lang === 'EN' ? '2:30 min demo' : lang === 'BM' ? '2:30 min demo' : '2 分 30 秒演示'}
+            {lang === 'ZH' ? '2 分 30 秒演示' : '2:30 min demo'}
           </div>
         </div>
       </section>
@@ -770,7 +735,7 @@ export default function LandingPage() {
                     color: role.color, fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
                     border: `1px solid ${role.color}40`,
                   }}>
-                    {lang === 'EN' ? 'MOST POPULAR' : lang === 'BM' ? 'PALING POPULAR' : '最受欢迎'}
+                    {lang === 'ZH' ? '最受欢迎' : 'MOST POPULAR'}
                   </div>
                 )}
 
@@ -804,7 +769,7 @@ export default function LandingPage() {
                   border: `1px solid ${role.color}30`,
                   transition: 'all 0.2s',
                 }}>
-                  {lang === 'EN' ? `Enter as ${role.title.EN}` : lang === 'BM' ? `Masuk sebagai ${role.title.BM}` : `以${role.title.ZH}身份进入`}
+                  {lang === 'ZH' ? `以${role.title.ZH}身份进入` : `Enter as ${role.title.EN}`}
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ display: 'inline', marginLeft: 6, verticalAlign: 'middle' }}>
                     <path d="M3 8h10m-4-4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
@@ -877,9 +842,9 @@ export default function LandingPage() {
                 color: pricingPeriod === p ? '#4F8EF7' : '#94A3B8',
                 transition: 'all 0.2s', position: 'relative',
               }}>
-                {p === 'monthly' ? (lang === 'EN' ? 'Monthly' : lang === 'BM' ? 'Bulanan' : '月付') :
-                 p === 'quarterly' ? (lang === 'EN' ? 'Quarterly' : lang === 'BM' ? 'Suku Tahun' : '季付') :
-                 (lang === 'EN' ? 'Yearly' : lang === 'BM' ? 'Tahunan' : '年付')}
+                {p === 'monthly' ? (lang === 'ZH' ? '月付' : 'Monthly') :
+                 p === 'quarterly' ? (lang === 'ZH' ? '季付' : 'Quarterly') :
+                 (lang === 'ZH' ? '年付' : 'Yearly')}
                 {savePct[p] && <span style={{ display: 'block', fontSize: 10, color: '#10B981', marginTop: 2 }}>{savePct[p]}</span>}
               </button>
             ))}
@@ -916,7 +881,7 @@ export default function LandingPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 14, fontWeight: 600, color: '#4F8EF7' }}>{T.pro[lang]}</span>
               <span style={{ padding: '2px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600, background: 'rgba(79,142,247,0.15)', color: '#4F8EF7' }}>
-                {lang === 'EN' ? 'POPULAR' : lang === 'BM' ? 'POPULAR' : '热门'}
+                {lang === 'ZH' ? '热门' : 'POPULAR'}
               </span>
             </div>
             <div style={{ marginTop: 8 }}>
@@ -964,9 +929,8 @@ export default function LandingPage() {
         </div>
 
         <p style={{ textAlign: 'center', marginTop: 24, fontSize: 13, color: '#64748B' }}>
-          {lang === 'EN' ? 'Payment via FPX, Card, or TNG (Billplz). Cancel anytime.' :
-           lang === 'BM' ? 'Bayaran melalui FPX, Kad, atau TNG (Billplz). Batal bila-bila masa.' :
-           '支持 FPX、银行卡、TNG 支付（Billplz）。随时取消。'}
+          {lang === 'ZH' ? '支持 FPX、银行卡、TNG 支付（Billplz）。随时取消。' :
+           'Payment via FPX, Card, or TNG (Billplz). Cancel anytime.'}
         </p>
       </section>
 
@@ -1011,9 +975,8 @@ export default function LandingPage() {
               <span style={{ fontSize: 16, fontWeight: 700 }}>RenoSmart</span>
             </div>
             <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>
-              {lang === 'EN' ? 'AI-powered renovation management for Malaysia & Singapore.' :
-               lang === 'BM' ? 'Pengurusan pengubahsuaian berkuasa AI untuk Malaysia & Singapura.' :
-               'AI 驱动的马来西亚和新加坡装修管理平台。'}
+              {lang === 'ZH' ? 'AI 驱动的马来西亚和新加坡装修管理平台。' :
+               'AI-powered renovation management for Malaysia & Singapore.'}
             </p>
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <span style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, background: 'rgba(255,255,255,0.04)', color: '#94A3B8' }}>🇲🇾 Malaysia</span>
@@ -1024,13 +987,13 @@ export default function LandingPage() {
           {/* Product links */}
           <div>
             <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748B', marginBottom: 16 }}>
-              {lang === 'EN' ? 'Product' : lang === 'BM' ? 'Produk' : '产品'}
+              {lang === 'ZH' ? '产品' : 'Product'}
             </div>
             {[
-              { label: { EN: 'AI Quotation Audit', BM: 'Audit AI', ZH: 'AI 报价审核' }, href: '/register' },
-              { label: { EN: 'Smart Gantt', BM: 'Gantt Pintar', ZH: '智能排程' }, href: '/register' },
-              { label: { EN: 'Price Database', BM: 'Pangkalan Harga', ZH: '价格数据库' }, href: '/register' },
-              { label: { EN: 'Pricing', BM: 'Harga', ZH: '定价' }, href: '/designer/pricing' },
+              { label: { EN: 'AI Quotation Audit', ZH: 'AI 报价审核' }, href: '/register' },
+              { label: { EN: 'Smart Gantt', ZH: '智能排程' }, href: '/register' },
+              { label: { EN: 'Price Database', ZH: '价格数据库' }, href: '/register' },
+              { label: { EN: 'Pricing', ZH: '定价' }, href: '/designer/pricing' },
             ].map((link) => (
               <Link key={link.href + link.label.EN} href={link.href} style={{ display: 'block', fontSize: 14, color: '#94A3B8', textDecoration: 'none', marginBottom: 10, transition: 'color 0.2s' }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = '#F1F5F9')}
@@ -1043,10 +1006,10 @@ export default function LandingPage() {
           {/* Users */}
           <div>
             <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748B', marginBottom: 16 }}>
-              {lang === 'EN' ? 'For Users' : lang === 'BM' ? 'Untuk Pengguna' : '用户'}
+              {lang === 'ZH' ? '用户' : 'For Users'}
             </div>
             {[
-              { label: { EN: 'Designers', BM: 'Pereka', ZH: '设计师' }, href: '/register?role=designer' },
+              { label: { EN: 'Designers', ZH: '设计师' }, href: '/register?role=designer' },
             ].map((link) => (
               <Link key={link.href} href={link.href} style={{ display: 'block', fontSize: 14, color: '#94A3B8', textDecoration: 'none', marginBottom: 10, transition: 'color 0.2s' }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = '#F1F5F9')}
@@ -1059,12 +1022,12 @@ export default function LandingPage() {
           {/* Account */}
           <div>
             <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748B', marginBottom: 16 }}>
-              {lang === 'EN' ? 'Account' : lang === 'BM' ? 'Akaun' : '账户'}
+              {lang === 'ZH' ? '账户' : 'Account'}
             </div>
             {[
-              { label: { EN: 'Login', BM: 'Log Masuk', ZH: '登录' }, href: '/login' },
-              { label: { EN: 'Register', BM: 'Daftar', ZH: '注册' }, href: '/register' },
-              { label: { EN: 'Settings', BM: 'Tetapan', ZH: '设置' }, href: '/designer/settings' },
+              { label: { EN: 'Login', ZH: '登录' }, href: '/login' },
+              { label: { EN: 'Register', ZH: '注册' }, href: '/register' },
+              { label: { EN: 'Settings', ZH: '设置' }, href: '/designer/settings' },
             ].map((link) => (
               <Link key={link.href} href={link.href} style={{ display: 'block', fontSize: 14, color: '#94A3B8', textDecoration: 'none', marginBottom: 10, transition: 'color 0.2s' }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = '#F1F5F9')}
@@ -1079,8 +1042,8 @@ export default function LandingPage() {
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <span style={{ fontSize: 12, color: '#475569' }}>&copy; {new Date().getFullYear()} RenoSmart. All rights reserved.</span>
           <div style={{ display: 'flex', gap: 16 }}>
-            <span style={{ fontSize: 12, color: '#475569', cursor: 'pointer' }}>{lang === 'EN' ? 'Privacy Policy' : lang === 'BM' ? 'Dasar Privasi' : '隐私政策'}</span>
-            <span style={{ fontSize: 12, color: '#475569', cursor: 'pointer' }}>{lang === 'EN' ? 'Terms of Service' : lang === 'BM' ? 'Terma Perkhidmatan' : '服务条款'}</span>
+            <span style={{ fontSize: 12, color: '#475569', cursor: 'pointer' }}>{lang === 'ZH' ? '隐私政策' : 'Privacy Policy'}</span>
+            <span style={{ fontSize: 12, color: '#475569', cursor: 'pointer' }}>{lang === 'ZH' ? '服务条款' : 'Terms of Service'}</span>
           </div>
         </div>
       </footer>

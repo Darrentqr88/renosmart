@@ -290,12 +290,12 @@ export default function SettingsPage() {
 
   useEffect(() => {
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      setUserId(session.user.id);
-      setEmail(session.user.email || '');
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+      setUserId(authUser.id);
+      setEmail(authUser.email || '');
 
-      const { data } = await supabase.from('profiles').select('*').eq('user_id', session.user.id).single();
+      const { data } = await supabase.from('profiles').select('*').eq('user_id', authUser.id).single();
       if (data) {
         setName(data.name || '');
         setPhone(data.phone || '');
@@ -758,7 +758,7 @@ export default function SettingsPage() {
                       <span className="text-sm text-gray-700 truncate">{member.email}</span>
                       {member.email === email && (
                         <Badge className="text-xs bg-blue-100 text-blue-600 border-0">
-                          {lang === 'ZH' ? '你' : lang === 'BM' ? 'Anda' : 'You'}
+                          {lang === 'ZH' ? '你' : 'You'}
                         </Badge>
                       )}
                       <Badge className={`text-xs border-0 flex-shrink-0 ${
@@ -846,8 +846,8 @@ export default function SettingsPage() {
               <h3 className="font-medium text-gray-800 mb-4">{s.whatsIncluded}</h3>
               <div className="space-y-2 text-sm">
                 {[
-                  { feature: s.aiAnalysis, free: '3', pro: '50/' + (lang === 'ZH' ? '月' : lang === 'BM' ? 'bulan' : 'month'), elite: '250/' + (lang === 'ZH' ? '月 (共享)' : lang === 'BM' ? 'bulan (dikongsi)' : 'month (shared)') },
-                  { feature: s.projects, free: '1', pro: lang === 'ZH' ? '无限' : lang === 'BM' ? 'Tanpa had' : 'Unlimited', elite: lang === 'ZH' ? '无限' : lang === 'BM' ? 'Tanpa had' : 'Unlimited' },
+                  { feature: s.aiAnalysis, free: '3', pro: '50/' + (lang === 'ZH' ? '月' : 'month'), elite: '250/' + (lang === 'ZH' ? '月 (共享)' : 'month (shared)') },
+                  { feature: s.projects, free: '1', pro: lang === 'ZH' ? '无限' : 'Unlimited', elite: lang === 'ZH' ? '无限' : 'Unlimited' },
                   { feature: s.priceDB, free: '\u2717', pro: '\u2713', elite: '\u2713' },
                   { feature: s.costDB, free: '\u2717', pro: '\u2713', elite: '\u2713' },
                   { feature: s.workerMgmt, free: '\u2717', pro: '\u2713', elite: '\u2713' },

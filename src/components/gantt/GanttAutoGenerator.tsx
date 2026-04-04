@@ -139,11 +139,12 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
     const prompt = buildBatchTradeHintPrompt(tradesWithItems, 'MY', {
       projectType: analysis.ganttParams?.projectType || analysis.projectType,
       unmatchedItems,
+      outputLang: lang,
     });
     fetch('/api/claude', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 4000, messages: [{ role: 'user', content: prompt }], skipQuota: true }),
+      headers: { 'Content-Type': 'application/json', 'X-RS-Secondary': 'true' },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 4000, messages: [{ role: 'user', content: prompt }] }),
     })
       .then(r => r.json())
       .then(data => {
@@ -383,12 +384,11 @@ Only include tasks where you changed the duration. Skip unchanged and locked tas
 
       const response = await fetch('/api/claude', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-RS-Secondary': 'true' },
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 2500,
           messages: [{ role: 'user', content: prompt }],
-          skipQuota: true,
         }),
       });
 

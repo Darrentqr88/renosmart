@@ -257,7 +257,7 @@ export default function WorkerScheduleTab({ tasks }: WorkerScheduleTabProps) {
             </div>
             <p className="text-gray-500 text-sm font-medium">
               {getHoliday(selectedDate)
-                ? (lang === 'ZH' ? '公共假期' : lang === 'BM' ? 'Cuti umum' : 'Public Holiday')
+                ? (lang === 'ZH' ? '公共假期' : 'Public Holiday')
                 : (t.worker.noTasksScheduled || 'No tasks scheduled')}
             </p>
             <p className="text-gray-400 text-xs mt-1">

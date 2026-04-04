@@ -315,6 +315,7 @@ export function buildTradeHintPrompt(
   trade: string,
   items: { name: string; qty: number; unit: string; unitPrice: number; total: number }[],
   region: 'MY' | 'SG',
+  outputLang: string = 'EN',
 ): string {
   const currency = region === 'SG' ? 'SGD' : 'RM';
   const itemList = items
@@ -322,7 +323,8 @@ export function buildTradeHintPrompt(
     .map(i => `- ${i.name}: ${i.qty} ${i.unit} × ${currency} ${i.unitPrice} = ${currency} ${i.total}`)
     .join('\n');
 
-  return `你是专业的工程设计师，负责审核报价单内容并为施工人员提供事前准备工作提示和注意事项。
+  if (outputLang === 'ZH') {
+    return `你是专业的工程设计师，负责审核报价单内容并为施工人员提供事前准备工作提示和注意事项。
 
 工种：${trade}
 地区：${region === 'SG' ? 'Singapore' : 'Malaysia'}
@@ -338,6 +340,25 @@ ${itemList}
   "warnings": ["1-3条风险提醒或注意事项"],
   "quotationNotes": "一句话总结该工种报价内容（含金额）"
 }`;
+  }
+
+  return `You are a professional construction project manager. Review the quotation items below and provide pre-construction preparation tips and warnings.
+Output language: English
+
+Trade: ${trade}
+Region: ${region === 'SG' ? 'Singapore' : 'Malaysia'}
+
+Actual quotation items for this trade:
+${itemList}
+
+Based on the actual items above, generate specific, actionable preparation items. Include actual quantities and material specs.
+
+Return ONLY valid JSON:
+{
+  "prepItems": ["3-5 specific preparation items based on actual quotation content above, include quantities/materials/brand details"],
+  "warnings": ["1-3 risk warnings or important notes"],
+  "quotationNotes": "One-line summary of this trade's quotation scope (include amount)"
+}`;
 }
 
 /**
@@ -351,11 +372,13 @@ export function buildBatchTradeHintPrompt(
   options?: {
     projectType?: string;
     unmatchedItems?: { name: string; qty: number; unit: string; unitPrice: number; total: number }[];
+    outputLang?: string;
   },
 ): string {
   const currency = region === 'SG' ? 'SGD' : 'RM';
   const projectType = options?.projectType || 'residential';
   const unmatchedItems = options?.unmatchedItems || [];
+  const outputLang = options?.outputLang || 'EN';
 
   const tradeBlocks = trades
     .map(t => {
@@ -367,20 +390,19 @@ export function buildBatchTradeHintPrompt(
     })
     .join('\n\n');
 
-  const unmatchedBlock = unmatchedItems.length > 0
-    ? `\n\n【未分类项目 — 请将每项归入正确工种】\n` +
-      unmatchedItems
-        .slice(0, 20)
-        .map(i => `- ${i.name}: ${i.qty} ${i.unit} × ${currency} ${i.unitPrice} = ${currency} ${i.total}`)
-        .join('\n')
-    : '';
-
   const isCommercial = ['commercial', 'mall', 'shop_lot', 'factory'].includes(projectType);
-  const projectTypeNote = isCommercial
-    ? `项目类型：商业/商场 — 注意是否需要夜班施工（商场通常要求凌晨施工），以及是否需要工程管理局许可证（JKR/CIDB）。`
-    : `项目类型：${projectType}`;
 
-  return `你是专业的工程设计师，负责审核报价单内容并为施工团队提供施工前准备提示。
+  if (outputLang === 'ZH') {
+    const unmatchedBlock = unmatchedItems.length > 0
+      ? `\n\n【未分类项目 — 请将每项归入正确工种】\n` +
+        unmatchedItems.slice(0, 20).map(i => `- ${i.name}: ${i.qty} ${i.unit} × ${currency} ${i.unitPrice} = ${currency} ${i.total}`).join('\n')
+      : '';
+
+    const projectTypeNote = isCommercial
+      ? `项目类型：商业/商场 — 注意是否需要夜班施工（商场通常要求凌晨施工），以及是否需要工程管理局许可证（JKR/CIDB）。`
+      : `项目类型：${projectType}`;
+
+    return `你是专业的工程设计师，负责审核报价单内容并为施工团队提供施工前准备提示。
 地区：${region === 'SG' ? 'Singapore' : 'Malaysia'}
 ${projectTypeNote}
 
@@ -409,6 +431,50 @@ ${tradeBlocks}${unmatchedBlock}
   }${unmatchedItems.length > 0 ? `,
   "unmatchedClassifications": {
     "项目名称": "归属工种名（与trades中一致）"
+  }` : ''}
+}`;
+  }
+
+  // English prompt
+  const unmatchedBlock = unmatchedItems.length > 0
+    ? `\n\n【Unclassified Items — assign each to the correct trade】\n` +
+      unmatchedItems.slice(0, 20).map(i => `- ${i.name}: ${i.qty} ${i.unit} × ${currency} ${i.unitPrice} = ${currency} ${i.total}`).join('\n')
+    : '';
+
+  const projectTypeNote = isCommercial
+    ? `Project type: Commercial — note if night shift work is required (malls often require after-hours work), and whether JKR/CIDB permits are needed.`
+    : `Project type: ${projectType}`;
+
+  return `You are a professional construction project manager. Review the quotation items and provide pre-construction preparation tips for the work crew.
+Output language: English
+Region: ${region === 'SG' ? 'Singapore' : 'Malaysia'}
+${projectTypeNote}
+
+Quotation items by trade:
+
+${tradeBlocks}${unmatchedBlock}
+
+Requirements:
+1. For each trade, generate **up to 5** key preparation items (prepItems) specific to this quotation. Must reference actual item names, quantities, and material specs.
+2. Structure prepItems in 3 categories (total max 5):
+   a) Project-type considerations (e.g. condo floor restrictions, commercial night work, max 1)
+   b) Key work content notes (construction technical points, max 2)
+   c) Pre-work material preparation (materials/brands/specs/quantities to confirm, max 2)
+3. warnings: 1-2 risk warnings (quality risks / common omissions)
+4. quotationNotes: One-line summary of this trade's quotation scope (include amount range)${unmatchedItems.length > 0 ? `
+5. unmatchedClassifications: Assign each unclassified item to the correct trade (return trade name only, matching trades above)` : ''}
+
+Return ONLY valid JSON:
+{
+  "trades": {
+    "Trade Name": {
+      "prepItems": ["Up to 5 specific preparation items"],
+      "warnings": ["1-2 risk warnings"],
+      "quotationNotes": "One-line summary"
+    }
+  }${unmatchedItems.length > 0 ? `,
+  "unmatchedClassifications": {
+    "Item name": "Trade name (matching trades above)"
   }` : ''}
 }`;
 }

@@ -53,12 +53,12 @@ function PricingPageContent() {
 
   useEffect(() => {
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('plan, team_id')
-          .eq('user_id', session.user.id)
+          .eq('user_id', authUser.id)
           .single();
         if (profile) setCurrentPlan(profile.plan || 'free');
 
@@ -69,7 +69,7 @@ function PricingPageContent() {
             .select('owner_user_id')
             .eq('id', profile.team_id)
             .single();
-          if (team && team.owner_user_id !== session.user.id) {
+          if (team && team.owner_user_id !== authUser.id) {
             setIsTeamMember(true);
             // Get owner name
             const { data: ownerProfile } = await supabase
@@ -86,7 +86,7 @@ function PricingPageContent() {
           const { data: team } = await supabase
             .from('teams')
             .select('elite_slots')
-            .eq('owner_user_id', session.user.id)
+            .eq('owner_user_id', authUser.id)
             .single();
           if (team) setTeamSlots(team.elite_slots ?? 1);
         }
@@ -115,9 +115,9 @@ function PricingPageContent() {
 
       if (data.demo) {
         toast({ title: 'Demo Mode', description: 'Stripe not configured. Plan updated for demo.' });
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          await supabase.from('profiles').update({ plan }).eq('user_id', session.user.id);
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          await supabase.from('profiles').update({ plan }).eq('user_id', authUser.id);
           setCurrentPlan(plan);
         }
         return;
@@ -131,7 +131,7 @@ function PricingPageContent() {
       // Stack success: subscription quantity updated directly (no checkout page)
       if (data.success && data.newQuantity) {
         toast({
-          title: lang === 'ZH' ? '配套已升级' : lang === 'BM' ? 'Bundle dinaik taraf' : 'Bundle upgraded',
+          title: lang === 'ZH' ? '配套已升级' : 'Bundle upgraded',
           description: lang === 'ZH'
             ? `已升级至 ${data.newQuantity} 个配套`
             : `Upgraded to ${data.newQuantity} bundle(s)`,
@@ -160,11 +160,9 @@ function PricingPageContent() {
       } else if (data.error === 'No subscription found') {
         // Plan was activated manually (demo mode) — no Stripe customer
         toast({
-          title: lang === 'ZH' ? '手动激活套餐' : lang === 'BM' ? 'Pelan Diaktifkan Manual' : 'Manually Activated Plan',
+          title: lang === 'ZH' ? '手动激活套餐' : 'Manually Activated Plan',
           description: lang === 'ZH'
             ? '您的套餐是手动激活的，无法通过 Stripe 管理。如需更改请联系客服。'
-            : lang === 'BM'
-            ? 'Pelan anda diaktifkan secara manual. Hubungi sokongan untuk membuat perubahan.'
             : 'Your plan was activated manually. Contact support to make changes.',
         });
       } else {
@@ -179,16 +177,14 @@ function PricingPageContent() {
 
   const eliteDesc: Record<string, string> = {
     EN: '5 accounts share 1 plan · Stack bundles to expand',
-    BM: '5 akaun kongsi 1 pelan · Tambah bundle untuk kembang',
     ZH: '5 账号共用 · 可购买多个配套扩充',
   };
   const eliteFeatures: Record<string, string[]> = {
     EN: ['👥 5 accounts · 250 AI audits/month (shared)', 'All Pro features', 'Unlimited projects', 'Team dashboard (invite/remove members)', 'Stack bundles: +5 accounts +250/month each', 'API access', 'Custom branding'],
-    BM: ['👥 5 akaun · 250 audit AI/bulan (dikongsi)', 'Semua ciri Pro', 'Projek tanpa had', 'Dashboard pasukan (jemput/buang ahli)', 'Tambah bundle: +5 akaun +250/bulan', 'Akses API', 'Jenama tersuai'],
     ZH: ['👥 5 账号共用 · 共享 250 次/月', 'Pro 全部功能', '无限项目', '团队管理面板（邀请/移除成员）', '可叠加购买：每个 +5 人 +250 次', 'API 访问', '自定义品牌'],
   };
   const eliteCta: Record<string, string> = {
-    EN: 'Upgrade to Elite', BM: 'Naik taraf ke Elite', ZH: '升级至 Elite',
+    EN: 'Upgrade to Elite', ZH: '升级至 Elite',
   };
 
   const plans = [
@@ -197,11 +193,9 @@ function PricingPageContent() {
       name: t.landing.freePlan,
       price: `${r === 'SG' ? 'SGD' : 'RM'} 0`,
       period: '/forever',
-      desc: lang === 'ZH' ? '免费开始使用' : lang === 'BM' ? 'Mulakan secara percuma' : 'Get started for free',
+      desc: lang === 'ZH' ? '免费开始使用' : 'Get started for free',
       features: lang === 'ZH'
         ? ['3 次终身 AI 分析', '1 个活跃项目', '基础甘特图', '邮件支持']
-        : lang === 'BM'
-        ? ['3 analisis AI seumur hidup', '1 projek aktif', 'Carta Gantt asas', 'Sokongan e-mel']
         : ['3 AI analyses lifetime', '1 active project', 'Basic Gantt chart', 'Email support'],
       cta: 'Current Plan',
       color: 'border-gray-200',
@@ -212,15 +206,13 @@ function PricingPageContent() {
       name: t.landing.proPlan + ' \u2726',
       price: PRICES.pro[r][billingInterval],
       period: INTERVAL_LABELS[billingInterval],
-      desc: lang === 'ZH' ? '适合成长中的设计公司' : lang === 'BM' ? 'Untuk firma reka bentuk yang berkembang' : 'For growing design firms',
+      desc: lang === 'ZH' ? '适合成长中的设计公司' : 'For growing design firms',
       features: lang === 'ZH'
         ? ['每月 50 次 AI 分析', '无限项目', '智能甘特图 + 拖拽', '付款追踪', '业主门户', '工人管理', '优先支持']
-        : lang === 'BM'
-        ? ['50 analisis AI/bulan', 'Projek tanpa had', 'Gantt pintar + seret & lepas', 'Penjejakan pembayaran', 'Portal pemilik', 'Pengurusan pekerja', 'Sokongan keutamaan']
         : ['50 AI analyses/month', 'Unlimited projects', 'Smart Gantt + drag & drop', 'Payment tracking', 'Owner portal access', 'Worker management', 'Priority support'],
-      cta: lang === 'ZH' ? '升级至 Pro' : lang === 'BM' ? 'Naik taraf ke Pro' : 'Upgrade to Pro',
+      cta: lang === 'ZH' ? '升级至 Pro' : 'Upgrade to Pro',
       color: 'border-[#F0B90B]',
-      badge: lang === 'ZH' ? '最受欢迎' : lang === 'BM' ? 'Paling Popular' : 'Most Popular',
+      badge: lang === 'ZH' ? '最受欢迎' : 'Most Popular',
     },
     {
       id: 'elite',
@@ -245,7 +237,7 @@ function PricingPageContent() {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-3">{t.landing.pricingTitle}</h1>
           <p className="text-gray-500">
-            {lang === 'ZH' ? '无合约束缚，随时可取消。' : lang === 'BM' ? 'Tiada kontrak. Batal bila-bila masa.' : 'No contracts. Cancel anytime.'}
+            {lang === 'ZH' ? '无合约束缚，随时可取消。' : 'No contracts. Cancel anytime.'}
           </p>
           {currentPlan !== 'free' && !isTeamMember && (
             <div className="flex items-center justify-center gap-3 mt-3">
@@ -269,13 +261,11 @@ function PricingPageContent() {
           {isTeamMember && (
             <div className="mt-4 max-w-lg mx-auto bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm">
               <p className="font-medium text-blue-700 mb-1">
-                {lang === 'ZH' ? '您的套餐由团队所有者管理' : lang === 'BM' ? 'Pelan anda diuruskan oleh pemilik pasukan' : 'Your plan is managed by the team owner'}
+                {lang === 'ZH' ? '您的套餐由团队所有者管理' : 'Your plan is managed by the team owner'}
               </p>
               <p className="text-blue-600 text-xs">
                 {lang === 'ZH'
                   ? '如需更改套餐或购买更多配套，请联系团队所有者。'
-                  : lang === 'BM'
-                  ? 'Hubungi pemilik pasukan untuk menukar pelan atau membeli lebih banyak bundle.'
                   : 'Contact the team owner to change your plan or buy more bundles.'}
                 {ownerName && ` (${ownerName})`}
               </p>
@@ -313,32 +303,32 @@ function PricingPageContent() {
             <div className="rounded-2xl border-2 border-purple-400 bg-white p-7">
               <div className="text-center mb-6">
                 <Badge className="bg-purple-100 text-purple-700 border-purple-200 mb-3">
-                  {lang === 'ZH' ? '叠加购买 Elite 配套' : lang === 'BM' ? 'Tambah Bundle Elite' : 'Stack Elite Bundle'}
+                  {lang === 'ZH' ? '叠加购买 Elite 配套' : 'Stack Elite Bundle'}
                 </Badge>
                 <h2 className="text-xl font-bold text-gray-900 mb-2">
-                  {lang === 'ZH' ? '当前：' : lang === 'BM' ? 'Semasa: ' : 'Current: '}{teamSlots} {lang === 'ZH' ? '个配套' : lang === 'BM' ? 'bundle' : 'bundle(s)'}
+                  {lang === 'ZH' ? '当前：' : 'Current: '}{teamSlots} {lang === 'ZH' ? '个配套' : 'bundle(s)'}
                   {' → '}
-                  {lang === 'ZH' ? '购买后：' : lang === 'BM' ? 'Selepas: ' : 'After: '}{teamSlots + 1} {lang === 'ZH' ? '个配套' : lang === 'BM' ? 'bundle' : 'bundle(s)'}
+                  {lang === 'ZH' ? '购买后：' : 'After: '}{teamSlots + 1} {lang === 'ZH' ? '个配套' : 'bundle(s)'}
                 </h2>
               </div>
 
               <div className="bg-purple-50 rounded-xl p-4 mb-6 text-sm">
                 <div className="grid grid-cols-3 gap-y-3">
                   <span className="text-gray-500 text-xs"></span>
-                  <span className="text-center text-xs text-gray-400">{lang === 'ZH' ? '当前' : lang === 'BM' ? 'Semasa' : 'Current'}</span>
-                  <span className="text-center text-xs text-purple-600 font-medium">{lang === 'ZH' ? '升级后' : lang === 'BM' ? 'Selepas' : 'After'}</span>
+                  <span className="text-center text-xs text-gray-400">{lang === 'ZH' ? '当前' : 'Current'}</span>
+                  <span className="text-center text-xs text-purple-600 font-medium">{lang === 'ZH' ? '升级后' : 'After'}</span>
 
-                  <span className="text-gray-600">{lang === 'ZH' ? '成员上限' : lang === 'BM' ? 'Had ahli' : 'Members'}</span>
+                  <span className="text-gray-600">{lang === 'ZH' ? '成员上限' : 'Members'}</span>
                   <span className="text-center text-gray-400 line-through">{teamSlots * 5}</span>
                   <span className="text-center font-bold text-purple-700">{(teamSlots + 1) * 5}</span>
 
-                  <span className="text-gray-600">{lang === 'ZH' ? 'AI 额度/月' : lang === 'BM' ? 'Kuota AI/bulan' : 'AI quota/mo'}</span>
+                  <span className="text-gray-600">{lang === 'ZH' ? 'AI 额度/月' : 'AI quota/mo'}</span>
                   <span className="text-center text-gray-400 line-through">{teamSlots * 250}</span>
                   <span className="text-center font-bold text-purple-700">{(teamSlots + 1) * 250}</span>
                 </div>
 
                 <div className="flex justify-between pt-3 mt-3 border-t border-purple-200">
-                  <span className="text-gray-700 font-medium">{lang === 'ZH' ? '总费用' : lang === 'BM' ? 'Jumlah kos' : 'Total cost'}</span>
+                  <span className="text-gray-700 font-medium">{lang === 'ZH' ? '总费用' : 'Total cost'}</span>
                   <span className="font-bold text-purple-700">
                     {r === 'SG' ? 'SGD' : 'RM'} {r === 'SG' ? (99 * (teamSlots + 1)).toLocaleString() : (299 * (teamSlots + 1)).toLocaleString()}{INTERVAL_LABELS[billingInterval]}
                   </span>
@@ -354,7 +344,6 @@ function PricingPageContent() {
                   ? <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   : <Zap className="w-4 h-4 mr-2" />}
                 {lang === 'ZH' ? `购买第 ${teamSlots + 1} 个配套 — ${r === 'SG' ? 'SGD 99' : 'RM 299'}${INTERVAL_LABELS[billingInterval]}`
-                  : lang === 'BM' ? `Beli bundle ke-${teamSlots + 1} — ${r === 'SG' ? 'SGD 99' : 'RM 299'}${INTERVAL_LABELS[billingInterval]}`
                   : `Buy bundle #${teamSlots + 1} — ${r === 'SG' ? 'SGD 99' : 'RM 299'}${INTERVAL_LABELS[billingInterval]}`}
               </Button>
 
@@ -362,7 +351,7 @@ function PricingPageContent() {
                 onClick={() => window.history.back()}
                 className="w-full mt-3 text-sm text-gray-500 hover:text-gray-700 text-center"
               >
-                {lang === 'ZH' ? '← 返回' : lang === 'BM' ? '← Kembali' : '← Back'}
+                {lang === 'ZH' ? '← 返回' : '← Back'}
               </button>
             </div>
           </div>
@@ -413,20 +402,20 @@ function PricingPageContent() {
                   /* Team members cannot upgrade — show current plan or disabled state */
                   currentPlan === plan.id ? (
                     <Button disabled className="w-full bg-gray-100 text-gray-500">
-                      {'\u2713'} {lang === 'ZH' ? '当前套餐' : lang === 'BM' ? 'Pelan Semasa' : 'Current Plan'}
+                      {'\u2713'} {lang === 'ZH' ? '当前套餐' : 'Current Plan'}
                     </Button>
                   ) : (
                     <Button disabled className="w-full bg-gray-100 text-gray-400">
-                      {lang === 'ZH' ? '由团队管理' : lang === 'BM' ? 'Diurus oleh pasukan' : 'Managed by team'}
+                      {lang === 'ZH' ? '由团队管理' : 'Managed by team'}
                     </Button>
                   )
                 ) : currentPlan === plan.id ? (
                   <Button disabled className="w-full bg-gray-100 text-gray-500">
-                    {'\u2713'} {lang === 'ZH' ? '当前套餐' : lang === 'BM' ? 'Pelan Semasa' : 'Current Plan'}
+                    {'\u2713'} {lang === 'ZH' ? '当前套餐' : 'Current Plan'}
                   </Button>
                 ) : plan.id === 'free' ? (
                   <Button variant="outline" disabled className="w-full">
-                    {lang === 'ZH' ? '免费版' : lang === 'BM' ? 'Pelan Percuma' : 'Free Plan'}
+                    {lang === 'ZH' ? '免费版' : 'Free Plan'}
                   </Button>
                 ) : (
                   <Button
@@ -453,7 +442,7 @@ function PricingPageContent() {
         {!stackMode && <div className="mt-12 bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100">
             <h2 className="font-semibold text-gray-900">
-              {lang === 'ZH' ? '功能对比' : lang === 'BM' ? 'Perbandingan Ciri' : 'Feature Comparison'}
+              {lang === 'ZH' ? '功能对比' : 'Feature Comparison'}
             </h2>
           </div>
           <table className="w-full text-sm">

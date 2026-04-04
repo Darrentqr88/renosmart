@@ -36,13 +36,13 @@ export function DesignerHeader({ profile }: DesignerHeaderProps) {
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
         {/* Language toggle */}
         <div className="lang-toggle">
-          {(['EN', 'BM', 'ZH'] as const).map((l) => (
+          {(['EN', 'ZH'] as const).map((l) => (
             <button
               key={l}
               className={`lang-btn${lang === l ? ' active' : ''}`}
               onClick={() => setLang(l)}
             >
-              {l === 'BM' ? 'BM' : l}
+              {l}
             </button>
           ))}
         </div>

@@ -9,10 +9,14 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
-const WORKER_AUTH_SECRET = process.env.WORKER_AUTH_SECRET || 'renosmart-worker-default-secret-change-in-production';
+function getWorkerSecret(): string {
+  const secret = process.env.WORKER_AUTH_SECRET;
+  if (!secret) throw new Error('WORKER_AUTH_SECRET environment variable is required');
+  return secret;
+}
 
 function derivePassword(normalizedPhone: string): string {
-  return createHmac('sha256', WORKER_AUTH_SECRET)
+  return createHmac('sha256', getWorkerSecret())
     .update(normalizedPhone)
     .digest('hex')
     .slice(0, 32);

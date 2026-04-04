@@ -75,11 +75,11 @@ function RegisterPageContent() {
     try {
       // We can use the auto-join endpoint info, but let's query the invite-info
       // which only needs the team_id. For now, call a simpler approach:
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.email) return;
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser?.email) return;
       // The user was already auto-joined in the callback, so we need to get
       // the owner's company info from the team
-      const res = await fetch(`/api/team/invite-info?email=${encodeURIComponent(session.user.email)}`);
+      const res = await fetch(`/api/team/invite-info?email=${encodeURIComponent(authUser.email)}`);
       if (res.ok) {
         const data = await res.json();
         if (data.found) {
@@ -107,14 +107,14 @@ function RegisterPageContent() {
 
   // Auth state check on mount
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) return;
+    supabase.auth.getUser().then(async ({ data: { user: authUser } }) => {
+      if (!authUser) return;
 
       // User has a session — check if they already have a profile
       const { data: profile } = await supabase
         .from('profiles')
         .select('role, plan, team_id')
-        .eq('user_id', session.user.id)
+        .eq('user_id', authUser.id)
         .single();
 
       if (profile?.role) {
@@ -133,11 +133,11 @@ function RegisterPageContent() {
 
       // Has session but no profile role (e.g. Google OAuth new user, or ?step=2 return)
       // Check for pending team invite to pre-fill company info
-      if (session.user.email) {
+      if (authUser.email) {
         if (teamIdParam || profile?.team_id) {
           await fetchTeamOwnerInfo(teamIdParam || profile?.team_id);
         } else {
-          await fetchInviteInfo(session.user.email);
+          await fetchInviteInfo(authUser.email);
         }
       }
       setStep(2);
@@ -190,12 +190,12 @@ function RegisterPageContent() {
   const handleCompleteProfile = async () => {
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id ?? signedUpUserId;
-      const userEmail = session?.user?.email ?? email;
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const userId = authUser?.id ?? signedUpUserId;
+      const userEmail = authUser?.email ?? email;
       if (!userId) throw new Error('Not authenticated. Please try signing in again.');
 
-      if (!session) {
+      if (!authUser) {
         const pendingPlan = isInvitedUser || inviteTeamId ? 'elite' : 'free';
         localStorage.setItem('pending_profile', JSON.stringify({
           user_id: userId, email: userEmail, role,

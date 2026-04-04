@@ -268,10 +268,10 @@ function NotifBell({ notifications, onMarkAllRead, onRequestPush }: {
           {/* Panel header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
             <div>
-              <h4 className="text-sm font-bold text-gray-900">🔔 {lang === 'ZH' ? '提醒中心' : lang === 'BM' ? 'Pusat Pemberitahuan' : 'Notifications'}</h4>
+              <h4 className="text-sm font-bold text-gray-900">🔔 {lang === 'ZH' ? '提醒中心' : 'Notifications'}</h4>
               <p className="text-[10px] text-gray-400 mt-0.5">
                 {unread === 0
-                  ? (lang === 'ZH' ? '暂无未读提醒' : lang === 'BM' ? 'Tiada pemberitahuan' : 'No unread notifications')
+                  ? (lang === 'ZH' ? '暂无未读提醒' : 'No unread notifications')
                   : (lang === 'ZH' ? `${unread} 条未读，${urgent} 条紧急` : `${unread} unread, ${urgent} urgent`)}
               </p>
             </div>
@@ -279,7 +279,7 @@ function NotifBell({ notifications, onMarkAllRead, onRequestPush }: {
               {unread > 0 && (
                 <button onClick={onMarkAllRead}
                   className="text-[10px] text-[#4F8EF7] hover:underline font-medium">
-                  {lang === 'ZH' ? '全部已读' : lang === 'BM' ? 'Tandai semua' : 'Mark all read'}
+                  {lang === 'ZH' ? '全部已读' : 'Mark all read'}
                 </button>
               )}
               <button onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-gray-100 ml-2">
@@ -293,7 +293,7 @@ function NotifBell({ notifications, onMarkAllRead, onRequestPush }: {
             {notifications.length === 0 ? (
               <div className="px-4 py-8 text-center">
                 <div className="text-3xl mb-2">✅</div>
-                <p className="text-[12px] text-gray-500">{lang === 'ZH' ? '暂无即将到来的提醒' : lang === 'BM' ? 'Tiada pemberitahuan akan datang' : 'No upcoming notifications'}</p>
+                <p className="text-[12px] text-gray-500">{lang === 'ZH' ? '暂无即将到来的提醒' : 'No upcoming notifications'}</p>
               </div>
             ) : (
               notifications.map(n => {
@@ -332,7 +332,7 @@ function NotifBell({ notifications, onMarkAllRead, onRequestPush }: {
           <div className="px-4 py-3 border-t border-gray-50 bg-[#FAFBFC]">
             <button onClick={onRequestPush}
               className="w-full flex items-center justify-between text-xs text-gray-500 hover:text-[#4F8EF7] transition-colors">
-              <span>{lang === 'ZH' ? '开启浏览器推送通知' : lang === 'BM' ? 'Aktifkan pemberitahuan pelayar' : 'Enable browser notifications'}</span>
+              <span>{lang === 'ZH' ? '开启浏览器推送通知' : 'Enable browser notifications'}</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -365,9 +365,9 @@ export default function DesignerDashboard() {
   useEffect(() => { loadAll(); }, []);
 
   const loadAll = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    const uid = session.user.id;
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) return;
+    const uid = authUser.id;
 
     // Load projects
     const { data: projs } = await supabase
@@ -486,12 +486,12 @@ export default function DesignerDashboard() {
 
   const handleCreateProject = async () => {
     if (!newName.trim()) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) return;
 
     const { data, error } = await supabase.from('projects').insert({
-      designer_id: session.user.id,
-      user_id: session.user.id,
+      designer_id: authUser.id,
+      user_id: authUser.id,
       name: newName,
       address: '',
       client_name: '',

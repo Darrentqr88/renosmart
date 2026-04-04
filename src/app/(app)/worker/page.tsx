@@ -80,9 +80,9 @@ export default function WorkerDashboard() {
 
   useEffect(() => {
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const uid = session.user.id;
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+      const uid = authUser.id;
       setSessionUserId(uid);
 
       // Fetch profile

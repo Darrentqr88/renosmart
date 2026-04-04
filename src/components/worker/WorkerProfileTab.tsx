@@ -776,15 +776,15 @@ export default function WorkerProfileTab({ profile, sessionUserId, tasks }: Work
             </div>
             <div className="flex-1">
               <p className="text-sm font-semibold text-gray-800">
-                {lang === 'ZH' ? '语言' : lang === 'BM' ? 'Bahasa' : 'Language'}
+                {lang === 'ZH' ? '语言' : 'Language'}
               </p>
             </div>
           </div>
           <div className="flex gap-2 px-4 pb-4">
-            {([['EN', 'English', '🇬🇧'], ['BM', 'Bahasa', '🇲🇾'], ['ZH', '中文', '🇨🇳']] as const).map(([code, label, flag]) => (
+            {([['EN', 'English', '🇬🇧'], ['ZH', '中文', '🇨🇳']] as const).map(([code, label, flag]) => (
               <button
                 key={code}
-                onClick={() => setLang(code as 'EN' | 'BM' | 'ZH')}
+                onClick={() => setLang(code as 'EN' | 'ZH')}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                   lang === code
                     ? 'bg-[#4F8EF7] text-white shadow-sm'

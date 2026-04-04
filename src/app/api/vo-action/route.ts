@@ -25,8 +25,12 @@ export async function POST(req: NextRequest) {
       { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
     );
 
+    let verifiedUser: { id: string; email?: string } | null = null;
+
     const { data: { user } } = await authClient.auth.getUser();
-    if (!user) {
+    if (user) {
+      verifiedUser = user;
+    } else {
       // Try Authorization header (owner dashboard passes token in header)
       const authHeader = req.headers.get('authorization');
       if (!authHeader?.startsWith('Bearer ')) {
@@ -35,6 +39,7 @@ export async function POST(req: NextRequest) {
       const token = authHeader.slice(7);
       const { data: { user: headerUser } } = await authClient.auth.getUser(token);
       if (!headerUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      verifiedUser = headerUser;
     }
 
     // Fetch the VO to verify it exists
@@ -46,6 +51,23 @@ export async function POST(req: NextRequest) {
 
     if (voErr || !vo) {
       return NextResponse.json({ error: 'VO not found' }, { status: 404 });
+    }
+
+    // Verify caller is the project owner (authorization check)
+    const { data: project } = await serviceClient
+      .from('projects')
+      .select('owner_email, designer_id')
+      .eq('id', vo.project_id)
+      .single();
+
+    if (!project) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    }
+
+    const isOwner = project.owner_email && verifiedUser.email && project.owner_email === verifiedUser.email;
+    const isDesigner = project.designer_id && project.designer_id === verifiedUser.id;
+    if (!isOwner && !isDesigner) {
+      return NextResponse.json({ error: 'Forbidden: only project owner or designer can approve/reject VOs' }, { status: 403 });
     }
 
     // Guard: no-op if already in target status

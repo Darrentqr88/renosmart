@@ -81,7 +81,7 @@ export function Sidebar({ profile, aiUsed = 0, aiLimit = 3, isOpen, onClose }: S
       {/* Navigation */}
       <div className="sidebar-nav">
         <div className="sidebar-label">
-          {lang === 'ZH' ? '工作台' : lang === 'BM' ? 'RUANG KERJA' : 'WORKSPACE'}
+          {lang === 'ZH' ? '工作台' : 'WORKSPACE'}
         </div>
         <div className="sidebar-section">
           {NAV_KEYS.slice(0, 3).map(({ href, icon: Icon, key }) => {
@@ -102,7 +102,7 @@ export function Sidebar({ profile, aiUsed = 0, aiLimit = 3, isOpen, onClose }: S
         </div>
 
         <div className="sidebar-label" style={{ marginTop: 4 }}>
-          {lang === 'ZH' ? '数据库' : lang === 'BM' ? 'PANGKALAN DATA' : 'DATABASES'}
+          {lang === 'ZH' ? '数据库' : 'DATABASES'}
         </div>
         <div className="sidebar-section">
           {NAV_KEYS.slice(3, 5).map(({ href, icon: Icon, key }) => {
@@ -126,7 +126,7 @@ export function Sidebar({ profile, aiUsed = 0, aiLimit = 3, isOpen, onClose }: S
         {recentProjects.length > 0 && (
           <>
             <div className="sidebar-label" style={{ marginTop: 4 }}>
-              {lang === 'ZH' ? '最近项目' : lang === 'BM' ? 'TERKINI' : 'RECENT'}
+              {lang === 'ZH' ? '最近项目' : 'RECENT'}
             </div>
             <div className="sidebar-section">
               {recentProjects.map((project) => (
@@ -143,7 +143,7 @@ export function Sidebar({ profile, aiUsed = 0, aiLimit = 3, isOpen, onClose }: S
                 </Link>
               ))}
               <Link href="/designer/projects" className="sidebar-proj-viewall">
-                {lang === 'ZH' ? '查看全部 →' : lang === 'BM' ? 'Lihat semua →' : 'View all →'}
+                {lang === 'ZH' ? '查看全部 →' : 'View all →'}
               </Link>
             </div>
           </>
@@ -158,7 +158,7 @@ export function Sidebar({ profile, aiUsed = 0, aiLimit = 3, isOpen, onClose }: S
               <div className="flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-[#4F8EF7]" strokeWidth={1.8} />
                 <span className="text-[11px] font-semibold text-[#4F8EF7] tracking-wide">
-                  {lang === 'ZH' ? 'AI 额度' : lang === 'BM' ? 'Kuota AI' : 'AI Quota'}
+                  {lang === 'ZH' ? 'AI 额度' : 'AI Quota'}
                 </span>
               </div>
               <span className="text-[10px] text-[#8B8BA8]">

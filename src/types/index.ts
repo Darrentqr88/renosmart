@@ -6,7 +6,7 @@ export type ProjectStatus = 'pending' | 'active' | 'completed';
 export type PaymentStatus = 'not_due' | 'pending' | 'collected';
 export type AIItemStatus = 'ok' | 'warn' | 'flag' | 'nodata';
 export type AlertLevel = 'critical' | 'warning' | 'info';
-export type Language = 'EN' | 'BM' | 'ZH';
+export type Language = 'EN' | 'ZH';
 export type Region = 'MY' | 'SG';
 
 export interface Profile {

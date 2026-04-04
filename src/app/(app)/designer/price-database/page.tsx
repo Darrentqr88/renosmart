@@ -65,7 +65,6 @@ const SUPPLY_TYPES = [
 
 const DISCLAIMER = {
   EN: 'Prices are for reference only. Actual prices may vary due to site conditions, logistics, international trade prices, and weather.',
-  BM: 'Harga adalah untuk rujukan sahaja. Harga sebenar mungkin berbeza disebabkan keadaan tapak, logistik, harga perdagangan antarabangsa dan cuaca.',
   ZH: '价格仅供参考。受施工现场条件、物流运输、国际贸易价格波动及天气等因素影响，实际价格可能有所变动。',
 };
 
@@ -87,12 +86,12 @@ export default function PriceDatabasePage() {
 
   useEffect(() => {
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('plan')
-          .eq('user_id', session.user.id)
+          .eq('user_id', authUser.id)
           .single();
         if (profile) {
           setCurrentPlan(profile.plan || 'free');
@@ -189,7 +188,7 @@ export default function PriceDatabasePage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <TrendingUp className="w-6 h-6 text-[#4F8EF7]" />
-              {lang === 'ZH' ? '价格智能数据库' : lang === 'BM' ? 'Pangkalan Harga Pintar' : 'Price Intelligence Database'}
+              {lang === 'ZH' ? '价格智能数据库' : 'Price Intelligence Database'}
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
               {lang === 'ZH' ? '市场价格基准' : 'Market price benchmarks'} · {data.length} {lang === 'ZH' ? '项' : 'items'} · {totalDataPoints > 0 ? `${totalDataPoints.toLocaleString()} data points` : 'Seed data + quotation uploads'}

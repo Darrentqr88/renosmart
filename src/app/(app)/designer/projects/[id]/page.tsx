@@ -255,14 +255,14 @@ export default function ProjectDetailPage() {
   }, [id]);
 
   const loadProject = async () => { try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      setSessionUserId(session.user.id);
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) {
+      setSessionUserId(authUser.id);
       // Load designer's workers
       const { data: dw } = await supabase
         .from('designer_workers')
         .select('id, profile_id, name, phone, trades, status')
-        .eq('designer_id', session.user.id)
+        .eq('designer_id', authUser.id)
         .eq('status', 'active');
       if (dw) {
         setDesignerWorkers(dw.map((w: { id: string; profile_id: string; name: string; phone?: string; trades?: string[]; status: string }) => ({
@@ -1160,8 +1160,8 @@ export default function ProjectDetailPage() {
 
   const handleAddVO = async () => {
     if (!voDescription.trim() || !voAmount) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) return;
 
     const approvedVOs = variationOrders.filter(v => v.status === 'approved');
     const voNumber = `VO-${String(variationOrders.length + 1).padStart(3, '0')}`;
@@ -1170,7 +1170,7 @@ export default function ProjectDetailPage() {
     // Try insert with items+file_name; if column doesn't exist yet, fallback without
     let insertPayload: Record<string, unknown> = {
       project_id: id,
-      user_id: session.user.id,
+      user_id: authUser.id,
       vo_number: voNumber,
       description: voDescription,
       amount,

@@ -26,15 +26,19 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const userId = user.id;
 
-    // Verify caller owns the team that contains this member
+    // Verify caller owns a team and the member belongs to that team
     const { data: member } = await supabase
       .from('team_members').select('id, user_id, team_id').eq('id', memberId).single();
     if (!member) return NextResponse.json({ error: 'Member not found' }, { status: 404 });
 
     const { data: team } = await supabase
-      .from('teams').select('owner_user_id').eq('id', member.team_id).single();
-    if (team?.owner_user_id !== userId) {
+      .from('teams').select('id, owner_user_id').eq('id', member.team_id).single();
+    if (!team || team.owner_user_id !== userId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    // Ensure the member actually belongs to the caller's team
+    if (member.team_id !== team.id) {
+      return NextResponse.json({ error: 'Member does not belong to your team' }, { status: 403 });
     }
 
     // Mark removed

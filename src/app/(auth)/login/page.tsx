@@ -134,10 +134,10 @@ function LoginPageContent() {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) return;
+    supabase.auth.getUser().then(async ({ data: { user: authUser } }) => {
+      if (!authUser) return;
       await completePendingProfile();
-      await getRoleAndRedirect(session.user.id);
+      await getRoleAndRedirect(authUser.id);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -17,7 +17,15 @@ export interface Trans {
     saveToProject: string; viewReport: string; shareOwner: string;
     newProject: string; login: string; register: string; getStarted: string;
   };
-  quotation: { dragDrop: string; analyzing: string; extracting: string; done: string };
+  quotation: {
+    dragDrop: string; analyzing: string; extracting: string; done: string;
+    scoreCompleteness: string; scorePrice: string; scoreLogic: string; scoreRisk: string;
+    dataSupport: string; aiEstimate: string; aiSummary: string; missingCritical: string;
+    exportPdf: string; reUpload: string; saveContinue: string;
+    reading: string; parsing: string; aiReview: string;
+    identifyingFormat: string; analyzingPrices: string; waitMinutes: string;
+    bySection: string; byPage: string;
+  };
   landing: {
     hero: string; heroSub: string;
     feat1: string; feat1d: string;
@@ -68,6 +76,17 @@ export interface Trans {
     meetingVisit: string; milestoneMark: string;
   };
   costDb: string;
+  owner: {
+    progress: string; docs: string; payments: string; photos: string; approvals: string;
+    pendingApproval: string; noPendingVO: string;
+    collapseDetails: string; viewDetails: string;
+    acceptChange: string; reject: string;
+    approvalHistory: string; accepted: string; rejected: string;
+    description: string; subtotal: string;
+    milestoneTimeline: string; nextPayment: string; noPaymentData: string;
+    noDocs: string; noPhotos: string; approvedPhotos: string;
+    noProject: string; noProjectHint: string; contactDesigner: string;
+  };
   worker: {
     tasks: string; schedule: string; photos: string; receipts: string; profile: string;
     goodMorning: string; goodAfternoon: string; goodEvening: string;
@@ -145,6 +164,14 @@ const EN: Trans = {
     dragDrop: 'Drag & drop quotation here, or click to select',
     analyzing: 'Analyzing with AI...', extracting: 'Extracting text...',
     done: 'Analysis complete!',
+    scoreCompleteness: 'Completeness', scorePrice: 'Price Accuracy', scoreLogic: 'Work Logic', scoreRisk: 'Missing Risk',
+    dataSupport: 'Data Support', aiEstimate: 'AI Est.', aiSummary: 'AI Summary', missingCritical: 'Critical Missing Items',
+    exportPdf: 'Export PDF', reUpload: 'Re-upload', saveContinue: 'Save & Continue',
+    reading: 'Reading', parsing: 'Parsing', aiReview: 'AI Review',
+    identifyingFormat: 'Identifying file format and table structure...',
+    analyzingPrices: 'Analyzing prices, risks and missing items...',
+    waitMinutes: 'This may take a few minutes, please wait',
+    bySection: 'By Section', byPage: 'By Page',
   },
   landing: {
     hero: 'AI-Powered Renovation Management',
@@ -198,6 +225,20 @@ const EN: Trans = {
     meetingVisit: 'Meeting/Visit', milestoneMark: 'Milestone',
   },
   costDb: 'Cost Database',
+  owner: {
+    progress: 'Progress', docs: 'Docs', payments: 'Payments', photos: 'Photos', approvals: 'Approvals',
+    pendingApproval: 'Pending Approval', noPendingVO: 'No pending variation orders',
+    collapseDetails: 'Hide details', viewDetails: 'View details',
+    acceptChange: 'Accept Change', reject: 'Reject',
+    approvalHistory: 'Approval History', accepted: 'Accepted', rejected: 'Rejected',
+    description: 'Description', subtotal: 'Subtotal',
+    milestoneTimeline: 'Milestone Timeline', nextPayment: 'Next Payment Due',
+    noPaymentData: 'Contact your designer for payment details',
+    noDocs: 'No documents shared yet.', noPhotos: 'No site photos yet.',
+    approvedPhotos: 'approved photos',
+    noProject: 'No active project found.', noProjectHint: 'Ask your designer to connect you to your project.',
+    contactDesigner: 'Contact your designer for payment details',
+  },
   worker: {
     tasks: 'Tasks', schedule: 'Schedule', photos: 'Photos', receipts: 'Receipts', profile: 'Profile',
     goodMorning: 'Good morning', goodAfternoon: 'Good afternoon', goodEvening: 'Good evening',
@@ -261,134 +302,6 @@ const EN: Trans = {
   },
 };
 
-const BM: Trans = {
-  nav: {
-    dashboard: 'Papan Pemuka', projects: 'Projek', quotation: 'AI Sebutharga',
-    workers: 'Pekerja', priceDb: 'Pangkalan Harga', pricing: 'Pelan Harga', settings: 'Tetapan',
-  },
-  status: { pending: 'Menunggu', active: 'Aktif', completed: 'Selesai' },
-  aiStatus: { ok: 'Normal', warn: 'Berhati-hati', flag: 'Ditandai', nodata: 'Tiada Data' },
-  buttons: {
-    upload: 'Muat Naik', analyze: 'Analisis', generateGantt: 'Jana Gantt',
-    saveToProject: 'Simpan ke Projek', viewReport: 'Lihat Laporan',
-    shareOwner: 'Kongsi dengan Pemilik', newProject: 'Projek Baru',
-    login: 'Log Masuk', register: 'Daftar', getStarted: 'Mulakan Percuma',
-  },
-  quotation: {
-    dragDrop: 'Seret & lepas sebutharga di sini, atau klik untuk pilih',
-    analyzing: 'Menganalisis dengan AI...', extracting: 'Mengekstrak teks...',
-    done: 'Analisis selesai!',
-  },
-  landing: {
-    hero: 'Pengurusan Renovasi Berkuasa AI',
-    heroSub: 'Audit sebutharga, jana carta Gantt secara automatik, dan urus projek dengan ketepatan AI.',
-    feat1: 'Audit Sebutharga AI', feat1d: 'Kesan item mahal dan skop yang tiada dengan serta-merta.',
-    feat2: 'Carta Gantt Pintar', feat2d: 'Jana jadual pembinaan berdasarkan aliran kerja MY/SG.',
-    feat3: 'Papan Pemuka Pelbagai Projek', feat3d: 'Urus semua projek renovasi anda di satu tempat.',
-    social: '50+ Pereka Dalaman di MY & SG mempercayai RenoSmart',
-    pricingTitle: 'Harga Mudah & Telus',
-    freePlan: 'Percuma', proPlan: 'Pro', elitePlan: 'Elit',
-  },
-  dash: {
-    pendingProjects: 'Menunggu', activeProjects: 'Aktif', completedProjects: 'Selesai', allProjects: 'Semua Projek',
-    pipelineValue: 'Saluran', contractValue: 'Kontrak', completionRate: 'Kadar siap',
-    noReminders: 'Tiada peringatan', reminders: 'peringatan belum selesai',
-    negotiating: 'Berunding', confirmed: 'Disahkan', settled: 'Selesai',
-    searchPlaceholder: 'Cari projek atau pelanggan...',
-    dragHint: 'Seret ke lajur sasaran untuk menukar status projek',
-    addProject: 'Tambah Projek', noProjects: 'Tiada projek',
-    manualEvent: 'Manual', milestone: 'Pencapaian', task: 'Tugas', payment: 'Bayaran',
-    upcoming: 'Akan datang', noUpcoming: 'Tiada acara akan datang',
-    noEvents: 'Tiada acara', addEvent: 'Tambah Acara',
-    emptyTitle: 'Mulakan Projek Pengubahsuaian Pertama Anda', emptyDesc: 'Muat naik sebut harga, AI akan menganalisis dan menjana carta Gantt', stepUpload: 'Muat Naik Sebut Harga', stepAnalysis: 'Analisis AI', stepGantt: 'Jana Gantt', startUpload: 'Muat Naik untuk Mula',
-  },
-  proj: {
-    contractTotal: 'Jumlah Kontrak', recordedCost: 'Kos Direkod', grossProfit: 'Untung Kasar', profitMargin: 'Margin Untung',
-    fromQuotation: 'Dari sebutharga', fromReceipts: 'Dari resit', revenueCost: 'Hasil − Kos', healthy: 'Sihat',
-    gantt: 'Gantt', payments: 'Bayaran', photos: 'Foto Tapak', quotationsVO: 'Sebutharga & VO', profit: 'Untung',
-    activeQuotation: 'Sebutharga Aktif', viewItems: 'Lihat Item', print: 'Cetak',
-    quotationVersions: 'Versi Sebutharga', compareVersions: 'Bandingkan', uploadNewVersion: 'Muat Naik Versi Baru',
-    setActive: 'Tetapkan Aktif', view: 'Lihat',
-    voTitle: 'Perintah Variasi VO', approved: 'Diluluskan', uploadVO: 'Muat Naik Fail VO', newVO: 'VO Baru',
-    noVO: 'Tiada perintah variasi', noVOHint: 'Klik "VO Baru" atau muat naik fail VO',
-    viewFullReport: 'Lihat laporan audit AI penuh', edit: 'Sunting',
-    statusActive: 'Aktif', statusPending: 'Menunggu', statusCompleted: 'Selesai',
-    missingItems: 'Item Hilang', more: 'lagi',
-  },
-  pay: {
-    contractWithVO: 'Jumlah Kontrak (termasuk VO)', includesVO: 'termasuk VO',
-    collected: 'Diterima', outstanding: 'Belum Terima',
-    balanced: '✅ Pelan bayaran sepadan dengan jumlah kontrak', unallocated: 'belum diperuntukkan', overContract: 'melebihi kontrak',
-    phasesTotal: 'Jumlah fasa:', savePayment: '💾 Simpan Pelan Bayaran',
-    description: 'Keterangan', amount: 'Amaun (RM)', percentage: 'Bahagian', dueDate: 'Tarikh Akhir',
-    status: 'Status', clickToChange: 'klik untuk tukar', descPlaceholder: 'Keterangan bayaran...',
-    clickMarkCollected: 'Klik untuk tandakan sebagai diterima', clickToggle: 'Klik untuk tukar status',
-    addPhase: '+ Tambah Fasa Bayaran', total: 'Jumlah', phaseDefault: 'Fasa', deletePhase: 'Padam fasa',
-    statusNotDue: 'Belum Tiba', statusPending: 'Menunggu', statusCollected: 'Diterima', statusOverdue: 'Tamat Tempoh',
-  },
-  cal: {
-    today: 'Hari ini', addEvent: 'Tambah Acara', noEvents: 'Tiada acara untuk hari ini',
-    meetingVisit: 'Mesyuarat/Lawatan', milestoneMark: 'Pencapaian',
-  },
-  costDb: 'Pangkalan Kos',
-  worker: {
-    tasks: 'Tugas', schedule: 'Jadual', photos: 'Foto', receipts: 'Resit', profile: 'Profil',
-    goodMorning: 'Selamat pagi', goodAfternoon: 'Selamat petang', goodEvening: 'Selamat malam',
-    tasksToday: 'tugas hari ini', noTasksToday: 'Tiada tugas hari ini!', checkSchedule: 'Semak Jadual untuk kerja akan datang',
-    upcoming: 'Akan Datang', viewAll: 'Lihat semua tugas akan datang',
-    checkIn: 'Daftar Masuk', checkOut: 'Daftar Keluar', checkedIn: 'Sudah Masuk',
-    autoCheckedIn: 'Auto daftar masuk di tapak', leftSite: 'Meninggalkan tapak, auto keluar 15min',
-    photo: 'Foto', invoice: 'Invois', complete: 'Selesai',
-    allDone: 'Semua tugas selesai!', confirmComplete: 'Sahkan Siap',
-    workItems: 'Senarai Kerja (dari sebutharga)', duration: 'Tempoh', days: 'hari', editDuration: 'Ubah Tempoh',
-    saveDuration: 'Simpan', cancelEdit: 'Batal',
-    subtasks: 'Sub-tugas', progress: 'Kemajuan',
-    receiptsThisMonth: 'Bulan Ini', totalAmount: 'Jumlah Amaun', noReceipts: 'Tiada resit lagi',
-    uploadFromTasks: 'Muat naik resit dari butang Invois dalam tugas anda', allProjects: 'Semua Projek',
-    personal: 'Peribadi', companyInfo: 'Info Syarikat', name: 'Nama', phone: 'Telefon', email: 'E-mel',
-    company: 'Syarikat', address: 'Alamat', ssm: 'No. SSM', teamSize: 'Saiz Pasukan',
-    projectRange: 'Julat Projek', about: 'Tentang', serviceRegions: 'Kawasan Perkhidmatan',
-    trades: 'Tred', signOut: 'Log Keluar', teamManagement: 'Pengurusan Pasukan', comingSoon: 'Akan Datang',
-    rating: 'Penilaian Prestasi', attendance: 'Kehadiran', onTimeCompletion: 'Siap Tepat Masa',
-    photoQuality: 'Kualiti Foto', documentation: 'Dokumentasi', reliability: 'Kebolehpercayaan',
-    basedOnTasks: 'Berdasarkan', tasksCompleted: 'tugas selesai',
-    notSet: 'Belum ditetapkan', tapEdit: 'tekan sunting',
-    monthView: 'Bulan', weekView: 'Minggu', today: 'Hari Ini',
-    approvedBadge: 'Diluluskan', pendingBadge: 'Menunggu', rejectedBadge: 'Ditolak',
-    filterAll: 'Semua', filterByTrade: 'Tapis mengikut tred',
-    uploadInvoice: 'Muat Naik Invois', scanningReceipt: 'AI mengimbas resit...',
-    scanningWait: 'Biasanya 5-10 saat', scanFailed: 'Imbasan AI gagal, sila cuba lagi',
-    readFailed: 'Gagal membaca fail', saveFailed: 'Gagal menyimpan, sila cuba lagi',
-    supplier: 'Pembekal', date: 'Tarikh', noItemsDetected: 'Tiada item dikesan, jumlah akan direkod',
-    total: 'Jumlah', retake: 'Ambil Semula', confirmSave: 'Sahkan Simpan',
-    savingProject: 'Menyimpan ke projek...', saved: 'Disimpan!', invoiceLinked: 'Invois dikaitkan ke',
-    takePhotoOrUpload: 'Ambil Foto atau Muat Naik', selectFile: 'Pilih Fail',
-    detectingLocation: 'Mengesan lokasi...', doneForToday: 'Selesai untuk hari ini',
-    todaysTasks: 'Tugas Hari Ini',
-    welcomeTitle: 'Selamat Datang ke RenoSmart', welcomeDesc: 'Pereka anda akan menetapkan projek dan tugas. Sementara itu, lengkapkan profil anda.',
-    waitingAssignment: 'Menunggu tugasan', waitingAssignmentDesc: 'Pereka anda akan menetapkan tugas dari carta Gantt',
-    completeProfile: 'Lengkapkan profil', completeProfileDesc: 'Tambah maklumat syarikat dan tred',
-    uploadPastReceipts: 'Muat naik resit lama', uploadPastReceiptsDesc: 'Mula bina rekod kos anda',
-    noProjectsYet: 'Tiada projek lagi', getStartedTip: 'Hubungi pereka anda untuk bermula',
-    activeProjects: 'Projek', totalTasks: 'Semua Tugas',
-    notifications: 'Pemberitahuan', noNotifications: 'Tiada pemberitahuan', allCaughtUp: 'Semua sudah dibaca', markAllRead: 'Tanda semua dibaca',
-    taskChecklist: 'Senarai Semak Tugas',
-    noTasksScheduled: 'Tiada tugas dijadualkan', freeDayHint: 'Hari cuti atau semak tarikh lain',
-  },
-  join: {
-    enterPhone: 'Masukkan nombor telefon anda', continue_: 'Teruskan', signingIn: 'Melog masuk...',
-    noPassword: 'Tiada kata laluan diperlukan — hanya nombor telefon anda',
-    invitedBy: 'Dijemput oleh', project: 'Projek',
-    invalidLink: 'Pautan Tidak Sah', invalidLinkDesc: 'Pautan jemputan ini tidak sah. Sila minta pautan baharu daripada bos anda.',
-    expiredLink: 'Pautan Tamat Tempoh', expiredLinkDesc: 'Pautan jemputan ini telah tamat tempoh. Minta bos anda jana pautan baharu.',
-    usedLink: 'Pautan Telah Digunakan', usedLinkDesc: 'Pautan jemputan ini telah digunakan. Minta bos anda untuk pautan baharu.',
-    verifying: 'Mengesahkan pautan jemputan...', welcome: 'Selamat datang!', redirecting: 'Menghalakan ke papan pemuka anda...',
-    workerLogin: 'Pekerja? Log masuk dengan nombor telefon', workerLoginHint: 'Masukkan telefon untuk log masuk',
-    signInWorker: 'Log masuk sebagai Pekerja',
-    generateInvite: 'Jana Pautan Jemputan', inviteDesc: 'Jana pautan — pekerja hanya perlu masukkan nombor telefon, tanpa kata laluan.',
-    goToLogin: 'Pergi ke Log Masuk',
-  },
-};
 
 const ZH: Trans = {
   nav: {
@@ -407,6 +320,14 @@ const ZH: Trans = {
     dragDrop: '拖放报价单到此处，或点击选择文件',
     analyzing: 'AI分析中...', extracting: '提取文本中...',
     done: '分析完成！',
+    scoreCompleteness: '项目完整性', scorePrice: '单价合理性', scoreLogic: '工序逻辑性', scoreRisk: '漏项风险',
+    dataSupport: '数据支撑', aiEstimate: 'AI估算', aiSummary: 'AI 总结', missingCritical: '关键缺失项目',
+    exportPdf: '导出 PDF', reUpload: '重新上传', saveContinue: '保存并继续',
+    reading: '读取文件', parsing: '解析结构', aiReview: 'AI 审核',
+    identifyingFormat: '正在识别文件格式与表格结构...',
+    analyzingPrices: '正在分析价格、风险及缺失项目...',
+    waitMinutes: '⏳ 可能需要几分钟分析，请耐心等待',
+    bySection: '按分类', byPage: '按页码',
   },
   landing: {
     hero: 'AI驱动的装修管理平台',
@@ -460,6 +381,20 @@ const ZH: Trans = {
     meetingVisit: '会议/拜访', milestoneMark: '里程碑',
   },
   costDb: '成本数据库',
+  owner: {
+    progress: '进度', docs: '文件', payments: '付款', photos: '照片', approvals: '审批',
+    pendingApproval: '待审批', noPendingVO: '暂无待审批变更单',
+    collapseDetails: '收起明细', viewDetails: '查看明细',
+    acceptChange: '接受变更', reject: '拒绝',
+    approvalHistory: '审批记录', accepted: '已接受', rejected: '已拒绝',
+    description: '说明', subtotal: '小计',
+    milestoneTimeline: '里程碑进度', nextPayment: '下期付款',
+    noPaymentData: '请联系设计师了解付款详情',
+    noDocs: '暂无共享文件', noPhotos: '暂无工地照片',
+    approvedPhotos: '张已通过照片',
+    noProject: '未找到活跃项目', noProjectHint: '请联系您的设计师关联您的项目',
+    contactDesigner: '请联系设计师了解付款详情',
+  },
   worker: {
     tasks: '任务', schedule: '日程', photos: '照片', receipts: '收据', profile: '个人',
     goodMorning: '早上好', goodAfternoon: '下午好', goodEvening: '晚上好',
@@ -519,7 +454,7 @@ const ZH: Trans = {
   },
 };
 
-export const TRANSLATIONS: Record<Language, Trans> = { EN, BM, ZH };
+export const TRANSLATIONS: Record<Language, Trans> = { EN, ZH };
 
 export const PRICES: Record<Region, { pro: string; elite: string; currency: string }> = {
   MY: { pro: 'RM 99', elite: 'RM 299', currency: 'RM' },

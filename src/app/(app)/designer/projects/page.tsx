@@ -32,9 +32,9 @@ export default function ProjectsListPage() {
 
   useEffect(() => {
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const { data } = await supabase.from('projects').select('*').eq('designer_id', session.user.id).order('updated_at', { ascending: false });
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+      const { data } = await supabase.from('projects').select('*').eq('designer_id', authUser.id).order('updated_at', { ascending: false });
       setProjects(data || []);
       setLoading(false);
     })();

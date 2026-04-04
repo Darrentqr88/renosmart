@@ -50,10 +50,10 @@ interface WorkerTaskCardProps {
 }
 
 // Trade-specific special indicators — keys for i18n
-const TRADE_WARNINGS: Record<string, { icon: string; textEN: string; textZH: string; textBM: string; color: string }> = {
-  Waterproofing: { icon: '\u{1F4A7}', textEN: 'Water pressure test photos required', textZH: '\u6C34\u538B\u6D4B\u8BD5\u7167\u7247\u5FC5\u987B\u4E0A\u4F20', textBM: 'Foto ujian tekanan air diperlukan', color: '#3B82F6' },
-  Electrical: { icon: '\u26A1', textEN: 'Concealed wiring inspection photos needed', textZH: '\u5C01\u5899\u524D\u9700\u9690\u853D\u9A8C\u6536\u7167\u7247', textBM: 'Foto pemeriksaan pendawaian tersembunyi diperlukan', color: '#F59E0B' },
-  Plumbing: { icon: '\u{1F527}', textEN: 'Pipe pressure test records required', textZH: '\u6C34\u7BA1\u538B\u529B\u6D4B\u8BD5\u9700\u8BB0\u5F55', textBM: 'Rekod ujian tekanan paip diperlukan', color: '#06B6D4' },
+const TRADE_WARNINGS: Record<string, { icon: string; textEN: string; textZH: string; color: string }> = {
+  Waterproofing: { icon: '\u{1F4A7}', textEN: 'Water pressure test photos required', textZH: '\u6C34\u538B\u6D4B\u8BD5\u7167\u7247\u5FC5\u987B\u4E0A\u4F20', color: '#3B82F6' },
+  Electrical: { icon: '\u26A1', textEN: 'Concealed wiring inspection photos needed', textZH: '\u5C01\u5899\u524D\u9700\u9690\u853D\u9A8C\u6536\u7167\u7247', color: '#F59E0B' },
+  Plumbing: { icon: '\u{1F527}', textEN: 'Pipe pressure test records required', textZH: '\u6C34\u7BA1\u538B\u529B\u6D4B\u8BD5\u9700\u8BB0\u5F55', color: '#06B6D4' },
 };
 
 // Detect carpentry factory phase
@@ -419,7 +419,7 @@ export default function WorkerTaskCard({
             style={{ backgroundColor: `${warning.color}08`, color: warning.color, border: `1px solid ${warning.color}15` }}
           >
             <span>{warning.icon}</span>
-            <span>{lang === 'ZH' ? warning.textZH : lang === 'BM' ? warning.textBM : warning.textEN}</span>
+            <span>{lang === 'ZH' ? warning.textZH : warning.textEN}</span>
           </div>
         )}
 
@@ -572,9 +572,8 @@ export default function WorkerTaskCard({
               >
                 {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                 {expanded
-                  ? (lang === 'ZH' ? '收起' : lang === 'BM' ? 'Tunjuk kurang' : 'Show less')
+                  ? (lang === 'ZH' ? '收起' : 'Show less')
                   : (lang === 'ZH' ? `展开更多 (${subtasks.length - 3})`
-                    : lang === 'BM' ? `Tunjuk ${subtasks.length - 3} lagi`
                     : `Show ${subtasks.length - 3} more`)}
               </button>
             </>
@@ -598,20 +597,20 @@ export default function WorkerTaskCard({
       {showConfirm && (
         <div className="px-3.5 py-3 bg-amber-50 border-t border-amber-100">
           <p className="text-xs text-gray-700 font-medium text-center mb-2.5">
-            {lang === 'ZH' ? '确认标记为完工？' : lang === 'BM' ? 'Sahkan siap?' : 'Mark as completed?'}
+            {lang === 'ZH' ? '确认标记为完工？' : 'Mark as completed?'}
           </p>
           <div className="flex gap-2">
             <button
               onClick={() => setShowConfirm(false)}
               className="flex-1 py-2 rounded-lg bg-white border border-gray-200 text-xs font-semibold text-gray-500 hover:bg-gray-50 transition-colors"
             >
-              {lang === 'ZH' ? '取消' : lang === 'BM' ? 'Batal' : 'Cancel'}
+              {lang === 'ZH' ? '取消' : 'Cancel'}
             </button>
             <button
               onClick={confirmComplete}
               className="flex-1 py-2 rounded-lg bg-green-500 text-white text-xs font-bold hover:bg-green-600 transition-colors"
             >
-              {lang === 'ZH' ? '确认完工' : lang === 'BM' ? 'Sahkan' : 'Confirm'}
+              {lang === 'ZH' ? '确认完工' : 'Confirm'}
             </button>
           </div>
         </div>
@@ -669,7 +668,7 @@ export default function WorkerTaskCard({
             }`}
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
-            {isComplete ? (lang === 'ZH' ? '已完工 ↩' : lang === 'BM' ? 'Siap ↩' : 'Done ↩') : t.worker.confirmComplete}
+            {isComplete ? (lang === 'ZH' ? '已完工 ↩' : 'Done ↩') : t.worker.confirmComplete}
           </button>
         )}
       </div>

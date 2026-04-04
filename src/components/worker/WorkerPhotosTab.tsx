@@ -58,7 +58,7 @@ export default function WorkerPhotosTab({ sessionUserId, projects }: WorkerPhoto
   })();
 
   const getProjectName = (pid: string) => {
-    if (pid === '__unlinked__') return lang === 'ZH' ? '未分类' : lang === 'BM' ? 'Tidak dikategori' : 'Uncategorized';
+    if (pid === '__unlinked__') return lang === 'ZH' ? '未分类' : 'Uncategorized';
     return projects.find(p => p.id === pid)?.name || (lang === 'ZH' ? '工程' : 'Project');
   };
 
@@ -68,14 +68,14 @@ export default function WorkerPhotosTab({ sessionUserId, projects }: WorkerPhoto
   const selectedProjectPhotos = selectedProjectId ? (photosByProject.get(selectedProjectId) || []) : [];
 
   const labels = {
-    title: lang === 'ZH' ? '照片相册' : lang === 'BM' ? 'Album Foto' : 'Photo Album',
-    projects: lang === 'ZH' ? '个工程' : lang === 'BM' ? ' projek' : ' projects',
-    photos: lang === 'ZH' ? '张照片' : lang === 'BM' ? ' foto' : ' photos',
-    noPhotos: lang === 'ZH' ? '还没有照片' : lang === 'BM' ? 'Tiada foto lagi' : 'No photos yet',
-    noPhotosHint: lang === 'ZH' ? '从任务卡片上传工地照片' : lang === 'BM' ? 'Muat naik foto dari kad tugas' : 'Upload photos from task cards',
-    back: lang === 'ZH' ? '返回' : lang === 'BM' ? 'Kembali' : 'Back',
-    approved: lang === 'ZH' ? '已批准' : lang === 'BM' ? 'Diluluskan' : 'Approved',
-    pending: lang === 'ZH' ? '待审核' : lang === 'BM' ? 'Menunggu' : 'Pending',
+    title: lang === 'ZH' ? '照片相册' : 'Photo Album',
+    projects: lang === 'ZH' ? '个工程' : ' projects',
+    photos: lang === 'ZH' ? '张照片' : ' photos',
+    noPhotos: lang === 'ZH' ? '还没有照片' : 'No photos yet',
+    noPhotosHint: lang === 'ZH' ? '从任务卡片上传工地照片' : 'Upload photos from task cards',
+    back: lang === 'ZH' ? '返回' : 'Back',
+    approved: lang === 'ZH' ? '已批准' : 'Approved',
+    pending: lang === 'ZH' ? '待审核' : 'Pending',
   };
 
   // ── Lightbox view ──

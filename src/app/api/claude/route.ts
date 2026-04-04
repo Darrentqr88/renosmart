@@ -23,10 +23,10 @@ const PLAN_LIMITS: Record<string, number> = {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { max_tokens, messages, system, skipQuota } = body;
+    const { max_tokens, messages, system } = body;
 
-    // Secondary calls (Gantt params, trade hints) pass skipQuota: true — exempt from quota
-    const isSecondaryCall = skipQuota === true;
+    // Secondary calls (Gantt params, trade hints) set X-RS-Secondary header — exempt from quota
+    const isSecondaryCall = req.headers.get('x-rs-secondary') === 'true';
 
     const authHeader = req.headers.get('Authorization');
     let userId: string | null = null;
@@ -47,7 +47,12 @@ export async function POST(req: NextRequest) {
       userId = sessionUser?.id || null;
     }
 
-    if (userId && !isSecondaryCall) {
+    // Auth gate: require authentication for all AI calls
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!isSecondaryCall) {
       // Rate limit check (20-min window, max 10 calls → 60-min cooldown)
       const rateCheck = await checkRateLimit(supabase, userId);
       if (!rateCheck.allowed) {
@@ -165,7 +170,7 @@ export async function POST(req: NextRequest) {
     const inputTokens = result.response.usageMetadata?.promptTokenCount ?? 0;
     const outputTokens = result.response.usageMetadata?.candidatesTokenCount ?? 0;
 
-    if (userId && !isSecondaryCall) {
+    if (!isSecondaryCall) {
       const yearMonth = new Date().toISOString().slice(0, 7);
       await supabase.rpc('increment_ai_usage', {
         p_user_id: userId,

@@ -52,9 +52,9 @@ export default function WorkersPage() {
 
   useEffect(() => {
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      setSessionUserId(session.user.id);
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+      setSessionUserId(authUser.id);
 
       // Invite link will be generated on demand via API
       setInviteLink('');
@@ -63,7 +63,7 @@ export default function WorkersPage() {
       const { data } = await supabase
         .from('designer_workers')
         .select('*')
-        .eq('designer_id', session.user.id)
+        .eq('designer_id', authUser.id)
         .order('created_at', { ascending: false });
 
       const ownWorkers: Worker[] = (data || []).map(w => ({ ...w, source: 'own' as const }));
@@ -115,7 +115,7 @@ export default function WorkersPage() {
       const { data: myProfile } = await supabase
         .from('profiles')
         .select('team_id')
-        .eq('user_id', session.user.id)
+        .eq('user_id', authUser.id)
         .single();
 
       let teamWorkers: Worker[] = [];
@@ -126,7 +126,7 @@ export default function WorkersPage() {
           .select('user_id')
           .eq('team_id', myProfile.team_id)
           .eq('status', 'active')
-          .neq('user_id', session.user.id);
+          .neq('user_id', authUser.id);
 
         if (members && members.length > 0) {
           const memberIds = members.map(m => m.user_id).filter(Boolean);
@@ -308,11 +308,11 @@ export default function WorkersPage() {
   };
 
   const handleAddWorker = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) return;
 
     const { data, error } = await supabase.from('designer_workers').insert({
-      designer_id: session.user.id,
+      designer_id: authUser.id,
       name,
       phone,
       trades: selectedTrades,

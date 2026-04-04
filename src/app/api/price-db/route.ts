@@ -50,7 +50,7 @@ async function recalculatePriceDB(
   const newMin = Math.min(...trimmed);
   const newMax = Math.max(...trimmed);
 
-  await db.from('price_database').upsert({
+  const { error } = await db.from('price_database').upsert({
     category,
     subcategory,
     material_method: materialMethod,
@@ -64,6 +64,7 @@ async function recalculatePriceDB(
     confidence,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'category,subcategory,material_method,unit,supply_type,region' });
+  if (error) console.error('Price DB upsert error:', error.message);
 }
 
 export async function POST(request: Request) {
@@ -119,7 +120,7 @@ export async function POST(request: Request) {
         if (existing) { skipped++; continue; }
       }
 
-      await db.from('price_data_points').insert({
+      const { error: insertErr } = await db.from('price_data_points').insert({
         category: classification.category,
         subcategory: classification.subcategory,
         material_method: classification.materialMethod,
@@ -133,6 +134,7 @@ export async function POST(request: Request) {
         project_id: projectId || null,
         confidence: 0.8,
       });
+      if (insertErr) { console.error('Price data point insert error:', insertErr.message); skipped++; continue; }
 
       await recalculatePriceDB(
         classification.category,

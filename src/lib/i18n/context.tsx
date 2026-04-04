@@ -24,8 +24,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Restore saved language
     const savedLang = localStorage.getItem('rs_lang') as Language | null;
-    if (savedLang === 'EN' || savedLang === 'BM' || savedLang === 'ZH') {
+    if (savedLang === 'EN' || savedLang === 'ZH') {
       setLang(savedLang);
+    } else if (savedLang === 'BM') {
+      // BM removed — fallback to EN
+      setLang('EN');
+      localStorage.setItem('rs_lang', 'EN');
     }
 
     // 1. Check localStorage first (user manually switched → respect that)
@@ -36,12 +40,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     }
     // 2. Load from Supabase profile
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) return;
+    supabase.auth.getUser().then(({ data: { user: authUser } }) => {
+      if (!authUser) return;
       supabase
         .from('profiles')
         .select('region, phone')
-        .eq('user_id', session.user.id)
+        .eq('user_id', authUser.id)
         .single()
         .then(({ data }) => {
           if (data?.region === 'SG') {

@@ -9,6 +9,22 @@ import { BarChart2, FileText, CreditCard, Camera, CheckSquare, LogOut, CheckCirc
 import { useRouter } from 'next/navigation';
 import { VariationOrder, VOItem } from '@/types';
 
+interface GanttMilestone {
+  id: string;
+  name: string;
+  progress: number;
+  sort_order: number;
+}
+
+interface PaymentPhase {
+  id: string;
+  phase_number: number;
+  label: string;
+  amount: number;
+  status: string;
+  due_date?: string;
+}
+
 export default function OwnerDashboard() {
   const { t } = useI18n();
   const router = useRouter();
@@ -17,31 +33,30 @@ export default function OwnerDashboard() {
   const [loading, setLoading] = useState(true);
   const [variationOrders, setVariationOrders] = useState<VariationOrder[]>([]);
   const [sitePhotos, setSitePhotos] = useState<{ id: string; url: string; caption?: string; trade?: string; created_at: string }[]>([]);
+  const [milestones, setMilestones] = useState<GanttMilestone[]>([]);
+  const [paymentPhases, setPaymentPhases] = useState<PaymentPhase[]>([]);
   const [voLoading, setVoLoading] = useState(false);
   const [expandedVOId, setExpandedVOId] = useState<string | null>(null);
   const [ownerLightbox, setOwnerLightbox] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const { data } = await supabase.from('projects').select('*').eq('owner_email', session.user.email).single();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+      const { data } = await supabase.from('projects').select('*').eq('owner_email', authUser.email).single();
       setProject(data);
       if (data?.id) {
-        const { data: vos } = await supabase
-          .from('variation_orders')
-          .select('*')
-          .eq('project_id', data.id)
-          .order('created_at', { ascending: false });
-        if (vos) setVariationOrders(vos as VariationOrder[]);
-        // Load approved site photos
-        const { data: photos } = await supabase
-          .from('site_photos')
-          .select('id, url, caption, trade, created_at')
-          .eq('project_id', data.id)
-          .eq('approved', true)
-          .order('created_at', { ascending: false });
-        if (photos) setSitePhotos(photos);
+        // Load VOs, photos, milestones, and payments in parallel
+        const [vosResult, photosResult, tasksResult, phasesResult] = await Promise.all([
+          supabase.from('variation_orders').select('*').eq('project_id', data.id).order('created_at', { ascending: false }),
+          supabase.from('site_photos').select('id, url, caption, trade, created_at').eq('project_id', data.id).eq('approved', true).order('created_at', { ascending: false }),
+          supabase.from('gantt_tasks').select('id, name, progress, sort_order').eq('project_id', data.id).order('sort_order', { ascending: true }),
+          supabase.from('payment_phases').select('*').eq('project_id', data.id).order('phase_number', { ascending: true }),
+        ]);
+        if (vosResult.data) setVariationOrders(vosResult.data as VariationOrder[]);
+        if (photosResult.data) setSitePhotos(photosResult.data);
+        if (tasksResult.data) setMilestones(tasksResult.data as GanttMilestone[]);
+        if (phasesResult.data) setPaymentPhases(phasesResult.data as PaymentPhase[]);
       }
       setLoading(false);
     })();
@@ -84,6 +99,9 @@ export default function OwnerDashboard() {
   const pendingVOs = variationOrders.filter(v => v.status === 'pending');
   const historyVOs = variationOrders.filter(v => v.status !== 'pending');
 
+  // Find next pending payment phase
+  const nextPayment = paymentPhases.find(p => p.status === 'pending' || p.status === 'not_due');
+
   return (
     <div className="min-h-screen bg-[#E8ECF0] flex items-center justify-center p-4">
       <div className="mobile-frame">
@@ -116,7 +134,7 @@ export default function OwnerDashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 12 }}>
               {[
                 { label: 'Start', value: project?.start_date ? formatDate(project.start_date as string) : 'TBD' },
-                { label: 'Status', value: project?.status === 'active' ? '在施工' : project?.status === 'completed' ? '已完工' : '待开工' },
+                { label: 'Status', value: project?.status === 'active' ? t.status.active : project?.status === 'completed' ? t.status.completed : t.status.pending },
                 { label: 'End', value: project?.end_date ? formatDate(project.end_date as string) : 'TBD' },
               ].map(({ label, value }) => (
                 <div key={label} style={{ textAlign: 'center' }}>
@@ -133,11 +151,11 @@ export default function OwnerDashboard() {
           <Tabs defaultValue="progress" className="flex flex-col h-full">
             <TabsList className="grid grid-cols-5 bg-white border-b border-gray-100 rounded-none h-14 gap-0 p-0">
               {[
-                { value: 'progress', icon: BarChart2, label: '进度' },
-                { value: 'docs', icon: FileText, label: '文件' },
-                { value: 'payments', icon: CreditCard, label: '付款' },
-                { value: 'photos', icon: Camera, label: '照片' },
-                { value: 'approvals', icon: CheckSquare, label: '审批', badge: pendingVOs.length },
+                { value: 'progress', icon: BarChart2, label: t.owner.progress },
+                { value: 'docs', icon: FileText, label: t.owner.docs },
+                { value: 'payments', icon: CreditCard, label: t.owner.payments },
+                { value: 'photos', icon: Camera, label: t.owner.photos },
+                { value: 'approvals', icon: CheckSquare, label: t.owner.approvals, badge: pendingVOs.length },
               ].map(({ value, icon: Icon, label, badge }) => (
                 <TabsTrigger key={value} value={value}
                   className="flex flex-col items-center gap-0.5 rounded-none text-xs data-[state=active]:text-[#4F8EF7] data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#4F8EF7] h-full relative">
@@ -157,26 +175,35 @@ export default function OwnerDashboard() {
                 <div className="text-center text-gray-400 py-8">Loading...</div>
               ) : !project ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-500 text-sm">No active project found.</p>
-                  <p className="text-xs text-gray-400 mt-1">Ask your designer to connect you to your project.</p>
+                  <p className="text-gray-500 text-sm">{t.owner.noProject}</p>
+                  <p className="text-xs text-gray-400 mt-1">{t.owner.noProjectHint}</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div className="bg-gray-50 rounded-xl p-4">
-                    <h3 className="font-medium text-gray-900 text-sm mb-3">Milestone Timeline</h3>
+                    <h3 className="font-medium text-gray-900 text-sm mb-3">{t.owner.milestoneTimeline}</h3>
                     <div className="space-y-3">
-                      {['Site Measurement', 'Demolition', 'Tiling Works', 'Carpentry', 'Final Touch'].map((m, i) => (
-                        <div key={m} className="flex items-center gap-3">
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
-                            i < 2 ? 'bg-green-500 text-white' : i === 2 ? 'bg-[#4F8EF7] text-white' : 'bg-gray-200 text-gray-400'
-                          }`}>
-                            {i < 2 ? '✓' : i + 1}
+                      {milestones.length > 0 ? milestones.map((m, i) => {
+                        const isComplete = m.progress >= 100;
+                        const isActive = !isComplete && m.progress > 0;
+                        return (
+                          <div key={m.id} className="flex items-center gap-3">
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
+                              isComplete ? 'bg-green-500 text-white' : isActive ? 'bg-[#4F8EF7] text-white' : 'bg-gray-200 text-gray-400'
+                            }`}>
+                              {isComplete ? '✓' : i + 1}
+                            </div>
+                            <span className={`text-sm ${isComplete ? 'text-gray-400 line-through' : isActive ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>
+                              {m.name}
+                            </span>
+                            {isActive && (
+                              <span className="text-xs text-[#4F8EF7] ml-auto">{m.progress}%</span>
+                            )}
                           </div>
-                          <span className={`text-sm ${i < 2 ? 'text-gray-400 line-through' : i === 2 ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>
-                            {m}
-                          </span>
-                        </div>
-                      ))}
+                        );
+                      }) : (
+                        <p className="text-sm text-gray-400">{t.owner.noProjectHint}</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -186,20 +213,51 @@ export default function OwnerDashboard() {
             <TabsContent value="docs" className="flex-1 p-4 overflow-y-auto mt-0">
               <div className="text-center py-8 text-gray-400 text-sm">
                 <FileText className="w-8 h-8 mx-auto mb-2 text-gray-200" />
-                No documents shared yet.
+                {t.owner.noDocs}
               </div>
             </TabsContent>
 
             <TabsContent value="payments" className="flex-1 p-4 overflow-y-auto mt-0">
               <div className="space-y-3">
-                <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-                  <div className="text-xs text-amber-600 mb-1">Next Payment Due</div>
-                  <div className="font-bold text-amber-900 text-lg">
-                    {project ? formatCurrency((project.contract_amount as number || 0) * 0.3) : 'RM 0'}
+                {nextPayment ? (
+                  <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                    <div className="text-xs text-amber-600 mb-1">{t.owner.nextPayment}</div>
+                    <div className="font-bold text-amber-900 text-lg">
+                      {formatCurrency(nextPayment.amount)}
+                    </div>
+                    <div className="text-xs text-amber-600 mt-1">{nextPayment.label}</div>
                   </div>
-                  <div className="text-xs text-amber-600 mt-1">2nd Installment (30%)</div>
-                </div>
-                <p className="text-xs text-gray-400 text-center">Contact your designer for payment details</p>
+                ) : paymentPhases.length > 0 ? (
+                  <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+                    <div className="text-xs text-green-600">✅ {t.pay.collected}</div>
+                  </div>
+                ) : null}
+                {paymentPhases.length > 0 ? (
+                  <div className="space-y-2">
+                    {paymentPhases.map(phase => (
+                      <div key={phase.id} className="bg-white rounded-lg p-3 border border-gray-100 flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{phase.label}</p>
+                          {phase.due_date && <p className="text-xs text-gray-400">{formatDate(phase.due_date)}</p>}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-gray-900">{formatCurrency(phase.amount)}</p>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                            phase.status === 'collected' ? 'bg-green-50 text-green-600' :
+                            phase.status === 'pending' ? 'bg-amber-50 text-amber-600' :
+                            'bg-gray-100 text-gray-500'
+                          }`}>
+                            {phase.status === 'collected' ? t.pay.statusCollected :
+                             phase.status === 'pending' ? t.pay.statusPending :
+                             t.pay.statusNotDue}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 text-center">{t.owner.contactDesigner}</p>
+                )}
               </div>
             </TabsContent>
 
@@ -207,11 +265,11 @@ export default function OwnerDashboard() {
               {sitePhotos.length === 0 ? (
                 <div className="text-center py-8 text-gray-400 text-sm">
                   <Camera className="w-8 h-8 mx-auto mb-2 text-gray-200" />
-                  No site photos yet.
+                  {t.owner.noPhotos}
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-xs text-gray-500 font-medium">{sitePhotos.length} approved photos</p>
+                  <p className="text-xs text-gray-500 font-medium">{sitePhotos.length} {t.owner.approvedPhotos}</p>
                   <div className="grid grid-cols-2 gap-3">
                     {sitePhotos.map(photo => (
                       <div key={photo.id} className="rounded-xl overflow-hidden border border-gray-100 bg-white shadow-sm cursor-pointer" onClick={() => setOwnerLightbox(photo.url)}>
@@ -246,12 +304,12 @@ export default function OwnerDashboard() {
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
                       <Clock className="w-4 h-4 text-amber-500" />
-                      待审批 ({pendingVOs.length})
+                      {t.owner.pendingApproval} ({pendingVOs.length})
                     </h3>
                     {pendingVOs.length === 0 ? (
                       <div className="text-center py-6 bg-gray-50 rounded-xl text-gray-400 text-sm">
                         <CheckCircle2 className="w-6 h-6 mx-auto mb-1 text-gray-200" />
-                        暂无待审批变更单
+                        {t.owner.noPendingVO}
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -264,7 +322,7 @@ export default function OwnerDashboard() {
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-1">
                                     <span className="text-xs font-mono font-bold text-gray-500">{vo.vo_number}</span>
-                                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">待审批</span>
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">{t.owner.pendingApproval}</span>
                                   </div>
                                   <p className="text-sm font-medium text-gray-900">{vo.description}</p>
                                   <p className="text-xs text-gray-400 mt-0.5">{formatDate(vo.created_at)}</p>
@@ -284,7 +342,7 @@ export default function OwnerDashboard() {
                                     className="flex items-center gap-1 text-xs text-[#4F8EF7] hover:underline"
                                   >
                                     {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                                    {isExpanded ? '收起明细' : `查看明细 (${voItemList.length} 项)`}
+                                    {isExpanded ? t.owner.collapseDetails : `${t.owner.viewDetails} (${voItemList.length})`}
                                   </button>
                                   {isExpanded && (
                                     <div className="mt-2 overflow-x-auto rounded-lg border border-gray-100">
@@ -292,8 +350,8 @@ export default function OwnerDashboard() {
                                         <thead>
                                           <tr className="bg-gray-50 text-gray-500">
                                             <th className="px-2 py-1.5 text-left w-6">#</th>
-                                            <th className="px-2 py-1.5 text-left">说明</th>
-                                            <th className="px-2 py-1.5 text-right">小计</th>
+                                            <th className="px-2 py-1.5 text-left">{t.owner.description}</th>
+                                            <th className="px-2 py-1.5 text-right">{t.owner.subtotal}</th>
                                           </tr>
                                         </thead>
                                         <tbody>
@@ -318,14 +376,14 @@ export default function OwnerDashboard() {
                                   disabled={voLoading}
                                   className="flex-1 py-2 rounded-lg bg-green-500 text-white text-sm font-semibold hover:bg-green-600 disabled:opacity-50 flex items-center justify-center gap-1.5 transition-colors"
                                 >
-                                  <CheckCircle2 className="w-4 h-4" /> 接受变更
+                                  <CheckCircle2 className="w-4 h-4" /> {t.owner.acceptChange}
                                 </button>
                                 <button
                                   onClick={() => handleVOAction(vo.id, 'rejected')}
                                   disabled={voLoading}
                                   className="flex-1 py-2 rounded-lg bg-red-50 text-red-600 border border-red-200 text-sm font-semibold hover:bg-red-100 disabled:opacity-50 flex items-center justify-center gap-1.5 transition-colors"
                                 >
-                                  <XCircle className="w-4 h-4" /> 拒绝
+                                  <XCircle className="w-4 h-4" /> {t.owner.reject}
                                 </button>
                               </div>
                             </div>
@@ -338,7 +396,7 @@ export default function OwnerDashboard() {
                   {/* History VOs */}
                   {historyVOs.length > 0 && (
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-900 mb-2">审批记录</h3>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-2">{t.owner.approvalHistory}</h3>
                       <div className="space-y-2">
                         {historyVOs.map(vo => (
                           <div key={vo.id} className={`bg-white rounded-xl border p-3 border-l-4 ${vo.status === 'approved' ? 'border-l-green-500 border-green-100' : 'border-l-red-400 border-red-100'}`}>
@@ -347,8 +405,8 @@ export default function OwnerDashboard() {
                                 <div className="flex items-center gap-2 mb-0.5">
                                   <span className="text-xs font-mono text-gray-500">{vo.vo_number}</span>
                                   {vo.status === 'approved'
-                                    ? <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-50 text-green-600">✓ 已接受</span>
-                                    : <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-50 text-red-500">✗ 已拒绝</span>
+                                    ? <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-50 text-green-600">✓ {t.owner.accepted}</span>
+                                    : <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-50 text-red-500">✗ {t.owner.rejected}</span>
                                   }
                                 </div>
                                 <p className="text-xs text-gray-700 truncate">{vo.description}</p>

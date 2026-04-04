@@ -74,7 +74,6 @@ const CONFIDENCE_CONFIG = {
 
 const DISCLAIMER = {
   EN: 'Cost data is crowdsourced from all users\' receipt uploads. Actual costs may vary by supplier, location, and market conditions.',
-  BM: 'Data kos dikumpul daripada semua muat naik resit pengguna. Kos sebenar mungkin berbeza mengikut pembekal, lokasi dan keadaan pasaran.',
   ZH: '成本数据来源于所有用户上传的单据。实际成本可能因供应商、地区及市场状况而有所差异。',
 };
 
@@ -103,14 +102,14 @@ export default function CostDatabasePage() {
 
   useEffect(() => {
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      setUserId(session.user.id);
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+      setUserId(authUser.id);
 
-      const { data: profile } = await supabase.from('profiles').select('plan').eq('user_id', session.user.id).single();
+      const { data: profile } = await supabase.from('profiles').select('plan').eq('user_id', authUser.id).single();
       if (profile) setCurrentPlan(profile.plan || 'free');
 
-      const { data: projectData } = await supabase.from('projects').select('id, name').eq('user_id', session.user.id).order('created_at', { ascending: false });
+      const { data: projectData } = await supabase.from('projects').select('id, name').eq('user_id', authUser.id).order('created_at', { ascending: false });
       if (projectData) setProjects(projectData);
     })();
   }, []);
@@ -239,7 +238,7 @@ export default function CostDatabasePage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <DollarSign className="w-6 h-6 text-[#10B981]" />
-              {lang === 'ZH' ? '成本智能数据库' : lang === 'BM' ? 'Pangkalan Kos Pintar' : 'Cost Intelligence Database'}
+              {lang === 'ZH' ? '成本智能数据库' : 'Cost Intelligence Database'}
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
               {lang === 'ZH' ? '实际施工成本基准' : 'Actual construction cost benchmarks'}
