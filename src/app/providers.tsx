@@ -25,20 +25,24 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   return <PHProvider client={posthog}>{children}</PHProvider>;
 }
 
-/** Crisp chat widget — loads only in production or when ID is set */
-export function CrispChat() {
+/** Tawk.to chat widget with logged-in user identification */
+export function TawkChat() {
   useEffect(() => {
-    const id = process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID;
-    if (!id || typeof window === 'undefined') return;
-    (window as unknown as Record<string, unknown>).$crisp = [];
-    (window as unknown as Record<string, unknown>).CRISP_WEBSITE_ID = id;
-    const s = document.createElement('script');
-    s.src = 'https://client.crisp.chat/l.js';
-    s.async = true;
-    document.head.appendChild(s);
+    if (typeof window === 'undefined') return;
 
-    // After Crisp loads, identify logged-in user
-    s.onload = async () => {
+    // Init Tawk API
+    const tawk = window as unknown as Record<string, unknown>;
+    tawk.Tawk_API = tawk.Tawk_API || {};
+    tawk.Tawk_LoadStart = new Date();
+
+    const s1 = document.createElement('script');
+    s1.async = true;
+    s1.src = 'https://embed.tawk.to/69d247ef1772311c3585e36f/1jlemi0pt';
+    s1.charset = 'UTF-8';
+    s1.setAttribute('crossorigin', '*');
+
+    // After widget loads, identify logged-in user
+    s1.onload = async () => {
       try {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
@@ -50,24 +54,24 @@ export function CrispChat() {
           .eq('user_id', user.id)
           .single();
 
-        const crisp = (window as unknown as Record<string, unknown[]>).$crisp;
-        if (!crisp || !profile) return;
+        if (!profile) return;
 
-        if (profile.email) crisp.push(['set', 'user:email', [profile.email]]);
-        if (profile.name) crisp.push(['set', 'user:nickname', [profile.name]]);
-        if (profile.company) crisp.push(['set', 'user:company', [profile.company]]);
-        // Tag with plan so you can see in Crisp who is free vs pro
-        crisp.push(['set', 'session:segments', [[profile.plan || 'free']]]);
-        crisp.push(['set', 'session:data', [[
-          ['plan', profile.plan || 'free'],
-          ['user_id', user.id],
-        ]]]);
+        const TawkAPI = (window as unknown as { Tawk_API?: { setAttributes?: (attrs: Record<string, string>, cb?: () => void) => void } }).Tawk_API;
+        if (TawkAPI?.setAttributes) {
+          TawkAPI.setAttributes({
+            name: profile.name || '',
+            email: profile.email || '',
+            plan: profile.plan || 'free',
+            company: profile.company || '',
+          }, () => {});
+        }
       } catch {
-        // Non-critical, ignore errors
+        // Non-critical
       }
     };
 
-    return () => { s.remove(); };
+    document.head.appendChild(s1);
+    return () => { s1.remove(); };
   }, []);
   return null;
 }
