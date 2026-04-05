@@ -44,6 +44,7 @@ function RegisterPageContent() {
   const inviteId = searchParams.get('invite');
   const teamIdParam = searchParams.get('team_id'); // from auth callback when invite auto-joined
   const preselectedRole = searchParams.get('role') as UserRole | null;
+  const referralCode = searchParams.get('ref');
   const supabase = createClient();
 
   const [step, setStep] = useState<Step>(1);
@@ -104,6 +105,11 @@ function RegisterPageContent() {
       }
     } catch { /* non-critical */ }
   };
+
+  // Store referral code for post-registration
+  useEffect(() => {
+    if (referralCode) localStorage.setItem('rs_referral', referralCode);
+  }, [referralCode]);
 
   // Auth state check on mount
   useEffect(() => {
@@ -264,12 +270,32 @@ function RegisterPageContent() {
         } catch { /* non-critical */ }
       }
 
+      // Track referral if present
+      const storedRef = localStorage.getItem('rs_referral');
+      if (storedRef) {
+        try {
+          await fetch('/api/referral', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ referral_code: storedRef, referred_user_id: userId }),
+          });
+          localStorage.removeItem('rs_referral');
+        } catch { /* non-critical */ }
+      }
+
       if (inviteId && role === 'worker') {
         await supabase.from('designer_workers').insert({
           designer_id: inviteId, profile_id: userId, name,
           phone: `${phonePrefix}${phone}`, trades, status: 'active',
         });
       }
+
+      // Send welcome email (fire-and-forget)
+      fetch('/api/email/welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail, name }),
+      }).catch(() => {});
 
       const welcomeMsg = isInvitedUser || inviteTeamId
         ? 'Account created and joined team with Elite plan!'

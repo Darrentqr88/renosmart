@@ -18,6 +18,7 @@ import {
   Hammer, CreditCard, ChevronRight, FileUp, Sparkles,
 } from 'lucide-react';
 import { MiniCalendar, CalendarEvent } from '@/components/designer/MiniCalendar';
+import { ReferralCard } from '@/components/designer/ReferralCard';
 
 /* ─── Notification types ────────────────────────────────────────────────── */
 interface Notif {
@@ -682,14 +683,15 @@ export default function DesignerDashboard() {
                 />
               ))
             )}
-            {/* Calendar — always visible as last column */}
-            <div className="space-y-0">
+            {/* Calendar + Referral — always visible as last column */}
+            <div className="space-y-4">
               <MiniCalendar
                 events={calendarEvents}
                 onAddEvent={ev => setCalendarEvents(prev => [...prev, { ...ev, id: `manual-${Date.now()}` }])}
                 onDeleteEvent={id => setCalendarEvents(prev => prev.filter(e => e.id !== id))}
                 onToggleReminder={handleToggleReminder}
               />
+              <ReferralCard />
             </div>
           </div>
         )}
