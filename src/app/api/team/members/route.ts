@@ -113,14 +113,36 @@ export async function GET(req: NextRequest) {
     const teamMonthlyLimit = (team.elite_slots ?? 1) * 250;
     const maxMembers = (team.elite_slots ?? 1) * 5;
 
-    // Get owner email if this is owner viewing
+    // Get owner info if this is owner viewing
     if (isOwner) {
       ownerEmail = user.email || '';
+      const { data: ownerProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('name')
+        .eq('user_id', userId)
+        .single();
+      ownerName = ownerProfile?.name || ownerEmail.split('@')[0];
+    }
+
+    // Enrich members with profile name/avatar for sidebar display
+    const memberUserIds = (members || [])
+      .filter((m: { user_id: string | null; status: string }) => m.user_id && m.status === 'active')
+      .map((m: { user_id: string }) => m.user_id);
+    let enrichedMembers: Record<string, unknown>[] = members || [];
+    if (memberUserIds.length > 0) {
+      const { data: memberProfiles } = await supabaseAdmin
+        .from('profiles')
+        .select('user_id, name, avatar_url')
+        .in('user_id', memberUserIds);
+      enrichedMembers = (members || []).map((m: Record<string, unknown>) => {
+        const prof = (memberProfiles || []).find((p: Record<string, unknown>) => p.user_id === m.user_id);
+        return { ...m, name: prof?.name || m.email, avatar_url: prof?.avatar_url };
+      });
     }
 
     return NextResponse.json({
       team: { ...team, maxMembers, teamMonthlyLimit, teamUsage },
-      members: members || [],
+      members: enrichedMembers,
       usageMap,
       isOwner,
       ownerEmail,

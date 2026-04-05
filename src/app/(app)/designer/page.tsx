@@ -16,8 +16,11 @@ import {
   Search, Bell, Plus, MapPin, User, Clock, GripVertical,
   TrendingUp, BarChart2, CheckCircle2, FolderOpen, X,
   Hammer, CreditCard, ChevronRight, FileUp, Sparkles,
+  ArrowLeft, Eye, ChevronLeft,
+  Users as UsersIcon,
 } from 'lucide-react';
 import { MiniCalendar, CalendarEvent } from '@/components/designer/MiniCalendar';
+import { useTeamContext } from '@/lib/team/TeamContext';
 
 /* ─── Notification types ────────────────────────────────────────────────── */
 interface Notif {
@@ -37,10 +40,14 @@ function ProjectCard({
   project,
   onClick,
   onDragStart,
+  ownerName,
+  readOnly,
 }: {
   project: Project;
   onClick: () => void;
   onDragStart: (id: string) => void;
+  ownerName?: string;
+  readOnly?: boolean;
 }) {
   const { prices } = useI18n();
 
@@ -53,9 +60,9 @@ function ProjectCard({
 
   return (
     <div
-      draggable
-      onDragStart={(e) => { e.stopPropagation(); onDragStart(project.id); }}
-      className="bg-white rounded-2xl hover:shadow-lg transition-all cursor-grab active:cursor-grabbing group select-none"
+      draggable={!readOnly}
+      onDragStart={(e) => { if (readOnly) return; e.stopPropagation(); onDragStart(project.id); }}
+      className={`bg-white rounded-2xl hover:shadow-lg transition-all group select-none ${readOnly ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
       style={{
         border: `1px solid ${c.border}25`,
         borderLeft: `3px solid ${c.border}`,
@@ -107,9 +114,19 @@ function ProjectCard({
 
         {/* Footer */}
         <div className="flex items-center justify-between">
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${c.badge}`}>
-            {c.labelZh}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${c.badge}`}>
+              {c.labelZh}
+            </span>
+            {ownerName && (
+              <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                <div className="w-3 h-3 rounded-full bg-gradient-to-br from-[#4F8EF7] to-[#8B5CF6] flex items-center justify-center text-white text-[7px] font-bold">
+                  {ownerName[0].toUpperCase()}
+                </div>
+                {ownerName.split(' ')[0]}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-1 text-[10px] text-gray-300">
             <Clock className="w-2.5 h-2.5" />
             {formatDate(project.updated_at)}
@@ -127,6 +144,7 @@ function KanbanColumn({
   onDragOver, onDrop, onDragLeave,
   onCardClick, onCardDragStart,
   onAddProject,
+  readOnly, viewingAll: isViewingAll, getMemberName: getMName,
 }: {
   colKey: string; label: string; sublabel: string; dot: string; count: number;
   projects: Project[];
@@ -135,6 +153,9 @@ function KanbanColumn({
   onCardClick: (id: string) => void;
   onCardDragStart: (id: string) => void;
   onAddProject?: () => void;
+  readOnly?: boolean;
+  viewingAll?: boolean;
+  getMemberName?: (id: string) => string;
 }) {
   const { t } = useI18n();
   return (
@@ -175,6 +196,8 @@ function KanbanColumn({
           <ProjectCard key={p.id} project={p}
             onClick={() => onCardClick(p.id)}
             onDragStart={onCardDragStart}
+            readOnly={readOnly}
+            ownerName={isViewingAll && getMName ? getMName(p.designer_id) : undefined}
           />
         ))}
         {projects.length === 0 && !isDragOver && (
@@ -342,11 +365,262 @@ function NotifBell({ notifications, onMarkAllRead, onRequestPush }: {
   );
 }
 
+/* ─── Team Performance Panel ───────────────────────────────────────────── */
+function TeamPerformancePanel({ projects, teamMembers, currentUserId, perfMonth, setPerfMonth, currency, lang, t }: {
+  projects: Project[];
+  teamMembers: { user_id: string | null; name?: string; email: string; role: string }[];
+  currentUserId: string | null;
+  perfMonth: string;
+  setPerfMonth: (m: string) => void;
+  currency: string;
+  lang: string;
+  t: { team?: Record<string, string> } & Record<string, unknown>;
+}) {
+  const tt = t.team || {};
+
+  // Filter projects by selected month (based on created_at)
+  const monthStart = `${perfMonth}-01`;
+  const [y, mo] = perfMonth.split('-').map(Number);
+  const nextMonthStr = mo === 12 ? `${y + 1}-01-01` : `${y}-${String(mo + 1).padStart(2, '0')}-01`;
+
+  const monthProjects = projects.filter(p => p.created_at >= monthStart && p.created_at < nextMonthStr);
+
+  // Per-member stats
+  const memberStats = teamMembers
+    .filter(m => m.user_id)
+    .map(member => {
+      const mp = monthProjects.filter(p => p.designer_id === member.user_id);
+      const pending = mp.filter(p => p.status === 'pending');
+      const active = mp.filter(p => p.status === 'active');
+      const completed = mp.filter(p => p.status === 'completed');
+      return {
+        userId: member.user_id!,
+        name: member.name || member.email.split('@')[0],
+        isOwner: member.role === 'owner',
+        isYou: member.user_id === currentUserId,
+        newCount: pending.length,
+        newAmt: pending.reduce((s, p) => s + (p.contract_amount || 0), 0),
+        confCount: active.length,
+        confAmt: active.reduce((s, p) => s + (p.contract_amount || 0), 0),
+        compCount: completed.length,
+        compAmt: completed.reduce((s, p) => s + (p.contract_amount || 0), 0),
+      };
+    });
+
+  const totals = {
+    newCount: memberStats.reduce((s, m) => s + m.newCount, 0),
+    newAmt: memberStats.reduce((s, m) => s + m.newAmt, 0),
+    confCount: memberStats.reduce((s, m) => s + m.confCount, 0),
+    confAmt: memberStats.reduce((s, m) => s + m.confAmt, 0),
+    compCount: memberStats.reduce((s, m) => s + m.compCount, 0),
+    compAmt: memberStats.reduce((s, m) => s + m.compAmt, 0),
+  };
+  const totalMonthAmt = totals.newAmt + totals.confAmt + totals.compAmt;
+
+  // Status distribution for pie chart (use month-filtered projects)
+  const allPending = monthProjects.filter(p => p.status === 'pending').length;
+  const allActive = monthProjects.filter(p => p.status === 'active').length;
+  const allCompleted = monthProjects.filter(p => p.status === 'completed').length;
+  const totalP = allPending + allActive + allCompleted || 1;
+
+  // Month nav
+  const prevMonth = () => {
+    const d = new Date(perfMonth + '-15');
+    d.setMonth(d.getMonth() - 1);
+    setPerfMonth(d.toISOString().slice(0, 7));
+  };
+  const nextMonthFn = () => {
+    const d = new Date(perfMonth + '-15');
+    d.setMonth(d.getMonth() + 1);
+    setPerfMonth(d.toISOString().slice(0, 7));
+  };
+
+  const monthLabel = (() => {
+    const d = new Date(perfMonth + '-15');
+    return d.toLocaleDateString(lang === 'ZH' ? 'zh-CN' : 'en-US', { year: 'numeric', month: 'long' });
+  })();
+
+  const pieData = [
+    { value: allPending, color: '#4F8EF7', label: tt.newProjects || 'New' },
+    { value: allActive, color: '#8B5CF6', label: tt.confirmed || 'Confirmed' },
+    { value: allCompleted, color: '#22C55E', label: tt.completed || 'Completed' },
+  ];
+
+  const fmtAmt = (v: number) => v >= 1000 ? `${currency} ${(v / 1000).toFixed(0)}k` : `${currency} ${v}`;
+  const maxBarAmt = Math.max(...memberStats.map(m => m.newAmt + m.confAmt + m.compAmt), 1);
+
+  return (
+    <div className="px-5 pb-2 flex-shrink-0">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+          <UsersIcon className="w-4 h-4 text-[#4F8EF7]" />
+          {tt.performance || 'Team Performance'}
+        </h2>
+        <div className="flex items-center gap-1">
+          <button onClick={prevMonth} className="p-1 rounded hover:bg-gray-100"><ChevronLeft className="w-4 h-4 text-gray-400" /></button>
+          <span className="text-xs font-semibold text-gray-600 min-w-[120px] text-center">{monthLabel}</span>
+          <button onClick={nextMonthFn} className="p-1 rounded hover:bg-gray-100"><ChevronRight className="w-4 h-4 text-gray-400" /></button>
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3">
+        <div className="bg-white rounded-xl p-3 border border-gray-100">
+          <div className="text-[10px] text-gray-400 font-semibold">{tt.totalMonthlyAmt || 'Monthly Amount'}</div>
+          <div className="text-lg font-black text-[#1A1A2E]">{fmtAmt(totalMonthAmt)}</div>
+        </div>
+        <div className="bg-white rounded-xl p-3 border border-blue-100">
+          <div className="text-[10px] text-blue-400 font-semibold">{tt.newProjects || 'New'}</div>
+          <div className="text-lg font-black text-[#4F8EF7]">{totals.newCount}</div>
+          <div className="text-[10px] text-gray-400">{fmtAmt(totals.newAmt)}</div>
+        </div>
+        <div className="bg-white rounded-xl p-3 border border-purple-100">
+          <div className="text-[10px] text-purple-400 font-semibold">{tt.confirmed || 'Confirmed'}</div>
+          <div className="text-lg font-black text-[#8B5CF6]">{totals.confCount}</div>
+          <div className="text-[10px] text-gray-400">{fmtAmt(totals.confAmt)}</div>
+        </div>
+        <div className="bg-white rounded-xl p-3 border border-green-100">
+          <div className="text-[10px] text-green-500 font-semibold">{tt.completed || 'Completed'}</div>
+          <div className="text-lg font-black text-[#22C55E]">{totals.compCount}</div>
+          <div className="text-[10px] text-gray-400">{fmtAmt(totals.compAmt)}</div>
+        </div>
+        <div className="bg-white rounded-xl p-3 border border-gray-100">
+          <div className="text-[10px] text-gray-400 font-semibold">{tt.members || 'Members'}</div>
+          <div className="text-lg font-black text-gray-700">{teamMembers.length}</div>
+        </div>
+      </div>
+
+      {/* Charts row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+        {/* Pie chart */}
+        <div className="bg-white rounded-xl p-4 border border-gray-100">
+          <h3 className="text-[11px] font-semibold text-gray-500 mb-3">{tt.statusDist || 'Status Distribution'}</h3>
+          <div className="flex items-center gap-6">
+            <svg viewBox="0 0 100 100" className="w-24 h-24 flex-shrink-0">
+              {(() => {
+                let offset = 0;
+                return pieData.map((d, i) => {
+                  const pct = (d.value / totalP) * 100;
+                  const dashArray = `${pct * 2.51327} ${251.327}`;
+                  const el = (
+                    <circle key={i} cx="50" cy="50" r="40" fill="none" stroke={d.color} strokeWidth="12"
+                      strokeDasharray={dashArray} strokeDashoffset={-offset * 2.51327}
+                      transform="rotate(-90 50 50)" strokeLinecap="round" />
+                  );
+                  offset += pct;
+                  return el;
+                });
+              })()}
+              <text x="50" y="48" textAnchor="middle" className="text-[14px] font-black" fill="#1A1A2E">{monthProjects.length}</text>
+              <text x="50" y="60" textAnchor="middle" className="text-[7px]" fill="#8B8BA8">total</text>
+            </svg>
+            <div className="space-y-2 flex-1">
+              {pieData.map((d, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color }} />
+                  <span className="text-[11px] text-gray-600 flex-1">{d.label}</span>
+                  <span className="text-[11px] font-bold" style={{ color: d.color }}>{d.value}</span>
+                  <span className="text-[10px] text-gray-400">{totalP > 0 ? Math.round((d.value / totalP) * 100) : 0}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Bar chart */}
+        <div className="bg-white rounded-xl p-4 border border-gray-100">
+          <h3 className="text-[11px] font-semibold text-gray-500 mb-3">{tt.memberAmount || 'Per-Member Amount'}</h3>
+          <div className="space-y-2">
+            {memberStats.map(ms => {
+              const total = ms.newAmt + ms.confAmt + ms.compAmt;
+              return (
+                <div key={ms.userId}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] text-gray-700 font-medium truncate max-w-[120px]">
+                      {ms.name}{ms.isYou ? ` (${tt.you || 'You'})` : ''}
+                    </span>
+                    <span className="text-[10px] font-bold text-gray-500">{fmtAmt(total)}</span>
+                  </div>
+                  <div className="h-3 bg-gray-50 rounded-full overflow-hidden flex">
+                    {ms.newAmt > 0 && <div className="h-full bg-[#4F8EF7]" style={{ width: `${(ms.newAmt / maxBarAmt) * 100}%` }} />}
+                    {ms.confAmt > 0 && <div className="h-full bg-[#8B5CF6]" style={{ width: `${(ms.confAmt / maxBarAmt) * 100}%` }} />}
+                    {ms.compAmt > 0 && <div className="h-full bg-[#22C55E]" style={{ width: `${(ms.compAmt / maxBarAmt) * 100}%` }} />}
+                  </div>
+                </div>
+              );
+            })}
+            <div className="flex items-center gap-4 pt-1">
+              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#4F8EF7]" /><span className="text-[9px] text-gray-400">{tt.newAmt || 'New'}</span></div>
+              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#8B5CF6]" /><span className="text-[9px] text-gray-400">{tt.confAmt || 'Conf.'}</span></div>
+              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#22C55E]" /><span className="text-[9px] text-gray-400">{tt.compAmt || 'Comp.'}</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Per-member table */}
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr className="bg-gray-50 text-gray-500">
+              <th className="text-left px-3 py-2 font-semibold">{lang === 'ZH' ? '成员' : 'Member'}</th>
+              <th className="text-center px-2 py-2 font-semibold text-[#4F8EF7]">{tt.newProjects || 'New'}</th>
+              <th className="text-right px-2 py-2 font-semibold text-[#4F8EF7]">{tt.newAmt || 'New Amt'}</th>
+              <th className="text-center px-2 py-2 font-semibold text-[#8B5CF6]">{tt.confirmed || 'Confirmed'}</th>
+              <th className="text-right px-2 py-2 font-semibold text-[#8B5CF6]">{tt.confAmt || 'Conf. Amt'}</th>
+              <th className="text-center px-2 py-2 font-semibold text-[#22C55E]">{tt.completed || 'Completed'}</th>
+              <th className="text-right px-2 py-2 font-semibold text-[#22C55E]">{tt.compAmt || 'Comp. Amt'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {memberStats.map(ms => (
+              <tr key={ms.userId} className="border-t border-gray-50 hover:bg-gray-50/50">
+                <td className="px-3 py-2 font-medium text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0"
+                      style={{ background: ms.isOwner ? 'linear-gradient(135deg, #F0B90B, #D4A00A)' : 'linear-gradient(135deg, #4F8EF7, #8B5CF6)' }}>
+                      {ms.name[0].toUpperCase()}
+                    </div>
+                    <span className="truncate">{ms.name}</span>
+                    {ms.isYou && <span className="text-[9px] text-gray-400">({tt.you || 'You'})</span>}
+                  </div>
+                </td>
+                <td className="text-center px-2 py-2 font-bold text-[#4F8EF7]">{ms.newCount}</td>
+                <td className="text-right px-2 py-2 text-gray-600">{fmtAmt(ms.newAmt)}</td>
+                <td className="text-center px-2 py-2 font-bold text-[#8B5CF6]">{ms.confCount}</td>
+                <td className="text-right px-2 py-2 text-gray-600">{fmtAmt(ms.confAmt)}</td>
+                <td className="text-center px-2 py-2 font-bold text-[#22C55E]">{ms.compCount}</td>
+                <td className="text-right px-2 py-2 text-gray-600">{fmtAmt(ms.compAmt)}</td>
+              </tr>
+            ))}
+            <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold">
+              <td className="px-3 py-2 text-gray-800">TOTAL</td>
+              <td className="text-center px-2 py-2 text-[#4F8EF7]">{totals.newCount}</td>
+              <td className="text-right px-2 py-2 text-gray-800">{fmtAmt(totals.newAmt)}</td>
+              <td className="text-center px-2 py-2 text-[#8B5CF6]">{totals.confCount}</td>
+              <td className="text-right px-2 py-2 text-gray-800">{fmtAmt(totals.confAmt)}</td>
+              <td className="text-center px-2 py-2 text-[#22C55E]">{totals.compCount}</td>
+              <td className="text-right px-2 py-2 text-gray-800">{fmtAmt(totals.compAmt)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main Dashboard ────────────────────────────────────────────────────── */
 export default function DesignerDashboard() {
-  const { t, prices } = useI18n();
+  const { t, prices, lang } = useI18n();
   const router = useRouter();
   const supabase = createClient();
+  const { viewingMemberId, viewingAll, isReadOnly, isOwner, teamMembers, currentUserId, setViewingMember, setViewingAll, getMemberName } = useTeamContext();
+
+  // Elite owner's dashboard shows Team Performance by default
+  // When clicking own name (viewingMemberId === currentUserId), show own Kanban only
+  const viewingSelf = viewingMemberId !== null && viewingMemberId === currentUserId;
+  const showTeamPerformance = isOwner && !viewingMemberId;
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [search, setSearch] = useState('');
@@ -362,17 +636,39 @@ export default function DesignerDashboard() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
-  useEffect(() => { loadAll(); }, []);
+  // Team performance month picker
+  const [perfMonth, setPerfMonth] = useState(() => new Date().toISOString().slice(0, 7));
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadAll(); }, [viewingMemberId, viewingAll, isOwner]);
 
   const loadAll = async () => {
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (!authUser) return;
     const uid = authUser.id;
 
-    // Load projects
-    const { data: projs } = await supabase
-      .from('projects').select('*').eq('designer_id', uid).order('updated_at', { ascending: false });
-    const projList: Project[] = projs || [];
+    // Load projects — Elite owner uses server API (bypasses RLS for cross-team reads)
+    // Kanban filtering is done on the client side
+    let projList: Project[] = [];
+    if (isOwner && teamMembers.length > 0) {
+      try {
+        const res = await fetch('/api/team/projects');
+        if (res.ok) {
+          const data = await res.json();
+          projList = data.projects || [];
+        }
+      } catch { /* fallback below */ }
+    }
+    if (projList.length === 0 && !(isOwner && teamMembers.length > 0)) {
+      let query = supabase.from('projects').select('*');
+      if (viewingMemberId) {
+        query = query.eq('designer_id', viewingMemberId);
+      } else {
+        query = query.eq('designer_id', uid);
+      }
+      const { data: projs } = await query.order('updated_at', { ascending: false });
+      projList = projs || [];
+    }
     setProjects(projList);
 
     // Load gantt tasks for calendar (next 30 days)
@@ -510,6 +806,7 @@ export default function DesignerDashboard() {
 
   /* ─── Drag handlers ─────────────────────────────────────────────────── */
   const handleDrop = async (targetStatus: string) => {
+    if (viewingMemberId && !viewingSelf) return;
     if (!draggingId) { setDragOverCol(null); return; }
     const proj = projects.find(p => p.id === draggingId);
     if (!proj || proj.status === targetStatus) { setDraggingId(null); setDragOverCol(null); return; }
@@ -548,17 +845,42 @@ export default function DesignerDashboard() {
   };
 
   /* ─── Derived data ──────────────────────────────────────────────────── */
-  const filtered = projects.filter(p =>
+  // For Kanban: filter to specific user's projects when applicable
+  const kanbanProjects = (() => {
+    let base = projects;
+    // Elite owner default: show only own projects in Kanban
+    if (isOwner && !viewingMemberId && currentUserId) {
+      base = projects.filter(p => p.designer_id === currentUserId);
+    }
+    // Viewing a specific member: show only their projects
+    if (viewingMemberId) {
+      base = projects.filter(p => p.designer_id === viewingMemberId);
+    }
+    return base;
+  })();
+
+  const searchFiltered = kanbanProjects.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     (p.client_name || '').toLowerCase().includes(search.toLowerCase())
   );
+
+  // When showing team performance, filter Kanban cards by selected month
+  const filtered = showTeamPerformance
+    ? (() => {
+        const mStart = `${perfMonth}-01`;
+        const [yr, mo] = perfMonth.split('-').map(Number);
+        const mEnd = mo === 12 ? `${yr + 1}-01-01` : `${yr}-${String(mo + 1).padStart(2, '0')}-01`;
+        return searchFiltered.filter(p => p.created_at >= mStart && p.created_at < mEnd);
+      })()
+    : searchFiltered;
+
   const pending   = filtered.filter(p => p.status === 'pending');
   const active    = filtered.filter(p => p.status === 'active');
   const completed = filtered.filter(p => p.status === 'completed');
 
   const totalPendingVal = pending.reduce((s, p) => s + (p.contract_amount || 0), 0);
   const totalActiveVal  = active.reduce((s, p) => s + (p.contract_amount || 0), 0);
-  const completionRate  = projects.length > 0 ? Math.round((completed.length / projects.length) * 100) : 0;
+  const completionRate  = kanbanProjects.length > 0 ? Math.round((completed.length / kanbanProjects.length) * 100) : 0;
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -589,8 +911,28 @@ export default function DesignerDashboard() {
         </div>
       </div>
 
-      {/* ── KPI Stats ───────────────────────────────────────────────────── */}
-      {!loading && (
+      {/* ── Team read-only banner (only when viewing another member) ── */}
+      {viewingMemberId && !viewingSelf && (
+        <div className="px-6 py-2.5 bg-gradient-to-r from-[#4F8EF7]/10 to-[#8B5CF6]/10 border-b border-[#4F8EF7]/20 flex items-center gap-3 flex-shrink-0">
+          <Eye className="w-4 h-4 text-[#4F8EF7]" />
+          <span className="text-xs font-semibold text-[#4F8EF7]">
+            {((t as { team?: { viewingMember?: string } }).team?.viewingMember || "Viewing {name}'s projects").replace('{name}', getMemberName(viewingMemberId))}
+          </span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#4F8EF7]/15 text-[#4F8EF7] font-bold">
+            {(t as { team?: { readOnly?: string } }).team?.readOnly || 'Read-only'}
+          </span>
+          <button
+            onClick={() => { setViewingMember(null); setViewingAll(false); }}
+            className="ml-auto flex items-center gap-1 text-xs font-semibold text-[#4F8EF7] hover:text-[#3B7BE8] transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            {(t as { team?: { backToMine?: string } }).team?.backToMine || 'Back to my dashboard'}
+          </button>
+        </div>
+      )}
+
+      {/* ── KPI Stats (hidden when Team Performance panel is visible) ── */}
+      {!loading && !showTeamPerformance && (
         <div className="px-5 py-3 flex-shrink-0">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <KpiCard icon={BarChart2}     color="#3B82F6" iconBg="rgba(59,130,246,0.1)"
@@ -603,11 +945,23 @@ export default function DesignerDashboard() {
               label={t.dash.completedProjects}   value={completed.length}
               sub={`${t.dash.completionRate} ${completionRate}%`} />
             <KpiCard icon={FolderOpen}    color="#8B5CF6" iconBg="rgba(139,92,246,0.1)"
-              label={t.dash.allProjects}  value={projects.length}
+              label={t.dash.allProjects}  value={kanbanProjects.length}
               sub={unreadCount > 0 ? `${unreadCount} ${t.dash.reminders}` : t.dash.noReminders} />
           </div>
         </div>
       )}
+
+      {/* ── Team Performance Panel (Elite owner default + ALL view) ────── */}
+      {showTeamPerformance && !loading && <TeamPerformancePanel
+        projects={projects}
+        teamMembers={teamMembers}
+        currentUserId={currentUserId}
+        perfMonth={perfMonth}
+        setPerfMonth={setPerfMonth}
+        currency={prices.currency}
+        lang={lang}
+        t={t as unknown as { team?: Record<string, string> } & Record<string, unknown>}
+      />}
 
       {/* ── Drag hint ───────────────────────────────────────────────────── */}
       {draggingId && (
@@ -672,13 +1026,16 @@ export default function DesignerDashboard() {
                   dot={col.dot}
                   count={col.projects.length}
                   projects={col.projects}
-                  isDragOver={dragOverCol === col.key && draggingId !== null}
-                  onDragOver={() => setDragOverCol(col.key)}
-                  onDrop={() => handleDrop(col.key)}
+                  isDragOver={(!viewingMemberId || viewingSelf) && dragOverCol === col.key && draggingId !== null}
+                  onDragOver={() => (!viewingMemberId || viewingSelf) && setDragOverCol(col.key)}
+                  onDrop={() => (!viewingMemberId || viewingSelf) && handleDrop(col.key)}
                   onDragLeave={() => setDragOverCol(null)}
                   onCardClick={id => !draggingId && router.push(`/designer/projects/${id}`)}
-                  onCardDragStart={setDraggingId}
-                  onAddProject={col.key !== 'completed' ? () => setShowNewProject(true) : undefined}
+                  onCardDragStart={(viewingMemberId && !viewingSelf) ? () => {} : setDraggingId}
+                  onAddProject={(!viewingMemberId || viewingSelf) && col.key !== 'completed' ? () => setShowNewProject(true) : undefined}
+                  readOnly={!!viewingMemberId && !viewingSelf}
+                  viewingAll={showTeamPerformance || viewingAll}
+                  getMemberName={getMemberName}
                 />
               ))
             )}

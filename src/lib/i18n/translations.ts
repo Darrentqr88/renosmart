@@ -75,6 +75,14 @@ export interface Trans {
     today: string; addEvent: string; noEvents: string;
     meetingVisit: string; milestoneMark: string;
   };
+  team: {
+    title: string; allProjects: string; viewingMember: string; viewingAll: string;
+    backToMine: string; you: string; readOnly: string;
+    performance: string; totalMonthlyAmt: string; newProjects: string;
+    confirmed: string; completed: string; members: string;
+    newAmt: string; confAmt: string; compAmt: string;
+    statusDist: string; memberAmount: string;
+  };
   costDb: string;
   owner: {
     progress: string; docs: string; payments: string; photos: string; approvals: string;
@@ -223,6 +231,15 @@ const EN: Trans = {
   cal: {
     today: 'Today', addEvent: 'Add Event', noEvents: 'No events for this day',
     meetingVisit: 'Meeting/Visit', milestoneMark: 'Milestone',
+  },
+  team: {
+    title: 'TEAM', allProjects: 'All Projects', viewingMember: "Viewing {name}'s projects",
+    viewingAll: 'All team projects', backToMine: 'Back to my dashboard',
+    you: 'You', readOnly: 'Read-only',
+    performance: 'Team Performance', totalMonthlyAmt: 'Monthly Amount',
+    newProjects: 'New', confirmed: 'Confirmed', completed: 'Completed', members: 'Members',
+    newAmt: 'New Amt', confAmt: 'Conf. Amt', compAmt: 'Comp. Amt',
+    statusDist: 'Status Distribution', memberAmount: 'Per-Member Amount',
   },
   costDb: 'Cost Database',
   owner: {
@@ -379,6 +396,15 @@ const ZH: Trans = {
   cal: {
     today: '今天', addEvent: '添加事项', noEvents: '当天无事项',
     meetingVisit: '会议/拜访', milestoneMark: '里程碑',
+  },
+  team: {
+    title: '团队', allProjects: '全部项目', viewingMember: '正在查看 {name} 的项目',
+    viewingAll: '全部团队项目', backToMine: '返回我的面板',
+    you: '你', readOnly: '只读',
+    performance: '团队表现', totalMonthlyAmt: '本月金额',
+    newProjects: '新项目', confirmed: '已确认', completed: '已完工', members: '成员',
+    newAmt: '新项目额', confAmt: '确认额', compAmt: '完工额',
+    statusDist: '状态分布', memberAmount: '各成员金额',
   },
   costDb: '成本数据库',
   owner: {

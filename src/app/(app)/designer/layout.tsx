@@ -73,6 +73,7 @@ export default async function DesignerLayout({ children }: { children: React.Rea
     }
 
     // Elite owner without team_id on profile: check if they own a team
+    // Must also sum all team members' usage (not just personal)
     if (basePlan === 'elite' && aiLimit === Infinity) {
       try {
         const admin = createAdminClient(
@@ -82,10 +83,28 @@ export default async function DesignerLayout({ children }: { children: React.Rea
         );
         const { data: ownedTeam } = await admin
           .from('teams')
-          .select('elite_slots')
+          .select('id, elite_slots')
           .eq('owner_user_id', user.id)
           .single();
-        if (ownedTeam) aiLimit = (ownedTeam.elite_slots ?? 1) * 250;
+        if (ownedTeam) {
+          aiLimit = (ownedTeam.elite_slots ?? 1) * 250;
+
+          // Sum all team members' usage for this month (same logic as team_id branch)
+          const { data: members } = await admin
+            .from('team_members')
+            .select('user_id')
+            .eq('team_id', ownedTeam.id)
+            .eq('status', 'active');
+          const memberIds = (members || []).map((m: { user_id: string }) => m.user_id).filter(Boolean);
+          if (!memberIds.includes(user.id)) memberIds.push(user.id);
+
+          const { data: usageRows } = await admin
+            .from('ai_usage')
+            .select('usage_count')
+            .in('user_id', memberIds)
+            .eq('year_month', yearMonth);
+          aiUsed = (usageRows || []).reduce((sum: number, r: { usage_count: number }) => sum + (r.usage_count || 0), 0);
+        }
       } catch { /* keep Infinity */ }
     }
   }

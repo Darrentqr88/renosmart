@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useI18n } from '@/lib/i18n/context';
 import { createClient } from '@/lib/supabase/client';
 import { Profile, Project } from '@/types';
+import { useTeamContext } from '@/lib/team/TeamContext';
 import {
   LayoutDashboard, FolderOpen, Users,
   TrendingUp, Receipt, Settings, Sparkles, ChevronRight,
@@ -39,6 +40,8 @@ export function Sidebar({ profile, aiUsed = 0, aiLimit = 3, isOpen, onClose }: S
   const { lang, t } = useI18n();
   const pathname = usePathname();
   const supabase = createClient();
+  const { teamMembers, isOwner, viewingMemberId, viewingAll, currentUserId, setViewingMember, setViewingAll } = useTeamContext();
+  // viewingAll and setViewingAll used internally for highlight logic
 
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
 
@@ -100,6 +103,61 @@ export function Sidebar({ profile, aiUsed = 0, aiLimit = 3, isOpen, onClose }: S
             );
           })}
         </div>
+
+        {/* Team Section — Elite Owner only (below Workers) */}
+        {isOwner && teamMembers.length > 0 && (
+          <>
+            <div className="sidebar-label" style={{ marginTop: 4 }}>
+              {(t as { team?: { title?: string } }).team?.title || 'TEAM'}
+            </div>
+            <div className="sidebar-section">
+              {teamMembers.map((member) => {
+                const isYou = member.user_id === currentUserId;
+                const isActive = viewingMemberId === member.user_id;
+                const initial = (member.name || member.email || '?')[0].toUpperCase();
+                return (
+                  <button
+                    key={member.id}
+                    onClick={() => {
+                      if (isYou) {
+                        // Toggle: if already viewing self, go back to team dashboard
+                        if (viewingMemberId === member.user_id) {
+                          setViewingMember(null);
+                        } else {
+                          setViewingMember(member.user_id);
+                        }
+                        // Note: setViewingMember already clears teamView param
+                      } else {
+                        setViewingMember(member.user_id);
+                      }
+                      onClose?.();
+                    }}
+                    className={`nav-item w-full text-left${isActive || (isYou && !viewingMemberId && !viewingAll) ? ' active' : ''}`}
+                  >
+                    <div
+                      className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0"
+                      style={{
+                        background: member.avatar_url
+                          ? `url(${member.avatar_url}) center/cover`
+                          : `linear-gradient(135deg, ${member.role === 'owner' ? '#F0B90B, #D4A00A' : '#4F8EF7, #8B5CF6'})`,
+                      }}
+                    >
+                      {!member.avatar_url && initial}
+                    </div>
+                    <span className="nav-label truncate">
+                      {member.name || member.email?.split('@')[0]}
+                      {isYou && (
+                        <span className="text-[10px] text-[#8B8BA8] ml-1">
+                          ({(t as { team?: { you?: string } }).team?.you || 'You'})
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         <div className="sidebar-label" style={{ marginTop: 4 }}>
           {lang === 'ZH' ? '数据库' : 'DATABASES'}

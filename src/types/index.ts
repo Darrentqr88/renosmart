@@ -22,8 +22,19 @@ export interface Profile {
   trades?: string[];
   plan: PlanType;
   avatar_url?: string;
+  team_id?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface TeamMember {
+  id: string;
+  user_id: string | null;
+  email: string;
+  name?: string;
+  avatar_url?: string;
+  role: 'owner' | 'member';
+  status: 'pending' | 'active' | 'removed';
 }
 
 export interface Project {

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n/context';
+import { TeamProvider } from '@/lib/team/TeamContext';
 import { Sidebar } from './Sidebar';
 import { Profile } from '@/types';
 import {
@@ -18,7 +19,7 @@ interface DesignerShellProps {
   children: React.ReactNode;
 }
 
-export function DesignerShell({ profile, aiUsed, aiLimit, isTeamMember, children }: DesignerShellProps) {
+function DesignerShellInner({ profile, aiUsed, aiLimit, isTeamMember, children }: DesignerShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const { t } = useI18n();
@@ -80,5 +81,15 @@ export function DesignerShell({ profile, aiUsed, aiLimit, isTeamMember, children
         })}
       </nav>
     </div>
+  );
+}
+
+export function DesignerShell(props: DesignerShellProps) {
+  return (
+    <Suspense fallback={null}>
+      <TeamProvider profile={props.profile}>
+        <DesignerShellInner {...props} />
+      </TeamProvider>
+    </Suspense>
   );
 }

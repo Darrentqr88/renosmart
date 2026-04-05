@@ -9,11 +9,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Search, Plus, MapPin, MoreVertical, Pencil, Trash2, Check, X, FolderOpen } from 'lucide-react';
+import { Search, Plus, MapPin, MoreVertical, Pencil, Trash2, Check, X, FolderOpen, ArrowLeft, Eye } from 'lucide-react';
+import { useTeamContext } from '@/lib/team/TeamContext';
 
 export default function ProjectsListPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { viewingMemberId, viewingAll, isReadOnly, teamMembers, getMemberName, setViewingMember, setViewingAll } = useTeamContext();
   const [projects, setProjects] = useState<Project[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -34,11 +36,20 @@ export default function ProjectsListPage() {
     (async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
-      const { data } = await supabase.from('projects').select('*').eq('designer_id', authUser.id).order('updated_at', { ascending: false });
+      let query = supabase.from('projects').select('*');
+      if (viewingAll && teamMembers.length > 0) {
+        const memberIds = teamMembers.filter(m => m.user_id).map(m => m.user_id!);
+        query = query.in('designer_id', memberIds);
+      } else if (viewingMemberId) {
+        query = query.eq('designer_id', viewingMemberId);
+      } else {
+        query = query.eq('designer_id', authUser.id);
+      }
+      const { data } = await query.order('updated_at', { ascending: false });
       setProjects(data || []);
       setLoading(false);
     })();
-  }, []);
+  }, [viewingMemberId, viewingAll]);
 
   // Close menu on outside click
   useEffect(() => {
@@ -95,14 +106,33 @@ export default function ProjectsListPage() {
 
   return (
     <div className="flex-1 p-4 md:p-6">
+      {/* Team read-only banner */}
+      {isReadOnly && (
+        <div className="mb-4 px-4 py-2.5 bg-gradient-to-r from-[#4F8EF7]/10 to-[#8B5CF6]/10 rounded-xl flex items-center gap-3">
+          <Eye className="w-4 h-4 text-[#4F8EF7]" />
+          <span className="text-xs font-semibold text-[#4F8EF7]">
+            {viewingAll ? 'All team projects' : `Viewing ${viewingMemberId ? getMemberName(viewingMemberId) : ''}'s projects`}
+          </span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#4F8EF7]/15 text-[#4F8EF7] font-bold">Read-only</span>
+          <button
+            onClick={() => { setViewingMember(null); setViewingAll(false); }}
+            className="ml-auto flex items-center gap-1 text-xs font-semibold text-[#4F8EF7] hover:text-[#3B7BE8]"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Back
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
           <p className="text-gray-500 mt-1">{projects.length} total projects</p>
         </div>
-        <Button variant="gold" onClick={() => router.push('/designer')} className="gap-2">
-          <Plus className="w-4 h-4" /> New Project
-        </Button>
+        {!isReadOnly && (
+          <Button variant="gold" onClick={() => router.push('/designer')} className="gap-2">
+            <Plus className="w-4 h-4" /> New Project
+          </Button>
+        )}
       </div>
 
       <div className="relative max-w-sm mb-4">
@@ -217,33 +247,35 @@ export default function ProjectsListPage() {
                     {project.status}
                   </Badge>
 
-                  {/* ⋮ menu button */}
-                  <div className="relative">
-                    <button
-                      onClick={e => { e.stopPropagation(); setMenuOpenId(menuOpenId === project.id ? null : project.id); }}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-                    >
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
+                  {/* ⋮ menu button — hidden in read-only */}
+                  {!isReadOnly && (
+                    <div className="relative">
+                      <button
+                        onClick={e => { e.stopPropagation(); setMenuOpenId(menuOpenId === project.id ? null : project.id); }}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
 
-                    {menuOpenId === project.id && (
-                      <div className="absolute right-0 top-8 w-36 bg-white rounded-xl border border-gray-200 shadow-lg z-20 overflow-hidden"
-                        onClick={e => e.stopPropagation()}>
-                        <button
-                          onClick={e => handleRenameStart(project, e)}
-                          className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                          <Pencil className="w-3.5 h-3.5 text-gray-400" /> 改名
-                        </button>
-                        <button
-                          onClick={e => handleDeleteConfirm(project.id, e)}
-                          className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" /> 删除
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                      {menuOpenId === project.id && (
+                        <div className="absolute right-0 top-8 w-36 bg-white rounded-xl border border-gray-200 shadow-lg z-20 overflow-hidden"
+                          onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={e => handleRenameStart(project, e)}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5 text-gray-400" /> 改名
+                          </button>
+                          <button
+                            onClick={e => handleDeleteConfirm(project.id, e)}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> 删除
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -257,7 +289,17 @@ export default function ProjectsListPage() {
               <Progress value={project.progress} className="h-1.5 mb-3" />
               <div className="flex items-center justify-between text-sm">
                 <span className="font-semibold text-gray-900">{formatCurrency(project.contract_amount)}</span>
-                <span className="text-xs text-gray-400">{formatDate(project.updated_at)}</span>
+                <div className="flex items-center gap-2">
+                  {viewingAll && (
+                    <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                      <div className="w-3 h-3 rounded-full bg-gradient-to-br from-[#4F8EF7] to-[#8B5CF6] flex items-center justify-center text-white text-[7px] font-bold">
+                        {getMemberName(project.designer_id)[0]?.toUpperCase() || '?'}
+                      </div>
+                      {getMemberName(project.designer_id).split(' ')[0]}
+                    </span>
+                  )}
+                  <span className="text-xs text-gray-400">{formatDate(project.updated_at)}</span>
+                </div>
               </div>
               </div>
             </div>
