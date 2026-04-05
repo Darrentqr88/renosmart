@@ -643,7 +643,8 @@ export default function QuotationPage() {
       toast({ title: '✅ 已保存至项目', description: linkedProjectName });
       return linkedProjectId;
     } catch (err) {
-      toast({ variant: 'destructive', title: '保存失败', description: String(err) });
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message || JSON.stringify(err);
+      toast({ variant: 'destructive', title: '保存失败', description: msg });
       return null;
     } finally {
       setIsSaving(false);
@@ -746,7 +747,8 @@ export default function QuotationPage() {
       // Auto-navigate to the project detail page
       router.push(`/designer/projects/${projectId}`);
     } catch (err) {
-      toast({ variant: 'destructive', title: '保存失败', description: String(err) });
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message || JSON.stringify(err);
+      toast({ variant: 'destructive', title: '保存失败', description: msg });
     } finally {
       setIsSaving(false);
     }
