@@ -3,6 +3,7 @@
 import posthog from 'posthog-js';
 import { PostHogProvider as PHProvider } from 'posthog-js/react';
 import { useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -35,6 +36,37 @@ export function CrispChat() {
     s.src = 'https://client.crisp.chat/l.js';
     s.async = true;
     document.head.appendChild(s);
+
+    // After Crisp loads, identify logged-in user
+    s.onload = async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('name, email, plan, company')
+          .eq('user_id', user.id)
+          .single();
+
+        const crisp = (window as unknown as Record<string, unknown[]>).$crisp;
+        if (!crisp || !profile) return;
+
+        if (profile.email) crisp.push(['set', 'user:email', [profile.email]]);
+        if (profile.name) crisp.push(['set', 'user:nickname', [profile.name]]);
+        if (profile.company) crisp.push(['set', 'user:company', [profile.company]]);
+        // Tag with plan so you can see in Crisp who is free vs pro
+        crisp.push(['set', 'session:segments', [[profile.plan || 'free']]]);
+        crisp.push(['set', 'session:data', [[
+          ['plan', profile.plan || 'free'],
+          ['user_id', user.id],
+        ]]]);
+      } catch {
+        // Non-critical, ignore errors
+      }
+    };
+
     return () => { s.remove(); };
   }, []);
   return null;
