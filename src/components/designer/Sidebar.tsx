@@ -9,7 +9,7 @@ import { Profile, Project } from '@/types';
 import { useTeamContext } from '@/lib/team/TeamContext';
 import {
   LayoutDashboard, FolderOpen, Users,
-  TrendingUp, Receipt, Settings, Sparkles, ChevronRight,
+  TrendingUp, Receipt, Settings, Sparkles, ChevronRight, Lock,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -28,13 +28,15 @@ const STATUS_DOT: Record<string, string> = {
 };
 
 /* Quotation removed from sidebar per user request — page still accessible via URL */
-const NAV_KEYS: { href: string; icon: typeof LayoutDashboard; key: string }[] = [
+const NAV_KEYS: { href: string; icon: typeof LayoutDashboard; key: string; minPlan?: 'pro' | 'elite' }[] = [
   { href: '/designer',                icon: LayoutDashboard, key: 'dashboard' },
   { href: '/designer/projects',       icon: FolderOpen,      key: 'projects' },
-  { href: '/designer/workers',        icon: Users,           key: 'workers' },
-  { href: '/designer/price-database', icon: TrendingUp,      key: 'priceDb' },
-  { href: '/designer/cost-database',  icon: Receipt,         key: 'costDb' },
+  { href: '/designer/workers',        icon: Users,           key: 'workers',  minPlan: 'pro' },
+  { href: '/designer/price-database', icon: TrendingUp,      key: 'priceDb',  minPlan: 'pro' },
+  { href: '/designer/cost-database',  icon: Receipt,         key: 'costDb',   minPlan: 'elite' },
 ];
+
+const PLAN_RANK: Record<string, number> = { free: 0, pro: 1, elite: 2 };
 
 export function Sidebar({ profile, aiUsed = 0, aiLimit = 3, isOpen, onClose }: SidebarProps) {
   const { lang, t } = useI18n();
@@ -42,6 +44,7 @@ export function Sidebar({ profile, aiUsed = 0, aiLimit = 3, isOpen, onClose }: S
   const supabase = createClient();
   const { teamMembers, isOwner, viewingMemberId, viewingAll, currentUserId, setViewingMember, setViewingAll } = useTeamContext();
   // viewingAll and setViewingAll used internally for highlight logic
+  const userPlan = profile?.plan || 'free';
 
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
 
@@ -87,18 +90,20 @@ export function Sidebar({ profile, aiUsed = 0, aiLimit = 3, isOpen, onClose }: S
           {lang === 'ZH' ? '工作台' : 'WORKSPACE'}
         </div>
         <div className="sidebar-section">
-          {NAV_KEYS.slice(0, 3).map(({ href, icon: Icon, key }) => {
+          {NAV_KEYS.slice(0, 3).map(({ href, icon: Icon, key, minPlan }) => {
             const active = pathname === href || (href !== '/designer' && pathname.startsWith(href));
+            const locked = minPlan && (PLAN_RANK[userPlan] ?? 0) < (PLAN_RANK[minPlan] ?? 0);
             return (
               <Link
                 key={href}
                 href={href}
-                className={`nav-item${active ? ' active' : ''}`}
+                className={`nav-item${active ? ' active' : ''}${locked ? ' opacity-60' : ''}`}
                 aria-current={active ? 'page' : undefined}
                 onClick={handleNavClick}
               >
                 <Icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.6} />
                 <span className="nav-label">{key === 'costDb' ? t.costDb : (t.nav as Record<string, string>)[key] || key}</span>
+                {locked && <Lock className="w-3 h-3 text-[#C7C7CC] ml-auto flex-shrink-0" />}
               </Link>
             );
           })}
@@ -163,18 +168,20 @@ export function Sidebar({ profile, aiUsed = 0, aiLimit = 3, isOpen, onClose }: S
           {lang === 'ZH' ? '数据库' : 'DATABASES'}
         </div>
         <div className="sidebar-section">
-          {NAV_KEYS.slice(3, 5).map(({ href, icon: Icon, key }) => {
+          {NAV_KEYS.slice(3, 5).map(({ href, icon: Icon, key, minPlan }) => {
             const active = pathname === href || pathname.startsWith(href);
+            const locked = minPlan && (PLAN_RANK[userPlan] ?? 0) < (PLAN_RANK[minPlan] ?? 0);
             return (
               <Link
                 key={href}
                 href={href}
-                className={`nav-item${active ? ' active' : ''}`}
+                className={`nav-item${active ? ' active' : ''}${locked ? ' opacity-60' : ''}`}
                 aria-current={active ? 'page' : undefined}
                 onClick={handleNavClick}
               >
                 <Icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.6} />
                 <span className="nav-label">{key === 'costDb' ? t.costDb : (t.nav as Record<string, string>)[key] || key}</span>
+                {locked && <Lock className="w-3 h-3 text-[#C7C7CC] ml-auto flex-shrink-0" />}
               </Link>
             );
           })}

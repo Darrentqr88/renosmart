@@ -4,6 +4,7 @@ import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { checkRateLimit } from '@/lib/ai/rate-limit';
+import { sendQuotaHitEmail } from '@/lib/email/resend';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
 
@@ -64,11 +65,13 @@ export async function POST(req: NextRequest) {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('plan, team_id')
+        .select('plan, team_id, email, name')
         .eq('user_id', userId)
         .single();
 
       let userPlan = profile?.plan || 'free';
+      const userEmail = (profile as { email?: string } | null)?.email ?? '';
+      const userName = (profile as { name?: string } | null)?.name ?? '';
       const teamId = (profile as { plan: string; team_id?: string } | null)?.team_id ?? null;
 
       // Check team Elite quota (shared pool)
@@ -112,7 +115,14 @@ export async function POST(req: NextRequest) {
 
           if (teamUsage >= teamMonthlyLimit) {
             return NextResponse.json(
-              { error: `团队 AI 配额已用完 (${teamUsage}/${teamMonthlyLimit})。请购买更多 Elite 配套。` },
+              {
+                error: `团队 AI 配额已用完 (${teamUsage}/${teamMonthlyLimit})。请购买更多 Elite 配套。`,
+                quota_exceeded: true,
+                plan: 'elite',
+                usage: teamUsage,
+                limit: teamMonthlyLimit,
+                upgrade_url: '/designer/pricing?reason=quota_hit',
+              },
               { status: 429 }
             );
           }
@@ -145,8 +155,17 @@ export async function POST(req: NextRequest) {
         }
 
         if (totalUsage >= limit) {
+          // Send quota-hit email (fire-and-forget)
+          if (userEmail) sendQuotaHitEmail(userEmail, userName, userPlan).catch(() => {});
           return NextResponse.json(
-            { error: `AI quota exceeded. Please upgrade your plan. (${totalUsage}/${limit === Infinity ? '∞' : limit} used)` },
+            {
+              error: `AI quota exceeded. Please upgrade your plan. (${totalUsage}/${limit === Infinity ? '∞' : limit} used)`,
+              quota_exceeded: true,
+              plan: userPlan,
+              usage: totalUsage,
+              limit,
+              upgrade_url: '/designer/pricing?reason=quota_hit',
+            },
             { status: 429 }
           );
         }
