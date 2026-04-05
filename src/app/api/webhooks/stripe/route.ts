@@ -54,6 +54,35 @@ export async function POST(req: NextRequest) {
             })
             .eq('user_id', userId);
 
+          // ── Referral conversion: mark as converted + reward referrer ──
+          try {
+            const { data: referral } = await supabase
+              .from('referrals')
+              .select('id, referrer_user_id, status')
+              .eq('referred_user_id', userId)
+              .eq('status', 'pending')
+              .single();
+
+            if (referral) {
+              // Mark referral as rewarded + give referrer bonus audits
+              await supabase
+                .from('referrals')
+                .update({
+                  status: 'rewarded',
+                  reward_type: 'bonus_5_audits',
+                  converted_at: new Date().toISOString(),
+                })
+                .eq('id', referral.id);
+
+              // Give referrer +5 bonus: count rewarded referrals in quota check
+              // (see claude/route.ts — quota check deducts referral bonuses)
+              console.log(`Referral rewarded: ${referral.referrer_user_id} earned +5 audits for referring ${userId} (plan: ${plan})`);
+            }
+          } catch (refErr) {
+            // Non-critical: don't fail the webhook
+            console.error('Referral processing error:', refErr);
+          }
+
           // For Elite: ensure team has elite_slots = 1 (first purchase)
           if (plan === 'elite') {
             const { data: existingTeam } = await supabase

@@ -131,7 +131,20 @@ export async function POST(req: NextRequest) {
       }
 
       if (userPlan !== 'elite') {
-        const limit = PLAN_LIMITS[userPlan] ?? 0;
+        let baseLimit = PLAN_LIMITS[userPlan] ?? 0;
+
+        // Referral bonus: each rewarded referral = +5 audits
+        try {
+          const { data: rewardedRefs } = await supabase
+            .from('referrals')
+            .select('id')
+            .eq('referrer_user_id', userId)
+            .eq('status', 'rewarded');
+          const bonusAudits = ((rewardedRefs || []).length) * 5;
+          baseLimit += bonusAudits;
+        } catch { /* non-critical */ }
+
+        const limit = baseLimit;
         const yearMonth = new Date().toISOString().slice(0, 7);
 
         let totalUsage = 0;
