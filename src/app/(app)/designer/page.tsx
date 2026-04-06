@@ -635,98 +635,171 @@ function TeamPerformancePanel({ projects, teamMembers, currentUserId, perfMonth,
           </div>
         </div>
 
-        {/* Member Performance — 8 cols */}
-        <div className="lg:col-span-8 bg-white rounded-xl border border-gray-100/80 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
-          {/* Table header */}
-          <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.12em]">{tt.memberAmount || 'Member Performance'}</h3>
-            <div className="flex items-center gap-3">
-              {[
-                { color: '#4F8EF7', label: tt.newProjects || 'Pipeline' },
-                { color: '#8B5CF6', label: tt.confirmed || 'Confirmed' },
-                { color: '#22C55E', label: tt.completed || 'Completed' },
-              ].map((l, i) => (
+        {/* 6-Month Trend — 8 cols: grouped bar chart comparing New/Confirmed/Completed over 6 months */}
+        <div className="lg:col-span-8 bg-white rounded-xl border border-gray-100/80 shadow-sm hover:shadow-md transition-shadow duration-300 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.12em]">{lang === 'ZH' ? '6个月趋势' : '6-Month Trend'}</h3>
+            <div className="flex items-center gap-4">
+              {[{ label: tt.newProjects || 'New', color: '#4F8EF7' }, { label: tt.confirmed || 'Confirmed', color: '#8B5CF6' }, { label: tt.completed || 'Completed', color: '#22C55E' }].map((l, i) => (
                 <div key={i} className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-sm" style={{ background: l.color }} />
-                  <span className="text-[9px] font-semibold text-gray-400">{l.label}</span>
+                  <span className="text-[10px] font-medium text-gray-500">{l.label}</span>
                 </div>
               ))}
             </div>
           </div>
+          {(() => {
+            // Build 6-month data: current month + 5 previous
+            const months6: { key: string; label: string; newCount: number; newAmt: number; confCount: number; confAmt: number; compCount: number; compAmt: number }[] = [];
+            for (let offset = 5; offset >= 0; offset--) {
+              const d = new Date(Number(y), Number(mo) - 1 - offset, 15);
+              const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+              const mStart = `${mk}-01`;
+              const nxtMo = d.getMonth() + 1 === 12 ? `${d.getFullYear() + 1}-01-01` : `${d.getFullYear()}-${String(d.getMonth() + 2).padStart(2, '0')}-01`;
+              const inMo = (ds: string) => ds >= mStart && ds < nxtMo;
+              const mp = projects.filter(p => p.status === 'pending' ? inMo(p.created_at) : inMo(p.updated_at));
+              const pend = mp.filter(p => p.status === 'pending');
+              const act = mp.filter(p => p.status === 'active');
+              const comp = mp.filter(p => p.status === 'completed');
+              const mLabel = d.toLocaleDateString(lang === 'ZH' ? 'zh-CN' : 'en-US', { month: 'short' });
+              months6.push({
+                key: mk, label: mLabel,
+                newCount: pend.length, newAmt: pend.reduce((s, p) => s + (p.contract_amount || 0), 0),
+                confCount: act.length, confAmt: act.reduce((s, p) => s + (p.contract_amount || 0), 0),
+                compCount: comp.length, compAmt: comp.reduce((s, p) => s + (p.contract_amount || 0), 0),
+              });
+            }
+            // Amount-based comparison
+            const maxAmt6 = Math.max(...months6.flatMap(m => [m.newAmt, m.confAmt, m.compAmt]), 1);
+            const isCurrentMonth = (mk: string) => mk === perfMonth;
+            // Compact amount label for bar tops
+            const shortAmt = (v: number) => {
+              if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
+              if (v >= 1000) return `${(v / 1000).toFixed(0)}k`;
+              return v.toLocaleString();
+            };
+            // Y-axis labels
+            const yTop = shortAmt(maxAmt6);
+            const yMid = shortAmt(maxAmt6 / 2);
+            return (
+              <div className="flex items-end gap-1 h-[200px]">
+                {/* Y-axis labels */}
+                <div className="flex flex-col justify-between h-[156px] pr-1 pb-[30px] flex-shrink-0">
+                  <span className="text-[9px] text-gray-300 tabular-nums text-right min-w-[20px]">{yTop}</span>
+                  <span className="text-[9px] text-gray-300 tabular-nums text-right min-w-[20px]">{yMid}</span>
+                  <span className="text-[9px] text-gray-300 tabular-nums text-right min-w-[20px]">0</span>
+                </div>
+                {months6.map((m) => {
+                  const isCurrent = isCurrentMonth(m.key);
+                  const bars = [
+                    { amt: m.newAmt, color: '#4F8EF7', grad: 'linear-gradient(180deg, #6BA3F9, #4F8EF7, #3B7BE8)' },
+                    { amt: m.confAmt, color: '#8B5CF6', grad: 'linear-gradient(180deg, #A78BFA, #8B5CF6, #7C3AED)' },
+                    { amt: m.compAmt, color: '#22C55E', grad: 'linear-gradient(180deg, #4ADE80, #22C55E, #16A34A)' },
+                  ];
+                  return (
+                    <div key={m.key} className={`flex-1 min-w-0 flex flex-col items-center h-full rounded-lg px-0.5 py-1 ${isCurrent ? 'bg-gray-50/80' : ''}`}>
+                      {/* Bar group area */}
+                      <div className="flex-1 w-full flex items-end justify-center gap-[2px] relative">
+                        {/* Gridlines */}
+                        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                          <div className="border-t border-dashed border-gray-100" />
+                          <div className="border-t border-dashed border-gray-100" />
+                          <div />
+                        </div>
+                        {bars.map((b, bi) => (
+                          <div key={bi} className="relative flex-1 min-w-0 h-full">
+                            <div className="absolute bottom-0 left-0 right-0 rounded-t-md transition-all duration-700"
+                              style={{
+                                height: b.amt > 0 ? `${Math.max(6, (b.amt / maxAmt6) * 100)}%` : '3px',
+                                background: b.amt > 0 ? b.grad : '#E5E7EB',
+                                opacity: isCurrent ? 1 : 0.55,
+                                boxShadow: b.amt > 0 ? `0 2px 8px ${b.color}25` : 'none',
+                              }}>
+                              {b.amt > 0 && (
+                                <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[8px] font-bold tabular-nums whitespace-nowrap" style={{ color: b.color }}>{shortAmt(b.amt)}</div>
+                              )}
+                              {b.amt > 0 && <div className="absolute inset-0 rounded-t-md bg-gradient-to-t from-transparent via-white/10 to-white/25" />}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Month label */}
+                      <div className={`mt-1.5 text-[9px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md ${isCurrent ? 'bg-[#1A1A2E] text-white shadow-sm' : 'text-gray-400'}`}>{m.label}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
+      </div>
 
-          {/* Member rows — scrollable when 5+ members */}
-          <div className={`divide-y divide-gray-50 ${memberStats.length >= 5 ? 'max-h-[320px] overflow-y-auto' : ''}`}
-            style={memberStats.length >= 5 ? { scrollbarWidth: 'thin', scrollbarColor: '#E5E7EB transparent' } : undefined}>
-            {memberStats.map((ms, idx) => {
-              const total = ms.newAmt + ms.confAmt + ms.compAmt;
-              const memberProjects = ms.newCount + ms.confCount + ms.compCount;
-              // Compact mode for 5+ members
-              const compact = memberStats.length >= 5;
-              return (
-                <div key={ms.userId} className={`px-5 hover:bg-gray-50/50 transition-colors ${compact ? 'py-2.5' : 'py-3.5'}`}>
-                  {/* Name + bar + breakdown — single row for compact, multi-row otherwise */}
-                  <div className="flex items-center gap-3 mb-1.5">
-                    <div className={`${compact ? 'w-7 h-7 text-[10px]' : 'w-8 h-8 text-[11px]'} rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0`}
-                      style={{ background: ms.isOwner ? 'linear-gradient(135deg, #F0B90B, #D4A00A)' : 'linear-gradient(135deg, #4F8EF7, #8B5CF6)', boxShadow: '0 2px 8px rgba(79,142,247,0.15)' }}>
+      {/* ── Member Table (full amounts) ─────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+        <table className="w-full text-[12px]">
+          <thead>
+            <tr className="bg-gradient-to-r from-[#1A1A2E] to-[#2D2B55] text-white/70">
+              <th className="text-left px-4 py-3 font-semibold text-[11px] tracking-wide">{lang === 'ZH' ? '成员' : 'Member'}</th>
+              <th className="text-center px-3 py-3 font-semibold text-[11px] tracking-wide">
+                <div className="inline-flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#4F8EF7]" />{tt.newProjects || 'New'}</div>
+              </th>
+              <th className="text-right px-3 py-3 font-semibold text-[11px] tracking-wide text-blue-300">{lang === 'ZH' ? '新项目额' : 'New Amt'}</th>
+              <th className="text-center px-3 py-3 font-semibold text-[11px] tracking-wide">
+                <div className="inline-flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#8B5CF6]" />{tt.confirmed || 'Confirmed'}</div>
+              </th>
+              <th className="text-right px-3 py-3 font-semibold text-[11px] tracking-wide text-purple-300">{lang === 'ZH' ? '确认额' : 'Conf. Amt'}</th>
+              <th className="text-center px-3 py-3 font-semibold text-[11px] tracking-wide">
+                <div className="inline-flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#22C55E]" />{tt.completed || 'Completed'}</div>
+              </th>
+              <th className="text-right px-3 py-3 font-semibold text-[11px] tracking-wide text-green-300">{lang === 'ZH' ? '完工额' : 'Comp. Amt'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {memberStats.map((ms, i) => (
+              <tr key={ms.userId} className={`border-t border-gray-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 1 ? 'bg-gray-50/40' : 'bg-white'}`}>
+                <td className="px-4 py-3 font-medium text-gray-800">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 shadow-sm"
+                      style={{ background: ms.isOwner ? 'linear-gradient(135deg, #F0B90B, #D4A00A)' : 'linear-gradient(135deg, #4F8EF7, #8B5CF6)' }}>
                       {ms.name[0].toUpperCase()}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className={`${compact ? 'text-[12px]' : 'text-[13px]'} font-bold text-gray-800 truncate`}>{ms.name}</span>
-                        {ms.isYou && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-md bg-[#4F8EF7]/10 text-[#4F8EF7] uppercase tracking-wider flex-shrink-0">{tt.you || 'You'}</span>}
-                        {compact && <span className="text-[9px] text-gray-300 flex-shrink-0">{memberProjects}p</span>}
-                      </div>
-                      {!compact && <span className="text-[10px] text-gray-400 font-medium">{memberProjects} {lang === 'ZH' ? '个项目' : 'projects'}</span>}
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className={`${compact ? 'text-[13px]' : 'text-[14px]'} font-black text-gray-800 tabular-nums`}>{fmtAmt(total)}</div>
+                    <div>
+                      <span className="font-semibold text-gray-800">{ms.name}</span>
+                      {ms.isYou && <span className="ml-1.5 text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-500">{tt.you || 'You'}</span>}
                     </div>
                   </div>
-
-                  {/* Stacked bar */}
-                  <div className={`${compact ? 'h-2' : 'h-2.5'} bg-gray-100/80 rounded-lg overflow-hidden flex gap-[2px] mb-1.5`}>
-                    {ms.newAmt > 0 && <div className="h-full rounded-md transition-all duration-500" style={{ width: `${(ms.newAmt / maxBarAmt) * 100}%`, background: 'linear-gradient(90deg, #4F8EF7, #6BA3F9)' }} />}
-                    {ms.confAmt > 0 && <div className="h-full rounded-md transition-all duration-500" style={{ width: `${(ms.confAmt / maxBarAmt) * 100}%`, background: 'linear-gradient(90deg, #8B5CF6, #A78BFA)' }} />}
-                    {ms.compAmt > 0 && <div className="h-full rounded-md transition-all duration-500" style={{ width: `${(ms.compAmt / maxBarAmt) * 100}%`, background: 'linear-gradient(90deg, #22C55E, #4ADE80)' }} />}
-                  </div>
-
-                  {/* Breakdown chips */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#4F8EF7]" />
-                      <span className="text-[10px] font-bold text-[#4F8EF7] tabular-nums">{ms.newCount}</span>
-                      <span className="text-[9px] text-gray-500 tabular-nums">{fmtAmt(ms.newAmt)}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6]" />
-                      <span className="text-[10px] font-bold text-[#8B5CF6] tabular-nums">{ms.confCount}</span>
-                      <span className="text-[9px] text-gray-500 tabular-nums">{fmtAmt(ms.confAmt)}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#22C55E]" />
-                      <span className="text-[10px] font-bold text-[#22C55E] tabular-nums">{ms.compCount}</span>
-                      <span className="text-[9px] text-gray-500 tabular-nums">{fmtAmt(ms.compAmt)}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Total footer */}
-          <div className="px-5 py-3 bg-gradient-to-r from-gray-50 to-gray-100/80 border-t border-gray-200 flex items-center justify-between">
-            <span className="text-[11px] font-black text-gray-500 uppercase tracking-wider">Total</span>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-4">
-                <span className="text-[10px] tabular-nums"><span className="font-bold text-[#4F8EF7]">{totals.newCount}</span> <span className="text-gray-300">|</span> <span className="text-gray-500">{fmtAmt(totals.newAmt)}</span></span>
-                <span className="text-[10px] tabular-nums"><span className="font-bold text-[#8B5CF6]">{totals.confCount}</span> <span className="text-gray-300">|</span> <span className="text-gray-500">{fmtAmt(totals.confAmt)}</span></span>
-                <span className="text-[10px] tabular-nums"><span className="font-bold text-[#22C55E]">{totals.compCount}</span> <span className="text-gray-300">|</span> <span className="text-gray-500">{fmtAmt(totals.compAmt)}</span></span>
-              </div>
-              <div className="h-4 w-px bg-gray-200" />
-              <span className="text-[13px] font-black text-gray-800 tabular-nums">{fmtAmt(totalMonthAmt)}</span>
-            </div>
-          </div>
-        </div>
+                </td>
+                <td className="text-center px-3 py-3 tabular-nums">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-blue-50 font-bold text-[#4F8EF7]">{ms.newCount}</span>
+                </td>
+                <td className="text-right px-3 py-3 text-gray-700 tabular-nums font-medium">{fmtAmt(ms.newAmt)}</td>
+                <td className="text-center px-3 py-3 tabular-nums">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-purple-50 font-bold text-[#8B5CF6]">{ms.confCount}</span>
+                </td>
+                <td className="text-right px-3 py-3 text-gray-700 tabular-nums font-medium">{fmtAmt(ms.confAmt)}</td>
+                <td className="text-center px-3 py-3 tabular-nums">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-green-50 font-bold text-[#22C55E]">{ms.compCount}</span>
+                </td>
+                <td className="text-right px-3 py-3 text-gray-700 tabular-nums font-medium">{fmtAmt(ms.compAmt)}</td>
+              </tr>
+            ))}
+            <tr className="border-t-2 border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+              <td className="px-4 py-3 font-black text-gray-900 uppercase tracking-wide text-[11px]">TOTAL</td>
+              <td className="text-center px-3 py-3 tabular-nums">
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-blue-100 font-black text-[#4F8EF7]">{totals.newCount}</span>
+              </td>
+              <td className="text-right px-3 py-3 text-gray-900 tabular-nums font-bold">{fmtAmt(totals.newAmt)}</td>
+              <td className="text-center px-3 py-3 tabular-nums">
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-purple-100 font-black text-[#8B5CF6]">{totals.confCount}</span>
+              </td>
+              <td className="text-right px-3 py-3 text-gray-900 tabular-nums font-bold">{fmtAmt(totals.confAmt)}</td>
+              <td className="text-center px-3 py-3 tabular-nums">
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-green-100 font-black text-[#22C55E]">{totals.compCount}</span>
+              </td>
+              <td className="text-right px-3 py-3 text-gray-900 tabular-nums font-bold">{fmtAmt(totals.compAmt)}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
