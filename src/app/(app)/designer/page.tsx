@@ -63,11 +63,11 @@ function ProjectCard({
     <div
       draggable={!readOnly}
       onDragStart={(e) => { if (readOnly) return; e.stopPropagation(); onDragStart(project.id); }}
-      className={`bg-white rounded-2xl hover:shadow-lg transition-all group select-none ${readOnly ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
+      className={`bg-white rounded-2xl hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 group select-none ${readOnly ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
       style={{
         border: `1px solid ${c.border}25`,
         borderLeft: `3px solid ${c.border}`,
-        boxShadow: `0 1px 8px ${c.glow}`,
+        boxShadow: `0 2px 12px ${c.glow}`,
       }}
       onClick={onClick}
     >
@@ -75,7 +75,7 @@ function ProjectCard({
         {/* Header row */}
         <div className="flex items-start gap-2 mb-3">
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-gray-900 truncate text-sm leading-tight">{project.name}</h3>
+            <h3 className="font-extrabold text-gray-900 truncate text-[13px] leading-tight">{project.name}</h3>
             {project.address && (
               <div className="flex items-center gap-1 mt-1">
                 <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
@@ -94,7 +94,7 @@ function ProjectCard({
           <span className="text-xs text-gray-600 truncate flex-1 font-medium">
             {project.client_name || '—'}
           </span>
-          <span className="text-[12px] font-bold flex-shrink-0" style={{ color: c.border }}>
+          <span className="text-[12px] font-black tracking-tight flex-shrink-0" style={{ color: c.border }}>
             {project.contract_amount > 0 ? formatCurrency(project.contract_amount, prices.currency) : <span className="text-gray-300 font-normal">未设定</span>}
           </span>
         </div>
@@ -106,9 +106,11 @@ function ProjectCard({
               <span className="text-gray-400">施工进度</span>
               <span className="font-bold text-[#4F8EF7]">{project.progress}%</span>
             </div>
-            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-              <div className="h-full rounded-full bg-gradient-to-r from-[#4F8EF7] to-[#8B5CF6] transition-all"
-                style={{ width: `${project.progress}%` }} />
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-full rounded-full bg-gradient-to-r from-[#4F8EF7] via-[#7C6BF7] to-[#8B5CF6] transition-all relative overflow-hidden"
+                style={{ width: `${project.progress}%` }}>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent" style={{ animation: 'shimmer 2s infinite' }} />
+              </div>
             </div>
           </div>
         )}
@@ -116,7 +118,8 @@ function ProjectCard({
         {/* Footer */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${c.badge}`}>
+            <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${c.badge}`}
+              style={{ boxShadow: `0 1px 4px ${c.border}15` }}>
               {c.labelZh}
             </span>
             {ownerName && (
@@ -172,13 +175,13 @@ function KanbanColumn({
           border: isDragOver ? `2px dashed ${dot}80` : `1px solid ${dot}25`,
           boxShadow: isDragOver ? `0 0 0 4px ${dot}10` : 'none',
         }}>
-        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: dot, boxShadow: `0 0 6px ${dot}80` }} />
+        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-2 ring-white" style={{ background: dot, boxShadow: `0 0 8px ${dot}90, 0 0 16px ${dot}40` }} />
         <div className="flex-1 min-w-0">
           <h2 className="font-bold text-gray-800 text-[12px]">{label}</h2>
           <p className="text-[10px] text-gray-400">{sublabel}</p>
         </div>
-        <span className="text-xs font-bold min-w-[20px] text-center px-2 py-0.5 rounded-full"
-          style={{ background: `${dot}20`, color: dot }}>
+        <span className="text-[11px] font-black min-w-[20px] text-center px-2 py-0.5 rounded-full"
+          style={{ background: `${dot}20`, color: dot, boxShadow: `inset 0 1px 2px ${dot}10` }}>
           {count}
         </span>
       </div>
@@ -234,16 +237,27 @@ function KpiCard({ icon: Icon, label, value, sub, color, iconBg }: {
   sub?: string; color: string; iconBg: string;
 }) {
   return (
-    <div className="bg-white rounded-2xl p-4 flex items-center gap-3"
-      style={{ border: `1px solid ${color}15`, boxShadow: `0 1px 8px rgba(27,35,54,.04)` }}>
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: iconBg }}>
-        <Icon className="w-5 h-5" style={{ color }} />
+    <div className="relative overflow-hidden rounded-2xl p-4 group hover:-translate-y-0.5 transition-all duration-300 cursor-default"
+      style={{
+        background: `linear-gradient(135deg, ${color}08, ${color}15)`,
+        border: `1px solid ${color}20`,
+        boxShadow: `0 2px 12px ${color}12, 0 1px 3px rgba(0,0,0,0.04)`,
+      }}>
+      {/* Decorative orb */}
+      <div className="absolute -top-4 -right-4 w-20 h-20 rounded-full opacity-[0.12] blur-2xl group-hover:opacity-[0.25] transition-opacity duration-500" style={{ background: color }} />
+      {/* Header: icon + label */}
+      <div className="flex items-center gap-2 mb-2 relative">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm" style={{ background: iconBg }}>
+          <Icon className="w-4 h-4 group-hover:scale-110 transition-transform duration-300" style={{ color }} />
+        </div>
+        <span className="text-[11px] font-semibold text-gray-500">{label}</span>
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-[18px] font-black leading-tight" style={{ color }}>{value}</div>
-        <div className="text-xs font-semibold text-gray-600 mt-0.5">{label}</div>
-        {sub && <div className="text-[10px] text-gray-400 truncate">{sub}</div>}
-      </div>
+      {/* Value */}
+      <div className="text-[26px] font-black leading-none tracking-tight tabular-nums relative" style={{ color }}>{value}</div>
+      {/* Sub info */}
+      {sub && <div className="text-[10px] text-gray-400 mt-1.5 truncate font-medium relative">{sub}</div>}
+      {/* Bottom accent */}
+      <div className="absolute bottom-0 left-4 right-4 h-[2px] rounded-full opacity-30 group-hover:opacity-60 transition-opacity duration-300" style={{ background: `linear-gradient(90deg, ${color}, transparent)` }} />
     </div>
   );
 }
@@ -379,12 +393,21 @@ function TeamPerformancePanel({ projects, teamMembers, currentUserId, perfMonth,
 }) {
   const tt = t.team || {};
 
-  // Filter projects by selected month (based on created_at)
+  // Filter projects by selected month
+  // - Pending (new): by created_at (when the project was created)
+  // - Confirmed/Completed: by updated_at (when the status was changed)
+  // This ensures a project created in March but confirmed in May appears in May's Confirmed
   const monthStart = `${perfMonth}-01`;
   const [y, mo] = perfMonth.split('-').map(Number);
   const nextMonthStr = mo === 12 ? `${y + 1}-01-01` : `${y}-${String(mo + 1).padStart(2, '0')}-01`;
 
-  const monthProjects = projects.filter(p => p.created_at >= monthStart && p.created_at < nextMonthStr);
+  const inMonth = (dateStr: string) => dateStr >= monthStart && dateStr < nextMonthStr;
+
+  const monthProjects = projects.filter(p => {
+    if (p.status === 'pending') return inMonth(p.created_at);
+    // For active/completed, use updated_at (status change timestamp)
+    return inMonth(p.updated_at);
+  });
 
   // Per-member stats
   const memberStats = teamMembers
@@ -447,165 +470,263 @@ function TeamPerformancePanel({ projects, teamMembers, currentUserId, perfMonth,
     { value: allCompleted, color: '#22C55E', label: tt.completed || 'Completed' },
   ];
 
-  const fmtAmt = (v: number) => v >= 1000 ? `${currency} ${(v / 1000).toFixed(0)}k` : `${currency} ${v}`;
+  const fmtAmt = (v: number) => `${currency} ${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  // Rich amount display for summary cards
+  const FmtAmtRich = ({ v, size = 'md' }: { v: number; size?: 'sm' | 'md' | 'lg' }) => {
+    const textSize = size === 'lg' ? 'text-2xl' : size === 'md' ? 'text-lg' : 'text-base';
+    if (v >= 1000000) {
+      return <span className={`${textSize} font-black tabular-nums`}><span className="text-[0.65em] font-semibold opacity-60">{currency}</span> {(v / 1000000).toFixed(1)}<span className="text-[0.6em] font-bold opacity-50">M</span></span>;
+    }
+    if (v >= 1000) {
+      return <span className={`${textSize} font-black tabular-nums`}><span className="text-[0.65em] font-semibold opacity-60">{currency}</span> {(v / 1000).toFixed(0)}<span className="text-[0.6em] font-bold opacity-50">k</span></span>;
+    }
+    return <span className={`${textSize} font-black tabular-nums`}><span className="text-[0.65em] font-semibold opacity-60">{currency}</span> {v.toLocaleString()}</span>;
+  };
   const maxBarAmt = Math.max(...memberStats.map(m => m.newAmt + m.confAmt + m.compAmt), 1);
 
+  // Conversion rate: confirmed / (new + confirmed)
+  const convRate = (totals.newCount + totals.confCount) > 0
+    ? Math.round((totals.confCount / (totals.newCount + totals.confCount)) * 100) : 0;
+
   return (
-    <div className="px-5 pb-2 flex-shrink-0">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-          <UsersIcon className="w-4 h-4 text-[#4F8EF7]" />
-          {tt.performance || 'Team Performance'}
-        </h2>
-        <div className="flex items-center gap-1">
-          <button onClick={prevMonth} className="p-1 rounded hover:bg-gray-100"><ChevronLeft className="w-4 h-4 text-gray-400" /></button>
-          <span className="text-xs font-semibold text-gray-600 min-w-[120px] text-center">{monthLabel}</span>
-          <button onClick={nextMonthFn} className="p-1 rounded hover:bg-gray-100"><ChevronRight className="w-4 h-4 text-gray-400" /></button>
+    <div className="px-5 pb-3 flex-shrink-0">
+      {/* ── Hero Header Bar ──────────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-2xl mb-4 p-5"
+        style={{ background: 'linear-gradient(135deg, #0F1923 0%, #1A1A2E 40%, #2D2B55 100%)' }}>
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-[0.04]"
+          style={{ background: 'radial-gradient(circle, #4F8EF7, transparent 70%)', transform: 'translate(30%, -50%)' }} />
+        <div className="absolute bottom-0 left-1/3 w-48 h-48 rounded-full opacity-[0.03]"
+          style={{ background: 'radial-gradient(circle, #8B5CF6, transparent 70%)', transform: 'translate(0, 60%)' }} />
+        <div className="absolute top-3 right-4 w-1 h-1 rounded-full bg-[#F0B90B] opacity-40" />
+        <div className="absolute top-8 right-12 w-0.5 h-0.5 rounded-full bg-[#4F8EF7] opacity-30" />
+
+        {/* Top row: title + month nav */}
+        <div className="flex items-center justify-between mb-5 relative">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #4F8EF7, #8B5CF6)', boxShadow: '0 4px 12px rgba(79,142,247,0.3)' }}>
+              <UsersIcon className="w-4.5 h-4.5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-[15px] font-bold text-white tracking-tight">{tt.performance || 'Team Performance'}</h2>
+              <p className="text-[10px] text-white/30 font-medium">{teamMembers.length} {lang === 'ZH' ? '位成员' : 'members'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-0.5 bg-white/[0.06] rounded-xl px-1 py-0.5 backdrop-blur-sm border border-white/[0.06]">
+            <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"><ChevronLeft className="w-3.5 h-3.5 text-white/50" /></button>
+            <span className="text-[11px] font-semibold text-white/80 min-w-[110px] text-center tracking-wide">{monthLabel}</span>
+            <button onClick={nextMonthFn} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"><ChevronRight className="w-3.5 h-3.5 text-white/50" /></button>
+          </div>
+        </div>
+
+        {/* Metric cards row */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5 relative">
+          {/* Total Amount — featured */}
+          <div className="relative overflow-hidden rounded-xl p-4 md:col-span-1"
+            style={{ background: 'linear-gradient(135deg, rgba(79,142,247,0.15), rgba(139,92,246,0.1))', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div className="absolute -bottom-3 -right-3 w-14 h-14 rounded-full opacity-20 blur-xl" style={{ background: '#F0B90B' }} />
+            <div className="text-[9px] text-white/40 font-semibold uppercase tracking-widest mb-1">{tt.totalMonthlyAmt || 'Revenue'}</div>
+            <div className="text-white text-[22px] font-black tabular-nums tracking-tight leading-none">
+              <span className="text-[13px] font-semibold text-white/40 mr-0.5">{currency}</span>
+              {totalMonthAmt >= 1000000 ? `${(totalMonthAmt / 1000000).toFixed(2)}M` : totalMonthAmt >= 1000 ? totalMonthAmt.toLocaleString('en-US') : totalMonthAmt}
+            </div>
+            <div className="flex items-center gap-1 mt-2">
+              <div className="h-[3px] flex-1 rounded-full overflow-hidden flex gap-px" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                {totals.newAmt > 0 && <div className="h-full rounded-full bg-[#4F8EF7]" style={{ width: `${(totals.newAmt / (totalMonthAmt || 1)) * 100}%` }} />}
+                {totals.confAmt > 0 && <div className="h-full rounded-full bg-[#8B5CF6]" style={{ width: `${(totals.confAmt / (totalMonthAmt || 1)) * 100}%` }} />}
+                {totals.compAmt > 0 && <div className="h-full rounded-full bg-[#22C55E]" style={{ width: `${(totals.compAmt / (totalMonthAmt || 1)) * 100}%` }} />}
+              </div>
+            </div>
+          </div>
+
+          {/* New */}
+          <div className="rounded-xl p-3.5 relative group" style={{ background: 'rgba(79,142,247,0.08)', border: '1px solid rgba(79,142,247,0.12)' }}>
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-[9px] text-[#4F8EF7]/70 font-semibold uppercase tracking-widest">{tt.newProjects || 'Pipeline'}</div>
+              <div className="w-5 h-5 rounded-md flex items-center justify-center bg-[#4F8EF7]/20"><BarChart2 className="w-2.5 h-2.5 text-[#4F8EF7]" /></div>
+            </div>
+            <div className="text-[28px] font-black text-white leading-none tabular-nums">{totals.newCount}</div>
+            <div className="text-[10px] text-white/30 font-medium tabular-nums mt-1">{fmtAmt(totals.newAmt)}</div>
+          </div>
+
+          {/* Confirmed */}
+          <div className="rounded-xl p-3.5 relative" style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.12)' }}>
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-[9px] text-[#8B5CF6]/70 font-semibold uppercase tracking-widest">{tt.confirmed || 'Confirmed'}</div>
+              <div className="w-5 h-5 rounded-md flex items-center justify-center bg-[#8B5CF6]/20"><CheckCircle2 className="w-2.5 h-2.5 text-[#8B5CF6]" /></div>
+            </div>
+            <div className="text-[28px] font-black text-white leading-none tabular-nums">{totals.confCount}</div>
+            <div className="text-[10px] text-white/30 font-medium tabular-nums mt-1">{fmtAmt(totals.confAmt)}</div>
+          </div>
+
+          {/* Completed */}
+          <div className="rounded-xl p-3.5 relative" style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.12)' }}>
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-[9px] text-[#22C55E]/70 font-semibold uppercase tracking-widest">{tt.completed || 'Completed'}</div>
+              <div className="w-5 h-5 rounded-md flex items-center justify-center bg-[#22C55E]/20"><CheckCircle2 className="w-2.5 h-2.5 text-[#22C55E]" /></div>
+            </div>
+            <div className="text-[28px] font-black text-white leading-none tabular-nums">{totals.compCount}</div>
+            <div className="text-[10px] text-white/30 font-medium tabular-nums mt-1">{fmtAmt(totals.compAmt)}</div>
+          </div>
+
+          {/* Conversion Rate */}
+          <div className="rounded-xl p-3.5 relative" style={{ background: 'rgba(240,185,11,0.06)', border: '1px solid rgba(240,185,11,0.1)' }}>
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-[9px] text-[#F0B90B]/60 font-semibold uppercase tracking-widest">{lang === 'ZH' ? '转化率' : 'Conv. Rate'}</div>
+              <div className="w-5 h-5 rounded-md flex items-center justify-center bg-[#F0B90B]/15"><TrendingUp className="w-2.5 h-2.5 text-[#F0B90B]" /></div>
+            </div>
+            <div className="text-[28px] font-black text-white leading-none tabular-nums">{convRate}<span className="text-[14px] text-white/30 font-bold">%</span></div>
+            <div className="text-[10px] text-white/30 font-medium mt-1">{totals.confCount}/{totals.newCount + totals.confCount} {lang === 'ZH' ? '项目' : 'projects'}</div>
+          </div>
         </div>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3">
-        <div className="bg-white rounded-xl p-3 border border-gray-100">
-          <div className="text-[10px] text-gray-400 font-semibold">{tt.totalMonthlyAmt || 'Monthly Amount'}</div>
-          <div className="text-lg font-black text-[#1A1A2E]">{fmtAmt(totalMonthAmt)}</div>
-        </div>
-        <div className="bg-white rounded-xl p-3 border border-blue-100">
-          <div className="text-[10px] text-blue-400 font-semibold">{tt.newProjects || 'New'}</div>
-          <div className="text-lg font-black text-[#4F8EF7]">{totals.newCount}</div>
-          <div className="text-[10px] text-gray-400">{fmtAmt(totals.newAmt)}</div>
-        </div>
-        <div className="bg-white rounded-xl p-3 border border-purple-100">
-          <div className="text-[10px] text-purple-400 font-semibold">{tt.confirmed || 'Confirmed'}</div>
-          <div className="text-lg font-black text-[#8B5CF6]">{totals.confCount}</div>
-          <div className="text-[10px] text-gray-400">{fmtAmt(totals.confAmt)}</div>
-        </div>
-        <div className="bg-white rounded-xl p-3 border border-green-100">
-          <div className="text-[10px] text-green-500 font-semibold">{tt.completed || 'Completed'}</div>
-          <div className="text-lg font-black text-[#22C55E]">{totals.compCount}</div>
-          <div className="text-[10px] text-gray-400">{fmtAmt(totals.compAmt)}</div>
-        </div>
-        <div className="bg-white rounded-xl p-3 border border-gray-100">
-          <div className="text-[10px] text-gray-400 font-semibold">{tt.members || 'Members'}</div>
-          <div className="text-lg font-black text-gray-700">{teamMembers.length}</div>
-        </div>
-      </div>
-
-      {/* Charts row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-        {/* Pie chart */}
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <h3 className="text-[11px] font-semibold text-gray-500 mb-3">{tt.statusDist || 'Status Distribution'}</h3>
-          <div className="flex items-center gap-6">
-            <svg viewBox="0 0 100 100" className="w-24 h-24 flex-shrink-0">
+      {/* ── Charts + Table Section ───────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 mb-3">
+        {/* Donut Chart — 4 cols */}
+        <div className="lg:col-span-4 bg-white rounded-xl p-5 border border-gray-100/80 shadow-sm hover:shadow-md transition-shadow duration-300">
+          <h3 className="text-[10px] font-bold text-gray-400 mb-4 uppercase tracking-[0.12em]">{tt.statusDist || 'Status Distribution'}</h3>
+          <div className="flex flex-col items-center">
+            <svg viewBox="0 0 120 120" className="w-32 h-32 mb-4">
+              <defs>
+                <filter id="donut-shadow"><feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.1" /></filter>
+              </defs>
+              <circle cx="60" cy="60" r="46" fill="none" stroke="#F0F1F5" strokeWidth="8" />
               {(() => {
                 let offset = 0;
+                const circumference = 2 * Math.PI * 46;
+                const gapLen = 4 * circumference / 360;
                 return pieData.map((d, i) => {
                   const pct = (d.value / totalP) * 100;
-                  const dashArray = `${pct * 2.51327} ${251.327}`;
+                  const arcLen = Math.max(0, (pct / 100) * circumference - gapLen);
+                  const dashArray = `${arcLen} ${circumference}`;
                   const el = (
-                    <circle key={i} cx="50" cy="50" r="40" fill="none" stroke={d.color} strokeWidth="12"
-                      strokeDasharray={dashArray} strokeDashoffset={-offset * 2.51327}
-                      transform="rotate(-90 50 50)" strokeLinecap="round" />
+                    <circle key={i} cx="60" cy="60" r="46" fill="none" stroke={d.color} strokeWidth="8"
+                      strokeDasharray={dashArray} strokeDashoffset={-(offset / 100) * circumference}
+                      transform="rotate(-90 60 60)" strokeLinecap="round"
+                      className="transition-all duration-700"
+                      filter="url(#donut-shadow)" />
                   );
                   offset += pct;
                   return el;
                 });
               })()}
-              <text x="50" y="48" textAnchor="middle" className="text-[14px] font-black" fill="#1A1A2E">{monthProjects.length}</text>
-              <text x="50" y="60" textAnchor="middle" className="text-[7px]" fill="#8B8BA8">total</text>
+              <text x="60" y="56" textAnchor="middle" className="text-[20px] font-black" fill="#1A1A2E">{monthProjects.length}</text>
+              <text x="60" y="70" textAnchor="middle" className="text-[8px] font-bold" fill="#B0B3C6" letterSpacing="2">PROJECTS</text>
             </svg>
-            <div className="space-y-2 flex-1">
-              {pieData.map((d, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color }} />
-                  <span className="text-[11px] text-gray-600 flex-1">{d.label}</span>
-                  <span className="text-[11px] font-bold" style={{ color: d.color }}>{d.value}</span>
-                  <span className="text-[10px] text-gray-400">{totalP > 0 ? Math.round((d.value / totalP) * 100) : 0}%</span>
+            <div className="w-full space-y-2.5">
+              {pieData.map((d, i) => {
+                const pct = totalP > 0 ? Math.round((d.value / totalP) * 100) : 0;
+                return (
+                  <div key={i} className="flex items-center gap-2.5">
+                    <div className="w-3 h-3 rounded-[4px] flex-shrink-0 shadow-sm" style={{ background: d.color }} />
+                    <span className="text-[12px] text-gray-700 flex-1 font-medium">{d.label}</span>
+                    <span className="text-[13px] font-black tabular-nums min-w-[18px] text-right" style={{ color: d.color }}>{d.value}</span>
+                    <div className="w-16 h-2 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${d.color}, ${d.color}CC)` }} />
+                    </div>
+                    <span className="text-[10px] text-gray-400 tabular-nums min-w-[28px] text-right font-semibold">{pct}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Member Performance — 8 cols */}
+        <div className="lg:col-span-8 bg-white rounded-xl border border-gray-100/80 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
+          {/* Table header */}
+          <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.12em]">{tt.memberAmount || 'Member Performance'}</h3>
+            <div className="flex items-center gap-3">
+              {[
+                { color: '#4F8EF7', label: tt.newProjects || 'Pipeline' },
+                { color: '#8B5CF6', label: tt.confirmed || 'Confirmed' },
+                { color: '#22C55E', label: tt.completed || 'Completed' },
+              ].map((l, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-sm" style={{ background: l.color }} />
+                  <span className="text-[9px] font-semibold text-gray-400">{l.label}</span>
                 </div>
               ))}
             </div>
           </div>
-        </div>
 
-        {/* Bar chart */}
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <h3 className="text-[11px] font-semibold text-gray-500 mb-3">{tt.memberAmount || 'Per-Member Amount'}</h3>
-          <div className="space-y-2">
-            {memberStats.map(ms => {
+          {/* Member rows — scrollable when 5+ members */}
+          <div className={`divide-y divide-gray-50 ${memberStats.length >= 5 ? 'max-h-[320px] overflow-y-auto' : ''}`}
+            style={memberStats.length >= 5 ? { scrollbarWidth: 'thin', scrollbarColor: '#E5E7EB transparent' } : undefined}>
+            {memberStats.map((ms, idx) => {
               const total = ms.newAmt + ms.confAmt + ms.compAmt;
+              const memberProjects = ms.newCount + ms.confCount + ms.compCount;
+              // Compact mode for 5+ members
+              const compact = memberStats.length >= 5;
               return (
-                <div key={ms.userId}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] text-gray-700 font-medium truncate max-w-[120px]">
-                      {ms.name}{ms.isYou ? ` (${tt.you || 'You'})` : ''}
-                    </span>
-                    <span className="text-[10px] font-bold text-gray-500">{fmtAmt(total)}</span>
+                <div key={ms.userId} className={`px-5 hover:bg-gray-50/50 transition-colors ${compact ? 'py-2.5' : 'py-3.5'}`}>
+                  {/* Name + bar + breakdown — single row for compact, multi-row otherwise */}
+                  <div className="flex items-center gap-3 mb-1.5">
+                    <div className={`${compact ? 'w-7 h-7 text-[10px]' : 'w-8 h-8 text-[11px]'} rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0`}
+                      style={{ background: ms.isOwner ? 'linear-gradient(135deg, #F0B90B, #D4A00A)' : 'linear-gradient(135deg, #4F8EF7, #8B5CF6)', boxShadow: '0 2px 8px rgba(79,142,247,0.15)' }}>
+                      {ms.name[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`${compact ? 'text-[12px]' : 'text-[13px]'} font-bold text-gray-800 truncate`}>{ms.name}</span>
+                        {ms.isYou && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-md bg-[#4F8EF7]/10 text-[#4F8EF7] uppercase tracking-wider flex-shrink-0">{tt.you || 'You'}</span>}
+                        {compact && <span className="text-[9px] text-gray-300 flex-shrink-0">{memberProjects}p</span>}
+                      </div>
+                      {!compact && <span className="text-[10px] text-gray-400 font-medium">{memberProjects} {lang === 'ZH' ? '个项目' : 'projects'}</span>}
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className={`${compact ? 'text-[13px]' : 'text-[14px]'} font-black text-gray-800 tabular-nums`}>{fmtAmt(total)}</div>
+                    </div>
                   </div>
-                  <div className="h-3 bg-gray-50 rounded-full overflow-hidden flex">
-                    {ms.newAmt > 0 && <div className="h-full bg-[#4F8EF7]" style={{ width: `${(ms.newAmt / maxBarAmt) * 100}%` }} />}
-                    {ms.confAmt > 0 && <div className="h-full bg-[#8B5CF6]" style={{ width: `${(ms.confAmt / maxBarAmt) * 100}%` }} />}
-                    {ms.compAmt > 0 && <div className="h-full bg-[#22C55E]" style={{ width: `${(ms.compAmt / maxBarAmt) * 100}%` }} />}
+
+                  {/* Stacked bar */}
+                  <div className={`${compact ? 'h-2' : 'h-2.5'} bg-gray-100/80 rounded-lg overflow-hidden flex gap-[2px] mb-1.5`}>
+                    {ms.newAmt > 0 && <div className="h-full rounded-md transition-all duration-500" style={{ width: `${(ms.newAmt / maxBarAmt) * 100}%`, background: 'linear-gradient(90deg, #4F8EF7, #6BA3F9)' }} />}
+                    {ms.confAmt > 0 && <div className="h-full rounded-md transition-all duration-500" style={{ width: `${(ms.confAmt / maxBarAmt) * 100}%`, background: 'linear-gradient(90deg, #8B5CF6, #A78BFA)' }} />}
+                    {ms.compAmt > 0 && <div className="h-full rounded-md transition-all duration-500" style={{ width: `${(ms.compAmt / maxBarAmt) * 100}%`, background: 'linear-gradient(90deg, #22C55E, #4ADE80)' }} />}
+                  </div>
+
+                  {/* Breakdown chips */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#4F8EF7]" />
+                      <span className="text-[10px] font-bold text-[#4F8EF7] tabular-nums">{ms.newCount}</span>
+                      <span className="text-[9px] text-gray-500 tabular-nums">{fmtAmt(ms.newAmt)}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6]" />
+                      <span className="text-[10px] font-bold text-[#8B5CF6] tabular-nums">{ms.confCount}</span>
+                      <span className="text-[9px] text-gray-500 tabular-nums">{fmtAmt(ms.confAmt)}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#22C55E]" />
+                      <span className="text-[10px] font-bold text-[#22C55E] tabular-nums">{ms.compCount}</span>
+                      <span className="text-[9px] text-gray-500 tabular-nums">{fmtAmt(ms.compAmt)}</span>
+                    </div>
                   </div>
                 </div>
               );
             })}
-            <div className="flex items-center gap-4 pt-1">
-              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#4F8EF7]" /><span className="text-[9px] text-gray-400">{tt.newAmt || 'New'}</span></div>
-              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#8B5CF6]" /><span className="text-[9px] text-gray-400">{tt.confAmt || 'Conf.'}</span></div>
-              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#22C55E]" /><span className="text-[9px] text-gray-400">{tt.compAmt || 'Comp.'}</span></div>
+          </div>
+
+          {/* Total footer */}
+          <div className="px-5 py-3 bg-gradient-to-r from-gray-50 to-gray-100/80 border-t border-gray-200 flex items-center justify-between">
+            <span className="text-[11px] font-black text-gray-500 uppercase tracking-wider">Total</span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4">
+                <span className="text-[10px] tabular-nums"><span className="font-bold text-[#4F8EF7]">{totals.newCount}</span> <span className="text-gray-300">|</span> <span className="text-gray-500">{fmtAmt(totals.newAmt)}</span></span>
+                <span className="text-[10px] tabular-nums"><span className="font-bold text-[#8B5CF6]">{totals.confCount}</span> <span className="text-gray-300">|</span> <span className="text-gray-500">{fmtAmt(totals.confAmt)}</span></span>
+                <span className="text-[10px] tabular-nums"><span className="font-bold text-[#22C55E]">{totals.compCount}</span> <span className="text-gray-300">|</span> <span className="text-gray-500">{fmtAmt(totals.compAmt)}</span></span>
+              </div>
+              <div className="h-4 w-px bg-gray-200" />
+              <span className="text-[13px] font-black text-gray-800 tabular-nums">{fmtAmt(totalMonthAmt)}</span>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Per-member table */}
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <table className="w-full text-[11px]">
-          <thead>
-            <tr className="bg-gray-50 text-gray-500">
-              <th className="text-left px-3 py-2 font-semibold">{lang === 'ZH' ? '成员' : 'Member'}</th>
-              <th className="text-center px-2 py-2 font-semibold text-[#4F8EF7]">{tt.newProjects || 'New'}</th>
-              <th className="text-right px-2 py-2 font-semibold text-[#4F8EF7]">{tt.newAmt || 'New Amt'}</th>
-              <th className="text-center px-2 py-2 font-semibold text-[#8B5CF6]">{tt.confirmed || 'Confirmed'}</th>
-              <th className="text-right px-2 py-2 font-semibold text-[#8B5CF6]">{tt.confAmt || 'Conf. Amt'}</th>
-              <th className="text-center px-2 py-2 font-semibold text-[#22C55E]">{tt.completed || 'Completed'}</th>
-              <th className="text-right px-2 py-2 font-semibold text-[#22C55E]">{tt.compAmt || 'Comp. Amt'}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {memberStats.map(ms => (
-              <tr key={ms.userId} className="border-t border-gray-50 hover:bg-gray-50/50">
-                <td className="px-3 py-2 font-medium text-gray-700">
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0"
-                      style={{ background: ms.isOwner ? 'linear-gradient(135deg, #F0B90B, #D4A00A)' : 'linear-gradient(135deg, #4F8EF7, #8B5CF6)' }}>
-                      {ms.name[0].toUpperCase()}
-                    </div>
-                    <span className="truncate">{ms.name}</span>
-                    {ms.isYou && <span className="text-[9px] text-gray-400">({tt.you || 'You'})</span>}
-                  </div>
-                </td>
-                <td className="text-center px-2 py-2 font-bold text-[#4F8EF7]">{ms.newCount}</td>
-                <td className="text-right px-2 py-2 text-gray-600">{fmtAmt(ms.newAmt)}</td>
-                <td className="text-center px-2 py-2 font-bold text-[#8B5CF6]">{ms.confCount}</td>
-                <td className="text-right px-2 py-2 text-gray-600">{fmtAmt(ms.confAmt)}</td>
-                <td className="text-center px-2 py-2 font-bold text-[#22C55E]">{ms.compCount}</td>
-                <td className="text-right px-2 py-2 text-gray-600">{fmtAmt(ms.compAmt)}</td>
-              </tr>
-            ))}
-            <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold">
-              <td className="px-3 py-2 text-gray-800">TOTAL</td>
-              <td className="text-center px-2 py-2 text-[#4F8EF7]">{totals.newCount}</td>
-              <td className="text-right px-2 py-2 text-gray-800">{fmtAmt(totals.newAmt)}</td>
-              <td className="text-center px-2 py-2 text-[#8B5CF6]">{totals.confCount}</td>
-              <td className="text-right px-2 py-2 text-gray-800">{fmtAmt(totals.confAmt)}</td>
-              <td className="text-center px-2 py-2 text-[#22C55E]">{totals.compCount}</td>
-              <td className="text-right px-2 py-2 text-gray-800">{fmtAmt(totals.compAmt)}</td>
-            </tr>
-          </tbody>
-        </table>
       </div>
     </div>
   );
@@ -863,12 +984,16 @@ export default function DesignerDashboard() {
   );
 
   // When showing team performance, filter Kanban cards by selected month
+  // Match the same logic as TeamPerformancePanel: pending by created_at, others by updated_at
   const filtered = showTeamPerformance
     ? (() => {
         const mStart = `${perfMonth}-01`;
         const [yr, mo] = perfMonth.split('-').map(Number);
         const mEnd = mo === 12 ? `${yr + 1}-01-01` : `${yr}-${String(mo + 1).padStart(2, '0')}-01`;
-        return searchFiltered.filter(p => p.created_at >= mStart && p.created_at < mEnd);
+        const inMo = (d: string) => d >= mStart && d < mEnd;
+        return searchFiltered.filter(p =>
+          p.status === 'pending' ? inMo(p.created_at) : inMo(p.updated_at)
+        );
       })()
     : searchFiltered;
 
@@ -890,6 +1015,12 @@ export default function DesignerDashboard() {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-rs-bg">
+      <style>{`
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(200%); }
+        }
+      `}</style>
       <Toaster />
 
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
@@ -935,10 +1066,10 @@ export default function DesignerDashboard() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <KpiCard icon={BarChart2}     color="#3B82F6" iconBg="rgba(59,130,246,0.1)"
               label={t.dash.pendingProjects}   value={pending.length}
-              sub={`${t.dash.pipelineValue} ${prices.currency} ${(totalPendingVal/1000).toFixed(0)}k`} />
+              sub={`${t.dash.pipelineValue} ${prices.currency} ${totalPendingVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
             <KpiCard icon={TrendingUp}    color="#F97316" iconBg="rgba(249,115,22,0.1)"
               label={t.dash.activeProjects}    value={active.length}
-              sub={`${t.dash.contractValue} ${prices.currency} ${(totalActiveVal/1000).toFixed(0)}k`} />
+              sub={`${t.dash.contractValue} ${prices.currency} ${totalActiveVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
             <KpiCard icon={CheckCircle2}  color="#22C55E" iconBg="rgba(34,197,94,0.1)"
               label={t.dash.completedProjects}   value={completed.length}
               sub={`${t.dash.completionRate} ${completionRate}%`} />
