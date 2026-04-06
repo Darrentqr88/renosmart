@@ -849,10 +849,7 @@ export default function DesignerDashboard() {
   // For Kanban: filter to specific user's projects when applicable
   const kanbanProjects = (() => {
     let base = projects;
-    // Elite owner default: show only own projects in Kanban
-    if (isOwner && !viewingMemberId && currentUserId) {
-      base = projects.filter(p => p.designer_id === currentUserId);
-    }
+    // Elite owner default: show ALL team projects in Kanban (matches team stats)
     // Viewing a specific member: show only their projects
     if (viewingMemberId) {
       base = projects.filter(p => p.designer_id === viewingMemberId);

@@ -1595,11 +1595,21 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
             <RefreshCw className="w-4 h-4" /> {t.quotation.reUpload}
           </button>
           <button
-            onClick={() => setShowSaveDialog(true)}
+            onClick={async () => {
+              if (linkedProjectId) {
+                // Project already exists — save directly, no dialog (prevents duplicate creation)
+                const pid = savedProjectId || await handleDirectSaveToProject();
+                if (pid) router.push(`/designer/projects/${pid}`);
+              } else {
+                // No linked project — open dialog to create new or select existing
+                handleOpenSaveDialog();
+              }
+            }}
+            disabled={isSaving}
             className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[13px] font-bold transition-all text-white shadow-md hover:shadow-lg"
             style={{ background: 'linear-gradient(135deg, #4F8EF7, #8B5CF6)' }}
           >
-            <Save className="w-4 h-4" /> {t.quotation.saveContinue}
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {t.quotation.saveContinue}
           </button>
         </div>
       )}

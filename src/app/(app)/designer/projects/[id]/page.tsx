@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { formatCurrency, formatDate, getCurrencySymbol } from '@/lib/utils';
 import { GanttChart, GanttWorkerInfo } from '@/components/gantt/GanttChart';
 import { TaskDetailPanel } from '@/components/gantt/TaskDetailPanel';
-import { generateGanttTasks, generateGanttFromQuotation, generateGanttFromAIParams, appendVOTask, addWorkdays, detectTradeForVO, forwardReschedule, fullReschedule } from '@/lib/utils/gantt-rules';
+import { generateGanttTasks, generateGanttFromQuotation, generateGanttFromAIParams, appendVOTask, addWorkdays, detectTradeForVO, forwardReschedule, fullReschedule, validateDurations } from '@/lib/utils/gantt-rules';
 import { isWorkday, preloadHolidays } from '@/lib/utils/dates';
 import { Project, PaymentPhase, GanttTask, GanttTaskStatus, VariationOrder, VOItem, GanttParams } from '@/types';
 import {
@@ -136,6 +136,8 @@ export default function ProjectDetailPage() {
   const [workOnSunday, setWorkOnSunday] = useState(false);
   const [ganttDeadline, setGanttDeadline] = useState('');
   const [isDirty, setIsDirty] = useState(false);
+  const [showCompressConfirm, setShowCompressConfirm] = useState(false);
+  const [pendingDeadline, setPendingDeadline] = useState('');
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isGeneratingGantt, setIsGeneratingGantt] = useState(false);
@@ -536,70 +538,43 @@ export default function ProjectDetailPage() {
     setIsDirty(true);
   };
 
-  // ── AI Smart Schedule: compress tasks to fit deadline (dependency-aware) ──
+  // ── AI Smart Schedule: compress/expand tasks to fit deadline (dependency-aware) ──
   const handleSmartSchedule = () => {
     if (!ganttDeadline || ganttTasks.length === 0) return;
 
-    const currentStart = ganttTasks.reduce((m, t) => t.start_date < m ? t.start_date : m, ganttTasks[0].start_date);
-    const currentEnd   = ganttTasks.reduce((m, t) => t.end_date   > m ? t.end_date   : m, ganttTasks[0].end_date);
-
-    const startDate = new Date(currentStart + 'T00:00:00');
+    const currentEnd = ganttTasks.reduce((m, t) => t.end_date > m ? t.end_date : m, ganttTasks[0].end_date);
     const currentEndDate = new Date(currentEnd + 'T00:00:00');
     const targetEndDate  = new Date(ganttDeadline + 'T00:00:00');
 
-    if (targetEndDate <= startDate) {
-      toast({ title: '⚠️ 截止日期不能早于开始日期', variant: 'destructive' });
-      return;
-    }
-    if (targetEndDate >= currentEndDate) {
-      toast({ title: '🎯 已在截止日期内', description: '当前工期不超过截止日期，无需压缩' });
+    if (targetEndDate.getTime() === currentEndDate.getTime()) {
+      toast({ title: '🎯 已在截止日期内', description: '当前工期恰好符合截止日期' });
       return;
     }
 
-    // Count workdays from start to current end and to deadline
-    const countWorkdays = (from: Date, to: Date): number => {
-      let count = 0;
-      const d = new Date(from);
-      d.setDate(d.getDate() + 1); // start counting from next day
-      while (d <= to) {
-        if (isWorkday(d, projectRegion, workOnSaturday, workOnSunday)) count++;
-        d.setDate(d.getDate() + 1);
-      }
-      return Math.max(1, count);
-    };
-
-    const currentWorkdays = countWorkdays(startDate, currentEndDate);
-    const targetWorkdays  = countWorkdays(startDate, targetEndDate);
-    const scaleFactor = targetWorkdays / currentWorkdays;
-
-    // Scale durations proportionally (min 1 day each), skip manually-locked tasks
-    const scaled = ganttTasks.map(t => {
-      if (t.is_duration_locked) return t;
-      const newDur = Math.max(1, Math.round(t.duration * scaleFactor));
-      const start = new Date(t.start_date + 'T00:00:00');
-      const newEnd = addWorkdays(start, newDur - 1, projectRegion, workOnSaturday, workOnSunday);
-      return { ...t, duration: newDur, end_date: newEnd.toISOString().split('T')[0] };
-    });
-    // Full reschedule: recalculate all task positions from dependencies after duration scaling
-    setGanttTasks(fullReschedule(scaled, workOnSaturday, workOnSunday));
-    setIsDirty(true);
-    const savedDays = Math.round(currentWorkdays - targetWorkdays);
-    toast({ title: `🎯 AI 智能压缩完成`, description: `已压缩 ${savedDays} 工作日，截止日期：${ganttDeadline}` });
+    applyDeadlineScale(ganttDeadline);
   };
 
+  // ── Pre-phase IDs: design/measurement tasks that precede actual construction ──
+  const PRE_PHASE_SUFFIXES = ['-measurement', '-design_conf'];
+  const isPrePhase = (t: GanttTask) => PRE_PHASE_SUFFIXES.some(p => t.id.endsWith(p));
+
   // ── Shift all tasks when start date changes ──────────────────────────────
+  // "开始日期" represents start of CONSTRUCTION work (preparation/demolition onwards),
+  // excluding pre-phases (设计确认, 现场勘查) which are scheduled before the start date.
   const handleStartDateChange = (newDate: string) => {
     setGanttStartDate(newDate);
     saveGanttSetting('gantt_start_date', newDate);
     if (ganttTasks.length === 0 || !newDate) return;
 
-    // Find earliest task start across all tasks
-    const currentEarliest = ganttTasks.reduce(
+    // Anchor on the earliest CONSTRUCTION task (exclude pre-phases)
+    const constructionTasks = ganttTasks.filter(t => !isPrePhase(t));
+    const anchorTasks = constructionTasks.length > 0 ? constructionTasks : ganttTasks;
+    const currentConstructionStart = anchorTasks.reduce(
       (m, t) => (t.start_date < m ? t.start_date : m),
-      ganttTasks[0].start_date,
+      anchorTasks[0].start_date,
     );
     const diffDays = Math.round(
-      (new Date(newDate + 'T00:00:00').getTime() - new Date(currentEarliest + 'T00:00:00').getTime())
+      (new Date(newDate + 'T00:00:00').getTime() - new Date(currentConstructionStart + 'T00:00:00').getTime())
       / 86400000,
     );
     if (diffDays === 0) return;
@@ -616,6 +591,62 @@ export default function ProjectDetailPage() {
     setIsDirty(true);
   };
 
+  // ── Helper: count workdays between two dates ──────────────────────────────
+  const countWorkdaysBetween = (from: Date, to: Date): number => {
+    let count = 0;
+    const d = new Date(from);
+    d.setDate(d.getDate() + 1);
+    while (d <= to) {
+      if (isWorkday(d, projectRegion, workOnSaturday, workOnSunday)) count++;
+      d.setDate(d.getDate() + 1);
+    }
+    return Math.max(1, count);
+  };
+
+  // ── Scale durations proportionally to fit a target deadline ───────────────
+  // Preserves is_duration_locked tasks. Used by both compress and expand.
+  const applyDeadlineScale = (deadline: string) => {
+    const currentStart = ganttTasks.reduce((m, t) => t.start_date < m ? t.start_date : m, ganttTasks[0].start_date);
+    const currentEnd   = ganttTasks.reduce((m, t) => t.end_date   > m ? t.end_date   : m, ganttTasks[0].end_date);
+    const startDate      = new Date(currentStart + 'T00:00:00');
+    const currentEndDate = new Date(currentEnd   + 'T00:00:00');
+    const targetEndDate  = new Date(deadline     + 'T00:00:00');
+
+    if (targetEndDate <= startDate) {
+      toast({ title: '⚠️ 截止日期不能早于开始日期', variant: 'destructive' });
+      return;
+    }
+
+    const currentWorkdays = countWorkdaysBetween(startDate, currentEndDate);
+    const targetWorkdays  = countWorkdaysBetween(startDate, targetEndDate);
+    if (currentWorkdays === targetWorkdays) return; // no change needed
+
+    const scaleFactor = targetWorkdays / currentWorkdays;
+    const isCompress = scaleFactor < 1;
+
+    const scaled = ganttTasks.map(t => {
+      // Preserve manually-set durations — only scale AI-generated ones
+      if (t.is_duration_locked) return t;
+      // Snapshot base_duration on first compression if not set (backward compat)
+      const baseDur = t.base_duration || t.duration;
+      const newDur = Math.max(1, Math.round(t.duration * scaleFactor));
+      const start  = new Date(t.start_date + 'T00:00:00');
+      const newEnd = addWorkdays(start, newDur - 1, projectRegion, workOnSaturday, workOnSunday);
+      return { ...t, duration: newDur, base_duration: baseDur, end_date: newEnd.toISOString().split('T')[0] };
+    });
+    // Enforce PHASE_MIN_DURATIONS so no task goes below its realistic minimum,
+    // then fullReschedule to cascade dependencies properly
+    const validated = validateDurations(scaled, workOnSaturday, workOnSunday);
+    setGanttTasks(fullReschedule(validated, workOnSaturday, workOnSunday));
+    setIsDirty(true);
+    const diffDays = Math.abs(Math.round(currentWorkdays - targetWorkdays));
+    if (isCompress) {
+      toast({ title: '🎯 已按截止日期压缩', description: `压缩 ${diffDays} 工作日以符合 ${deadline}` });
+    } else {
+      toast({ title: '🎯 已按截止日期展开', description: `展开 ${diffDays} 工作日以符合 ${deadline}` });
+    }
+  };
+
   // ── Compress/expand tasks when deadline changes ───────────────────────────
   const handleDeadlineChange = (newDeadline: string) => {
     setGanttDeadline(newDeadline);
@@ -624,38 +655,26 @@ export default function ProjectDetailPage() {
 
     const currentStart = ganttTasks.reduce((m, t) => t.start_date < m ? t.start_date : m, ganttTasks[0].start_date);
     const currentEnd   = ganttTasks.reduce((m, t) => t.end_date   > m ? t.end_date   : m, ganttTasks[0].end_date);
-    const startDate      = new Date(currentStart   + 'T00:00:00');
-    const currentEndDate = new Date(currentEnd     + 'T00:00:00');
-    const targetEndDate  = new Date(newDeadline    + 'T00:00:00');
+    const startDate      = new Date(currentStart + 'T00:00:00');
+    const currentEndDate = new Date(currentEnd   + 'T00:00:00');
+    const targetEndDate  = new Date(newDeadline  + 'T00:00:00');
 
-    if (targetEndDate <= startDate || targetEndDate >= currentEndDate) return; // no compression needed
+    if (targetEndDate <= startDate) {
+      toast({ title: '⚠️ 截止日期不能早于开始日期', variant: 'destructive' });
+      return;
+    }
 
-    const countWorkdays = (from: Date, to: Date): number => {
-      let count = 0;
-      const d = new Date(from);
-      d.setDate(d.getDate() + 1);
-      while (d <= to) {
-        if (isWorkday(d, projectRegion, workOnSaturday, workOnSunday)) count++;
-        d.setDate(d.getDate() + 1);
-      }
-      return Math.max(1, count);
-    };
-    const currentWorkdays = countWorkdays(startDate, currentEndDate);
-    const targetWorkdays  = countWorkdays(startDate, targetEndDate);
-    const scaleFactor = targetWorkdays / currentWorkdays;
+    // If deadline is before current end → show confirmation before compressing
+    if (targetEndDate < currentEndDate) {
+      setPendingDeadline(newDeadline);
+      setShowCompressConfirm(true);
+      return;
+    }
 
-    const scaled = ganttTasks.map(t => {
-      // Preserve manually-set durations — only scale AI-generated ones
-      if (t.is_duration_locked) return t;
-      const newDur = Math.max(1, Math.round(t.duration * scaleFactor));
-      const start  = new Date(t.start_date + 'T00:00:00');
-      const newEnd = addWorkdays(start, newDur - 1, projectRegion, workOnSaturday, workOnSunday);
-      return { ...t, duration: newDur, end_date: newEnd.toISOString().split('T')[0] };
-    });
-    setGanttTasks(fullReschedule(scaled, workOnSaturday, workOnSunday));
-    setIsDirty(true);
-    const savedDays = Math.round(currentWorkdays - targetWorkdays);
-    toast({ title: `🎯 已按截止日期压缩`, description: `压缩 ${savedDays} 工作日以符合 ${newDeadline}` });
+    // If deadline is after current end → expand proportionally to fill the timeline
+    if (targetEndDate > currentEndDate) {
+      applyDeadlineScale(newDeadline);
+    }
   };
 
   // ── Recalculate dates when workday settings change (preserve existing tasks) ──
@@ -2024,6 +2043,44 @@ export default function ProjectDetailPage() {
                 />
               );
             })()}
+
+            {/* ── Compress confirmation dialog ── */}
+            {showCompressConfirm && pendingDeadline && (
+              <div
+                className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+                onClick={(e) => { if (e.target === e.currentTarget) { setShowCompressConfirm(false); setPendingDeadline(''); } }}
+              >
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100">
+                    <h3 className="font-bold text-gray-900 text-sm">🎯 截止日期早于当前工期</h3>
+                  </div>
+                  <div className="px-5 py-4 space-y-3">
+                    <p className="text-[13px] text-gray-600">
+                      新截止日期 <span className="font-semibold text-gray-900">{pendingDeadline}</span> 早于当前完工日期，是否自动压缩工期以符合截止日期？
+                    </p>
+                    <p className="text-[11px] text-gray-400">已手动设定的工期将保持不变，仅调整 AI 生成的工期。</p>
+                  </div>
+                  <div className="flex gap-3 px-5 py-4 border-t border-gray-100">
+                    <button
+                      onClick={() => { setShowCompressConfirm(false); setPendingDeadline(''); }}
+                      className="flex-1 px-4 py-2 text-[13px] font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowCompressConfirm(false);
+                        applyDeadlineScale(pendingDeadline);
+                        setPendingDeadline('');
+                      }}
+                      className="flex-1 px-4 py-2 text-[13px] font-bold text-white bg-[#4F8EF7] rounded-lg hover:bg-[#3B7BE8] transition-colors"
+                    >
+                      ✦ 压缩工期
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* ── Publish modal ── */}
             {showPublishModal && (

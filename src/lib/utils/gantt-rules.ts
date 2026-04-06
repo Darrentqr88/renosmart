@@ -988,6 +988,7 @@ function _schedulePhases(
         start_date: format(taskStart, 'yyyy-MM-dd'),
         end_date: format(taskEnd, 'yyyy-MM-dd'),
         duration,
+        base_duration: duration, // quotation-based floor for compression
         progress: 0,
         dependencies: phase.deps.map(d => deterministicUUID(`${projectId}-${d}`)),
         color: TRADE_COLORS[phase.trade] || '#94A3B8',
@@ -1071,6 +1072,7 @@ function _schedulePhases(
         start_date: format(taskStart, 'yyyy-MM-dd'),
         end_date: format(taskEnd, 'yyyy-MM-dd'),
         duration,
+        base_duration: duration, // quotation-based floor for compression
         progress: 0,
         dependencies: phase.deps.map(d => deterministicUUID(`${projectId}-${d}`)),
         color: TRADE_COLORS[phase.trade] || '#94A3B8',
@@ -2139,6 +2141,9 @@ export function forwardReschedule(tasks: GanttTask[], workSat = false, workSun =
 
 /**
  * Post-validation: clamp all task durations to [min, max] per phase_id.
+ * Uses base_duration (quotation-based) as the primary floor — never compress
+ * below 60% of the original quotation-calculated duration.
+ * Falls back to PHASE_MIN_DURATIONS as the absolute floor.
  * Skips tasks with is_duration_locked (manually adjusted by designer/worker).
  * Recalculates end_date for clamped tasks and runs forwardReschedule if needed.
  */
@@ -2149,10 +2154,13 @@ export function validateDurations(tasks: GanttTask[], workSat = false, workSun =
     if (t.is_duration_locked) return t;
     const phaseId = t.phase_id;
     if (!phaseId) return t;
-    const min = PHASE_MIN_DURATIONS[phaseId];
+    const staticMin = PHASE_MIN_DURATIONS[phaseId] ?? 1;
     const max = PHASE_MAX_DURATIONS[phaseId];
-    if (min == null && max == null) return t;
-    const clamped = Math.max(min ?? 1, Math.min(max ?? 999, t.duration || 1));
+    // Quotation-based floor: never compress below 60% of original scope duration
+    const scopeMin = t.base_duration ? Math.max(staticMin, Math.ceil(t.base_duration * 0.6)) : staticMin;
+    const min = scopeMin;
+    if (max == null && min <= 1) return t;
+    const clamped = Math.max(min, Math.min(max ?? 999, t.duration || 1));
     if (clamped === (t.duration || 1)) return t;
     changed = true;
     changedIds.push(t.id);
