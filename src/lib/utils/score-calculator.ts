@@ -21,11 +21,11 @@ function normalizeUnit(unit: string): string {
 }
 
 // ============================================
-// Built-in reliable price ranges (MY RM)
+// Built-in reliable price ranges per region
 // Used when no DB data and AI estimates are unreliable for the category/unit.
 // Key: "Category|Subcategory|normalizedUnit"  (empty subcategory = wildcard)
 // ============================================
-const KNOWN_PRICE_RANGES: Record<string, { min: number; max: number }> = {
+const KNOWN_PRICE_RANGES_MY: Record<string, { min: number; max: number }> = {
   // Carpentry cabinets per ft-run — AI often confuses ft-run with per-sqft pricing
   'Carpentry|Kitchen Cabinet|ft':    { min: 400, max: 1200 },
   'Carpentry|Kitchen Cabinet|ftrun': { min: 400, max: 1200 },
@@ -34,13 +34,53 @@ const KNOWN_PRICE_RANGES: Record<string, { min: number; max: number }> = {
   'Carpentry|TV Console/Feature|ft': { min: 200, max: 550 },
   'Carpentry|Shoe Cabinet|ft':       { min: 250, max: 600 },
   'Carpentry|Vanity Cabinet|ft':     { min: 350, max: 750 },
-  'Carpentry||ft':                   { min: 300, max: 1600 }, // any carpentry in ft
+  'Carpentry||ft':                   { min: 300, max: 1600 },
   'Carpentry||ftrun':                { min: 300, max: 1600 },
+  // Tiling
+  'Tiling||sqft':                    { min: 15, max: 35 },
+  'Tiling|Floor Tiles|sqft':         { min: 15, max: 35 },
+  'Tiling|Wall Tiles|sqft':          { min: 15, max: 35 },
+  // Electrical
+  'Electrical||pt':                  { min: 80, max: 180 },
+  'Electrical||point':               { min: 80, max: 180 },
+  'Electrical|Power Points|pt':      { min: 80, max: 180 },
+  'Electrical|Lighting Points|pt':   { min: 80, max: 180 },
+  // Painting
+  'Painting||sqft':                  { min: 2.5, max: 5 },
+  'Painting|Interior Wall|sqft':     { min: 2.5, max: 5 },
+  // Plumbing
+  'Plumbing||unit':                  { min: 300, max: 800 },
+  // Partition / Drywall
+  'False Ceiling|Partition Wall|sqft': { min: 7, max: 15 },
 };
 
-function getKnownRange(category: string, subcategory: string, unit: string): { min: number; max: number } | null {
-  return KNOWN_PRICE_RANGES[`${category}|${subcategory}|${unit}`]
-    ?? KNOWN_PRICE_RANGES[`${category}||${unit}`]
+const KNOWN_PRICE_RANGES_SG: Record<string, { min: number; max: number }> = {
+  'Carpentry|Kitchen Cabinet|ft':    { min: 150, max: 500 },
+  'Carpentry|Kitchen Cabinet|ftrun': { min: 150, max: 500 },
+  'Carpentry|Wardrobe|ft':           { min: 280, max: 650 },
+  'Carpentry|Wardrobe|ftrun':        { min: 280, max: 650 },
+  'Carpentry|TV Console/Feature|ft': { min: 80, max: 250 },
+  'Carpentry|Shoe Cabinet|ft':       { min: 100, max: 250 },
+  'Carpentry|Vanity Cabinet|ft':     { min: 140, max: 320 },
+  'Carpentry||ft':                   { min: 120, max: 650 },
+  'Carpentry||ftrun':                { min: 120, max: 650 },
+  'Tiling||sqft':                    { min: 9, max: 15 },
+  'Tiling|Floor Tiles|sqft':         { min: 9, max: 15 },
+  'Tiling|Wall Tiles|sqft':          { min: 9, max: 15 },
+  'Electrical||pt':                  { min: 25, max: 50 },
+  'Electrical||point':               { min: 25, max: 50 },
+  'Electrical|Power Points|pt':      { min: 25, max: 50 },
+  'Electrical|Lighting Points|pt':   { min: 25, max: 50 },
+  'Painting||sqft':                  { min: 1.5, max: 3 },
+  'Painting|Interior Wall|sqft':     { min: 1.5, max: 3 },
+  'Plumbing||unit':                  { min: 120, max: 350 },
+  'False Ceiling|Partition Wall|sqft': { min: 2.5, max: 5 },
+};
+
+function getKnownRange(category: string, subcategory: string, unit: string, region: string): { min: number; max: number } | null {
+  const ranges = region === 'SG' ? KNOWN_PRICE_RANGES_SG : KNOWN_PRICE_RANGES_MY;
+  return ranges[`${category}|${subcategory}|${unit}`]
+    ?? ranges[`${category}||${unit}`]
     ?? null;
 }
 
@@ -199,7 +239,7 @@ export async function calculateHybridScores(
       totalWeight += weight;
       dbMatchCount++;
     } else {
-      const known = getKnownRange(classification.category, classification.subcategory, unit);
+      const known = getKnownRange(classification.category, classification.subcategory, unit, region);
       if (known) {
         // Priority 2: Built-in known range (more reliable than AI estimate for this category/unit)
         comp.source = 'known_range';

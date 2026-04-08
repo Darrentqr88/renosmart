@@ -16,6 +16,7 @@ function JoinPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
+  const roleParam = searchParams.get('role'); // 'owner' or null (default: worker)
   const supabase = createClient();
 
   const [countryCode, setCountryCode] = useState('+60');
@@ -90,10 +91,11 @@ function JoinPageContent() {
         return;
       }
 
-      // 3. Success! Redirect to worker dashboard
+      // 3. Success! Redirect based on role
       setSuccess(true);
       setTimeout(() => {
-        router.push('/worker');
+        const dest = roleParam === 'owner' ? '/owner' : '/worker';
+        router.push(dest);
         router.refresh();
       }, 500);
     } catch (err) {
@@ -197,7 +199,7 @@ function JoinPageContent() {
               background: 'rgba(232,163,23,0.06)', border: '1px solid rgba(232,163,23,0.15)',
             }}>
               <p style={{ fontSize: 13, color: '#E8A317', fontWeight: 600, marginBottom: 4 }}>
-                Invited by
+                {roleParam === 'owner' ? 'Owner invite from' : 'Invited by'}
               </p>
               <p style={{ fontSize: 16, color: '#F1F5F9', fontWeight: 600 }}>
                 {designerName}

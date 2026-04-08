@@ -159,6 +159,15 @@ export default function ProjectDetailPage() {
   const [editClientEmail, setEditClientEmail] = useState('');
   const [editClientAddress, setEditClientAddress] = useState('');
 
+  // Owner phone invite
+  const [ownerPhone1, setOwnerPhone1] = useState('');
+  const [ownerPhone2, setOwnerPhone2] = useState('');
+  const [ownerCountryCode1, setOwnerCountryCode1] = useState('+60');
+  const [ownerCountryCode2, setOwnerCountryCode2] = useState('+60');
+  const [ownerInviteUrl, setOwnerInviteUrl] = useState('');
+  const [ownerInviteLoading, setOwnerInviteLoading] = useState(false);
+  const [ownerPhoneSaving, setOwnerPhoneSaving] = useState(false);
+
   // Quotation view modal
   const [viewingQuotation, setViewingQuotation] = useState<QuotationVersionLocal | null>(null);
   const [quotationViewTab, setQuotationViewTab] = useState<'items' | 'audit'>('items');
@@ -281,6 +290,10 @@ export default function ProjectDetailPage() {
 
     const { data: p } = await supabase.from('projects').select('*').eq('id', id).single();
     setProject(p);
+
+    // Populate owner phone fields
+    if (p?.owner_phone1) setOwnerPhone1(p.owner_phone1);
+    if (p?.owner_phone2) setOwnerPhone2(p.owner_phone2);
 
     // Restore persisted Gantt schedule settings from project
     if (p?.gantt_start_date) setGanttStartDate(p.gantt_start_date);
@@ -1028,6 +1041,51 @@ export default function ProjectDetailPage() {
     toast({ title: '✅ 客户资料已保存' });
   };
 
+  const saveOwnerPhones = async () => {
+    setOwnerPhoneSaving(true);
+    try {
+      await supabase.from('projects').update({
+        owner_phone1: ownerPhone1 || null,
+        owner_phone2: ownerPhone2 || null,
+      }).eq('id', id as string);
+      toast({ title: '✅ Owner phones saved' });
+    } catch {
+      toast({ title: 'Save failed', variant: 'destructive' });
+    } finally {
+      setOwnerPhoneSaving(false);
+    }
+  };
+
+  const generateOwnerInvite = async () => {
+    setOwnerInviteLoading(true);
+    try {
+      const res = await fetch('/api/owner-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: id }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        setOwnerInviteUrl(data.url);
+        toast({ title: '✅ Invite link generated' });
+      } else {
+        toast({ title: 'Failed to generate', description: data.error, variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Network error', variant: 'destructive' });
+    } finally {
+      setOwnerInviteLoading(false);
+    }
+  };
+
+  const shareOwnerViaWhatsApp = (phone: string, countryCode: string) => {
+    const digits = (countryCode + phone.replace(/^0/, '')).replace(/[^0-9]/g, '');
+    const msg = encodeURIComponent(
+      `Hi! You've been invited to track your renovation project "${project?.name || ''}" on RenoSmart.\n\nOpen this link to get started:\n${ownerInviteUrl}`
+    );
+    window.open(`https://wa.me/${digits}?text=${msg}`, '_blank');
+  };
+
   const handleVOFileUpload = async (file: File) => {
     setVoScanState('scanning');
     try {
@@ -1746,6 +1804,71 @@ export default function ProjectDetailPage() {
                 {`✏️ ${t.proj.edit}`}
               </button>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* Owner Invite Section */}
+      <div className="bg-white border-b border-gray-100 px-6 py-3">
+        <div className="flex items-center gap-2 mb-2">
+          <UserPlus className="w-4 h-4 text-[#10B981]" />
+          <span className="text-xs font-semibold text-gray-700">Owner Invite</span>
+          {!!((project as unknown as Record<string, string>)?.owner_user_id) && (
+            <Badge className="bg-green-50 text-green-700 border-green-200 text-[10px]">Owner linked</Badge>
+          )}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+          <div className="flex gap-1">
+            <select value={ownerCountryCode1} onChange={e => setOwnerCountryCode1(e.target.value)}
+              className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-700 min-w-[72px]">
+              <option value="+60">🇲🇾 +60</option>
+              <option value="+65">🇸🇬 +65</option>
+              <option value="+62">🇮🇩 +62</option>
+            </select>
+            <Input value={ownerPhone1} onChange={e => setOwnerPhone1(e.target.value.replace(/[^\d]/g, ''))}
+              placeholder="Owner Phone 1" className="h-8 text-xs" maxLength={15} />
+          </div>
+          <div className="flex gap-1">
+            <select value={ownerCountryCode2} onChange={e => setOwnerCountryCode2(e.target.value)}
+              className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-700 min-w-[72px]">
+              <option value="+60">🇲🇾 +60</option>
+              <option value="+65">🇸🇬 +65</option>
+              <option value="+62">🇮🇩 +62</option>
+            </select>
+            <Input value={ownerPhone2} onChange={e => setOwnerPhone2(e.target.value.replace(/[^\d]/g, ''))}
+              placeholder="Owner Phone 2 (optional)" className="h-8 text-xs" maxLength={15} />
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={saveOwnerPhones} disabled={ownerPhoneSaving}
+            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
+            {ownerPhoneSaving ? 'Saving...' : 'Save Phones'}
+          </button>
+          <button onClick={generateOwnerInvite} disabled={ownerInviteLoading}
+            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[#10B981] text-white hover:bg-[#059669] transition-colors disabled:opacity-50 flex items-center gap-1">
+            {ownerInviteLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+            Generate Invite Link
+          </button>
+          {ownerInviteUrl && (
+            <>
+              <input value={ownerInviteUrl} readOnly className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-gray-50 text-gray-600 truncate" onClick={e => (e.target as HTMLInputElement).select()} />
+              <button onClick={() => { navigator.clipboard.writeText(ownerInviteUrl); toast({ title: '✅ Link copied' }); }}
+                className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50">
+                Copy
+              </button>
+              {ownerPhone1 && (
+                <button onClick={() => shareOwnerViaWhatsApp(ownerPhone1, ownerCountryCode1)}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[#25D366] text-white hover:bg-[#1EB954] transition-colors flex items-center gap-1">
+                  💬 WA Phone 1
+                </button>
+              )}
+              {ownerPhone2 && (
+                <button onClick={() => shareOwnerViaWhatsApp(ownerPhone2, ownerCountryCode2)}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[#25D366] text-white hover:bg-[#1EB954] transition-colors flex items-center gap-1">
+                  💬 WA Phone 2
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>

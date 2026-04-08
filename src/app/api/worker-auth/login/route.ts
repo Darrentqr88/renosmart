@@ -59,12 +59,12 @@ async function findWorkerByPhone(phone: string, countryCode: string) {
     patterns.add(codeDigits + local);             // 60176663150
   }
 
-  // Try each pattern
+  // Try each pattern — search for both worker and owner roles
   for (const pattern of patterns) {
     const { data } = await supabaseAdmin
       .from('profiles')
       .select('user_id, role, email, phone')
-      .eq('role', 'worker')
+      .in('role', ['worker', 'owner'])
       .eq('phone', pattern)
       .single();
 
@@ -77,7 +77,7 @@ async function findWorkerByPhone(phone: string, countryCode: string) {
     const { data } = await supabaseAdmin
       .from('profiles')
       .select('user_id, role, email, phone')
-      .eq('role', 'worker')
+      .in('role', ['worker', 'owner'])
       .ilike('phone', `%${last8}%`)
       .single();
 
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
     const profile = await findWorkerByPhone(phone, countryCode);
 
     if (!profile) {
-      return NextResponse.json({ error: 'No worker account found with this phone number.' }, { status: 404 });
+      return NextResponse.json({ error: 'No account found with this phone number.' }, { status: 404 });
     }
 
     // Get the actual auth user to find their real email
@@ -143,8 +143,8 @@ export async function POST(req: NextRequest) {
         .eq('user_id', profile.user_id);
     }
 
-    // Return the user's actual email + derived password
-    return NextResponse.json({ email: actualEmail, password });
+    // Return the user's actual email + derived password + role
+    return NextResponse.json({ email: actualEmail, password, role: profile.role });
   } catch (err) {
     console.error('worker-auth/login error:', err);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });

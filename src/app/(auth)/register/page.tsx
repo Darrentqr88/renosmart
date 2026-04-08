@@ -156,7 +156,7 @@ function RegisterPageContent() {
   const [signedUpUserId, setSignedUpUserId] = useState<string | null>(null);
   const [phone, setPhone] = useState('');
   const [phonePrefix, setPhonePrefix] = useState('+60');
-  const [role, setRole] = useState<UserRole>('designer');
+  const [role, setRole] = useState<UserRole>(preselectedRole || 'designer');
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [companyAddress, setCompanyAddress] = useState('');
@@ -544,12 +544,14 @@ function RegisterPageContent() {
               <button onClick={() => setStep(2)} style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94A3B8', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20 }}>
                 <ArrowLeft size={14} /> Back
               </button>
-              <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6, color: '#F1F5F9' }}>Your design firm</h1>
+              <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6, color: '#F1F5F9' }}>
+                {role === 'designer' ? 'Your design firm' : role === 'owner' ? 'Your profile' : 'Your profile'}
+              </h1>
               <p style={{ fontSize: 14, color: '#94A3B8', marginBottom: 28 }}>
                 {isInvitedUser ? 'Review your company details (pre-filled from team)' : 'One last step to complete your profile'}
               </p>
 
-              {/* Only show name field here for non-invited users (invited users already entered it in step 2) */}
+              {/* Name field for non-invited users */}
               {!isInvitedUser && (
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>Full Name</label>
@@ -557,20 +559,54 @@ function RegisterPageContent() {
                 </div>
               )}
 
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>
-                  Company Name
-                  {isInvitedUser && <span style={{ color: '#E8A317', fontSize: 11, marginLeft: 8 }}>(from team)</span>}
-                </label>
-                <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Elegant Spaces Sdn Bhd" className="reg-input" />
-              </div>
-              <div style={{ marginBottom: 24 }}>
-                <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>
-                  Company Address
-                  {isInvitedUser && <span style={{ color: '#E8A317', fontSize: 11, marginLeft: 8 }}>(from team)</span>}
-                </label>
-                <input value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} placeholder="Business address" className="reg-input" />
-              </div>
+              {/* Designer: Company fields */}
+              {role === 'designer' && (
+                <>
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>
+                      Company Name
+                      {isInvitedUser && <span style={{ color: '#E8A317', fontSize: 11, marginLeft: 8 }}>(from team)</span>}
+                    </label>
+                    <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Elegant Spaces Sdn Bhd" className="reg-input" />
+                  </div>
+                  <div style={{ marginBottom: 24 }}>
+                    <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 6 }}>
+                      Company Address
+                      {isInvitedUser && <span style={{ color: '#E8A317', fontSize: 11, marginLeft: 8 }}>(from team)</span>}
+                    </label>
+                    <input value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} placeholder="Business address" className="reg-input" />
+                  </div>
+                </>
+              )}
+
+              {/* Worker: Trades selection */}
+              {role === 'worker' && (
+                <div style={{ marginBottom: 24 }}>
+                  <label style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', display: 'block', marginBottom: 10 }}>Your Trades</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {['Plumbing', 'Electrical', 'Tiling', 'False Ceiling', 'Carpentry', 'Painting',
+                      'Demolition/Hacking', 'Glass Work', 'Aluminium Work', 'Metal Work/Ironwork',
+                      'Flooring (Timber/Vinyl)', 'Stone/Marble', 'Waterproofing', 'Air Conditioning',
+                      'Cleaning', 'Alarm & CCTV', 'Landscaping', 'Other'].map(t => (
+                      <button key={t} type="button"
+                        onClick={() => setTrades(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])}
+                        style={{
+                          padding: '6px 14px', borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                          border: `1px solid ${trades.includes(t) ? accentColor + '80' : 'rgba(255,255,255,0.1)'}`,
+                          background: trades.includes(t) ? accentColor + '18' : 'transparent',
+                          color: trades.includes(t) ? accentColor : '#94A3B8',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        {trades.includes(t) && <Check size={12} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />}
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Owner: just name is enough, no extra fields needed */}
 
               <Button onClick={handleCompleteProfile} variant="gold" className="w-full h-11 rounded-xl" disabled={loading || !name}>
                 {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}

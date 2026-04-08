@@ -7,7 +7,8 @@ import { formatDate } from '@/lib/utils';
 import {
   BarChart2, FileText, CreditCard, Camera, CheckSquare,
   LogOut, CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp,
-  Sparkles, MessageCircle, Shield, Hammer, ClipboardList, ArrowRight, Home
+  Sparkles, MessageCircle, Shield, ClipboardList, ArrowRight, Home,
+  Settings, User, Phone, MapPin, Building2, ChevronLeft, CameraIcon
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { VariationOrder, VOItem } from '@/types';
@@ -44,11 +45,31 @@ export default function OwnerDashboard() {
   const [expandedVOId, setExpandedVOId] = useState<string | null>(null);
   const [ownerLightbox, setOwnerLightbox] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<OwnerTab>('progress');
+  const [showSettings, setShowSettings] = useState(false);
+  const [profile, setProfile] = useState<{ name: string; phone: string; avatar_url: string; email: string; region?: string } | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [designerInfo, setDesignerInfo] = useState<{ name: string; company: string } | null>(null);
 
   useEffect(() => {
     (async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
+
+      // Fetch profile
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('name, phone, avatar_url, email, region')
+        .eq('user_id', authUser.id)
+        .single();
+      if (profileData) {
+        setProfile(profileData as { name: string; phone: string; avatar_url: string; email: string; region?: string });
+        setEditName(profileData.name || '');
+        setEditPhone(profileData.phone || '');
+      }
+
       const { data } = await supabase.from('projects').select('*').eq('owner_email', authUser.email).single();
       setProject(data);
       if (data?.id) {
@@ -62,6 +83,16 @@ export default function OwnerDashboard() {
         if (photosResult.data) setSitePhotos(photosResult.data);
         if (tasksResult.data) setMilestones(tasksResult.data as GanttMilestone[]);
         if (phasesResult.data) setPaymentPhases(phasesResult.data as PaymentPhase[]);
+
+        // Fetch designer info
+        if (data.designer_id) {
+          const { data: dProfile } = await supabase
+            .from('profiles')
+            .select('name, company')
+            .eq('user_id', data.designer_id)
+            .single();
+          if (dProfile) setDesignerInfo(dProfile as { name: string; company: string });
+        }
       }
       setLoading(false);
     })();
@@ -98,6 +129,36 @@ export default function OwnerDashboard() {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push('/login');
+  };
+
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase.from('profiles').update({ name: editName, phone: editPhone, updated_at: new Date().toISOString() }).eq('user_id', user.id);
+      setProfile(prev => prev ? { ...prev, name: editName, phone: editPhone } : prev);
+    } finally { setSaving(false); }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/avatar', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (json.url) setProfile(prev => prev ? { ...prev, avatar_url: json.url } : prev);
+    } finally { setAvatarUploading(false); }
+  };
+
+  const detectRegion = (address?: string): 'MY' | 'SG' => {
+    if (!address) return 'MY';
+    const lower = address.toLowerCase();
+    if (lower.includes('singapore') || /\b\d{6}\b/.test(lower)) return 'SG';
+    return 'MY';
   };
 
   const pendingVOs = variationOrders.filter(v => v.status === 'pending');
@@ -497,6 +558,8 @@ export default function OwnerDashboard() {
           font-size: 14px;
         }
 
+        @keyframes spin { to { transform: rotate(360deg); } }
+
         /* ── Rich empty states ── */
         @keyframes ow-float {
           0%, 100% { transform: translateY(0); }
@@ -648,32 +711,163 @@ export default function OwnerDashboard() {
       {/* ── Sticky header ── */}
       <div className="ow-header">
         <div className="ow-header-top">
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="ow-greeting">Your Renovation</div>
-            <div className="ow-project-name">{(project?.name as string) || 'My Home'}</div>
+          {showSettings ? (
+            <>
+              <button className="ow-signout" onClick={() => setShowSettings(false)} style={{ marginRight: 8 }}>
+                <ChevronLeft size={18} />
+              </button>
+              <div style={{ flex: 1, fontSize: 17, fontWeight: 700, color: 'var(--ow-text)' }}>Settings</div>
+            </>
+          ) : (
+            <>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div className="ow-greeting">Your Renovation</div>
+                <div className="ow-project-name">{(project?.name as string) || 'My Home'}</div>
+              </div>
+              <button className="ow-signout" onClick={() => setShowSettings(true)} title="Settings">
+                <Settings size={16} />
+              </button>
+            </>
+          )}
+        </div>
+        {!showSettings && (
+          <div className="ow-stats">
+            {[
+              { k: 'Start', v: project?.start_date ? formatDate(project.start_date as string) : 'TBD' },
+              { k: 'Status', v: project?.status === 'active' ? t.status.active : project?.status === 'completed' ? t.status.completed : t.status.pending, active: project?.status === 'active' },
+              { k: 'End', v: project?.end_date ? formatDate(project.end_date as string) : 'TBD' },
+            ].map(({ k, v, active }) => (
+              <span key={k} className={`ow-chip ${active ? 'ow-chip--active' : ''}`}>
+                {k}: <b>{v}</b>
+              </span>
+            ))}
           </div>
-          <button className="ow-signout" onClick={handleSignOut} title="Sign out">
-            <LogOut size={16} />
-          </button>
-        </div>
-        <div className="ow-stats">
-          {[
-            { k: 'Start', v: project?.start_date ? formatDate(project.start_date as string) : 'TBD' },
-            { k: 'Status', v: project?.status === 'active' ? t.status.active : project?.status === 'completed' ? t.status.completed : t.status.pending, active: project?.status === 'active' },
-            { k: 'End', v: project?.end_date ? formatDate(project.end_date as string) : 'TBD' },
-          ].map(({ k, v, active }) => (
-            <span key={k} className={`ow-chip ${active ? 'ow-chip--active' : ''}`}>
-              {k}: <b>{v}</b>
-            </span>
-          ))}
-        </div>
+        )}
       </div>
 
       {/* ── Scrollable content ── */}
       <div className="ow-content">
 
+        {/* ═══════════ SETTINGS PANEL ═══════════ */}
+        {showSettings && (
+          <>
+            {/* Avatar + Identity */}
+            <div className="ow-card" style={{ padding: '28px 20px', textAlign: 'center' }}>
+              <div style={{ position: 'relative', width: 80, height: 80, margin: '0 auto 14px' }}>
+                <div style={{ width: 80, height: 80, borderRadius: '50%', padding: 3, background: 'var(--ow-grad)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 74, height: 74, borderRadius: '50%', background: '#F0F2F7', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {profile?.avatar_url ? (
+                      <img src={profile.avatar_url} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <User size={32} color="#9CA3AF" />
+                    )}
+                  </div>
+                </div>
+                <label style={{ position: 'absolute', bottom: -2, right: -2, width: 28, height: 28, borderRadius: '50%', background: 'var(--ow-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid #fff' }}>
+                  <CameraIcon size={13} color="#fff" />
+                  <input type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
+                </label>
+                {avatarUploading && (
+                  <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 20, height: 20, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
+                  </div>
+                )}
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ow-text)' }}>{profile?.name || 'Owner'}</div>
+              <div style={{ fontSize: 12, color: 'var(--ow-text3)', marginTop: 2 }}>{profile?.email || ''}</div>
+            </div>
+
+            {/* Personal Info */}
+            <div className="ow-card" style={{ padding: '18px', marginTop: 12 }}>
+              <div className="ow-section-title" style={{ marginBottom: 14 }}>
+                <User size={15} color="var(--ow-blue)" /> Personal Info
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--ow-text3)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 4 }}>Name</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: '1px solid #E5E7EB', fontSize: 14, color: 'var(--ow-text)', background: '#FAFBFC', outline: 'none', fontFamily: 'inherit' }}
+                  placeholder="Your name"
+                />
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--ow-text3)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 4 }}>Phone</label>
+                <input
+                  type="tel"
+                  value={editPhone}
+                  onChange={e => setEditPhone(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: '1px solid #E5E7EB', fontSize: 14, color: 'var(--ow-text)', background: '#FAFBFC', outline: 'none', fontFamily: 'inherit' }}
+                  placeholder="+60 12 345 6789"
+                />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--ow-text3)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 4 }}>Email</label>
+                <div style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid #F0F1F3', fontSize: 14, color: 'var(--ow-text3)', background: '#F3F4F6' }}>
+                  {profile?.email || '—'}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--ow-text3)', marginTop: 3 }}>Managed by login provider</div>
+              </div>
+
+              <button
+                onClick={handleSaveProfile}
+                disabled={saving}
+                style={{ width: '100%', height: 44, borderRadius: 12, border: 'none', background: 'var(--ow-grad)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}
+              >
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+
+            {/* Project Info */}
+            <div className="ow-card" style={{ padding: '18px', marginTop: 12 }}>
+              <div className="ow-section-title" style={{ marginBottom: 14 }}>
+                <MapPin size={15} color="var(--ow-blue)" /> Project Info
+              </div>
+              {project ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {[
+                    { label: 'Project', value: (project.name as string) || '—', icon: Home },
+                    { label: 'Address', value: (project.address as string) || '—', icon: MapPin },
+                    { label: 'Designer', value: designerInfo?.name || '—', icon: User },
+                    { label: 'Company', value: designerInfo?.company || '—', icon: Building2 },
+                    { label: 'Region', value: detectRegion(project.address as string), icon: MapPin },
+                  ].map(row => (
+                    <div key={row.label} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(79,142,247,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <row.icon size={14} color="var(--ow-blue)" />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--ow-text3)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{row.label}</div>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--ow-text)', marginTop: 1, wordBreak: 'break-word' }}>{row.value}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                  <p style={{ fontSize: 13, color: 'var(--ow-text3)' }}>No project linked yet</p>
+                </div>
+              )}
+            </div>
+
+            {/* Sign out */}
+            <div className="ow-card" style={{ padding: '4px', marginTop: 12 }}>
+              <button
+                onClick={handleSignOut}
+                style={{ width: '100%', height: 48, borderRadius: 12, border: 'none', background: 'transparent', color: '#EF4444', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              >
+                <LogOut size={16} /> Sign Out
+              </button>
+            </div>
+          </>
+        )}
+
         {/* ═══════════ PROGRESS TAB ═══════════ */}
-        {activeTab === 'progress' && (
+        {!showSettings && activeTab === 'progress' && (
           loading ? <div className="ow-loading">Loading...</div> : !project ? (
             <>
               {/* Welcome hero */}
@@ -810,7 +1004,7 @@ export default function OwnerDashboard() {
         )}
 
         {/* ═══════════ DOCS TAB ═══════════ */}
-        {activeTab === 'docs' && (
+        {!showSettings && activeTab === 'docs' && (
           <>
             <div className="ow-card" style={{ padding: '32px 24px', textAlign: 'center', overflow: 'hidden', position: 'relative' }}>
               {/* Decorative background */}
@@ -848,7 +1042,7 @@ export default function OwnerDashboard() {
         )}
 
         {/* ═══════════ PAYMENTS TAB ═══════════ */}
-        {activeTab === 'payments' && (
+        {!showSettings && activeTab === 'payments' && (
           <>
             {/* Summary strip */}
             {paymentPhases.length > 0 && (
@@ -965,7 +1159,7 @@ export default function OwnerDashboard() {
         )}
 
         {/* ═══════════ PHOTOS TAB ═══════════ */}
-        {activeTab === 'photos' && (
+        {!showSettings && activeTab === 'photos' && (
           sitePhotos.length === 0 ? (
             <>
               <div className="ow-card" style={{ padding: '32px 24px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
@@ -1025,7 +1219,7 @@ export default function OwnerDashboard() {
         )}
 
         {/* ═══════════ APPROVALS TAB ═══════════ */}
-        {activeTab === 'approvals' && (
+        {!showSettings && activeTab === 'approvals' && (
           loading ? <div className="ow-loading">Loading...</div> : (
             <>
               {/* Pending VOs */}
@@ -1164,7 +1358,7 @@ export default function OwnerDashboard() {
       </div>
 
       {/* ── Fixed bottom tab bar ── */}
-      <nav className="ow-tabbar">
+      {!showSettings && <nav className="ow-tabbar">
         {tabs.map(({ id, icon: Icon, label, badge }) => (
           <button key={id} className={`ow-tab ${activeTab === id ? 'ow-tab--active' : ''}`} onClick={() => setActiveTab(id)}>
             <Icon size={20} />
@@ -1172,7 +1366,7 @@ export default function OwnerDashboard() {
             {badge != null && badge > 0 && <span className="ow-tab-badge">{badge}</span>}
           </button>
         ))}
-      </nav>
+      </nav>}
 
       {/* Lightbox */}
       {ownerLightbox && (

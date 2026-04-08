@@ -292,7 +292,8 @@ export default function QuotationPage() {
       const outputLang = lang === 'ZH' ? 'Chinese (Simplified)' : 'English';
       // Fetch live price reference from DB (falls back to hardcoded PRICE_REFERENCE if DB empty)
       const dbPriceRef = await fetchDbPriceReference(supabase, region === 'SG' ? 'SG' : 'MY_KL');
-      const prompt = buildQuotationPrompt(text, outputLang, dbPriceRef);
+      const dbRegion = region === 'SG' ? 'SG' : 'MY_KL';
+      const prompt = buildQuotationPrompt(text, outputLang, dbPriceRef, dbRegion);
       const authHeaders: Record<string, string> = tokenSession?.access_token ? { Authorization: `Bearer ${tokenSession.access_token}` } : {};
 
       // ── Streaming AI call for items + score (no ganttParams) ──

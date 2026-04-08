@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createHmac } from 'crypto';
-import { normalizePhone, phoneToSyntheticEmail } from '@/lib/utils/phone';
+import { normalizePhone } from '@/lib/utils/phone';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -136,9 +136,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'This link has expired. Ask your boss for a new one.' }, { status: 400 });
     }
 
-    // 2. Normalize phone
+    // 2. Normalize phone & determine role from token
     const normalizedPhone = normalizePhone(phone, countryCode);
-    const email = phoneToSyntheticEmail(normalizedPhone);
+    const tokenRole = tokenData.role || 'worker';
+    const digits = normalizedPhone.replace('+', '');
+    const email = tokenRole === 'owner'
+      ? `o${digits}@owner.renosmart.app`
+      : `w${digits}@worker.renosmart.app`;
     const password = derivePassword(normalizedPhone);
 
     // 3. Find or create Supabase auth user
@@ -149,7 +153,7 @@ export async function POST(req: NextRequest) {
       email,
       password,
       email_confirm: true,
-      user_metadata: { role: 'worker', phone: normalizedPhone },
+      user_metadata: { role: tokenRole, phone: normalizedPhone },
     });
 
     if (newUser?.user) {
@@ -190,7 +194,7 @@ export async function POST(req: NextRequest) {
     if (existingProfile) {
       await supabaseAdmin
         .from('profiles')
-        .update({ phone: normalizedPhone, role: 'worker' })
+        .update({ phone: normalizedPhone, role: tokenRole })
         .eq('user_id', userId);
     } else {
       await supabaseAdmin
@@ -199,48 +203,55 @@ export async function POST(req: NextRequest) {
           user_id: userId,
           email,
           phone: normalizedPhone,
-          role: 'worker',
+          role: tokenRole,
           plan: 'free',
           name: '',
         });
     }
 
-    // 5. Link to designer via designer_workers
-    const { data: existingLink } = await supabaseAdmin
-      .from('designer_workers')
-      .select('id')
-      .eq('designer_id', tokenData.created_by)
-      .eq('profile_id', userId)
-      .single();
-
-    if (!existingLink) {
-      // Check if there's a row with matching phone but no profile_id
-      const { data: phoneLink } = await supabaseAdmin
+    // 5. Role-specific linking
+    if (tokenRole === 'owner' && tokenData.project_id) {
+      // Link owner to project
+      await supabaseAdmin
+        .from('projects')
+        .update({ owner_user_id: userId, owner_email: email })
+        .eq('id', tokenData.project_id);
+    } else {
+      // Link worker to designer via designer_workers
+      const { data: existingLink } = await supabaseAdmin
         .from('designer_workers')
         .select('id')
         .eq('designer_id', tokenData.created_by)
-        .ilike('phone', `%${normalizedPhone.slice(-8)}%`)
-        .is('profile_id', null)
+        .eq('profile_id', userId)
         .single();
 
-      if (phoneLink) {
-        // Update existing row with profile_id
-        await supabaseAdmin
+      if (!existingLink) {
+        // Check if there's a row with matching phone but no profile_id
+        const { data: phoneLink } = await supabaseAdmin
           .from('designer_workers')
-          .update({ profile_id: userId, status: 'active' })
-          .eq('id', phoneLink.id);
-      } else {
-        // Insert new designer_workers row
-        await supabaseAdmin
-          .from('designer_workers')
-          .insert({
-            designer_id: tokenData.created_by,
-            profile_id: userId,
-            name: '',
-            phone: normalizedPhone,
-            trades: [],
-            status: 'active',
-          });
+          .select('id')
+          .eq('designer_id', tokenData.created_by)
+          .ilike('phone', `%${normalizedPhone.slice(-8)}%`)
+          .is('profile_id', null)
+          .single();
+
+        if (phoneLink) {
+          await supabaseAdmin
+            .from('designer_workers')
+            .update({ profile_id: userId, status: 'active' })
+            .eq('id', phoneLink.id);
+        } else {
+          await supabaseAdmin
+            .from('designer_workers')
+            .insert({
+              designer_id: tokenData.created_by,
+              profile_id: userId,
+              name: '',
+              phone: normalizedPhone,
+              trades: [],
+              status: 'active',
+            });
+        }
       }
     }
 

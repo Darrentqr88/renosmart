@@ -77,7 +77,7 @@ export const SUBCATEGORY_KEYWORDS: Record<string, Record<string, string[]>> = {
   'Painting': {
     'Interior Wall': ['interior', 'wall paint', '2-coat', '3-coat'],
     'Ceiling': ['ceiling paint', 'ceiling 2-coat'],
-    'Feature Wall': ['feature wall', 'texture', 'limewash', 'design finish'],
+    'Feature Wall': ['feature wall', 'texture paint', 'texture finish', 'textured', 'limewash', 'design finish'],
     'Exterior': ['exterior', 'weather-shield', 'external'],
     'Skimcoat/Prep': ['skim', 'skimcoat', 'sanding', 'wall prep'],
     'Wood/Metal': ['wood', 'metal paint', 'lacquer', 'spray paint'],
@@ -247,6 +247,7 @@ export const MATERIAL_KEYWORDS: Record<string, Record<string, string[]>> = {
   'Tabletop': {
     'Solid Surface': ['solid surface', 'corian', 'acrylic surface', 'hi-macs'],
     'Quartz Surface': ['quartz', 'quartz stone', 'caesarstone', 'silestone'],
+    'Imported Marble': ['imported marble', 'italian marble', 'spanish marble', 'calacatta', 'statuario', 'carrara'],
     'Marble & Granite': ['marble', 'granite', 'natural stone', 'marble top', 'granite top'],
     'Wooden Postform': ['postform', 'postforming', 'wood laminate top', 'compact laminate'],
     'Compressed': ['compressed', 'compact board', 'HPL top', 'phenolic'],

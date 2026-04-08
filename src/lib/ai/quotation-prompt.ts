@@ -1,7 +1,11 @@
-export function buildQuotationPrompt(textForAI: string, outputLang: string, dbPriceRef?: string): string {
+export function buildQuotationPrompt(textForAI: string, outputLang: string, dbPriceRef?: string, region?: string): string {
+  const isSG = region === 'SG';
+  const fallbackPrices = isSG
+    ? `Market price reference (baseline SG): Tiling S&I $9-15/sqft | Tiling Labour incl. cement & sand $5-8/sqft (pure labour only $3-5/sqft) | Electrical pt $25-50 | Painting $1.5-3/sqft | Carpentry $150-700/ft | Plumbing $120-350/unit | Table Top: Postform $35-65/ft, Quartz std $80-150/ft, Quartz premium $150-280/ft, Marble local $120-250/ft, Marble imported $200-500/ft, Sintered stone China $100-180/ft, Sintered stone (Dekton/Neolith) $200-400/ft, Solid Surface $60-130/ft, Labour Only $25-55/ft | Feature Wall / Bed Headboard / Wall Panel S&I $30-65/sqft | Partition / Drywall S&I $2.5-5/sqft`
+    : `Market price reference (baseline MY): Tiling S&I RM15-35/sqft | Tiling Labour incl. cement & sand RM12-18/sqft (pure labour only RM6-10/sqft) | Electrical pt RM80-180 | Painting RM2.5-5/sqft | Carpentry RM350-1800/ft | Plumbing RM300-800/unit | Table Top: Postform RM80-150/ft, Quartz std RM180-350/ft, Quartz premium RM350-600/ft, Marble local RM300-600/ft, Marble imported RM500-1200/ft, Sintered stone China RM250-400/ft, Sintered stone (Dekton/Neolith) RM500-900/ft, Solid Surface RM250-500/ft, Labour Only RM50-120/ft | Feature Wall / Bed Headboard / Wall Panel S&I RM70-150/sqft | Partition / Drywall S&I RM7-15/sqft`;
   const priceSection = dbPriceRef
     ? `Market price reference (MY/SG 2025-2026, verified market data):\n${dbPriceRef}`
-    : `Market price reference (baseline): Tiling S&I RM15-35/sqft | Tiling Labour incl. cement & sand RM12-18/sqft (pure labour only RM6-10/sqft) | Electrical pt RM80-180 | Painting RM2.5-5/sqft | Carpentry RM350-1800/ft | Plumbing RM300-800/unit | Table Top: Postform RM80-150/ft, Quartz std RM180-350/ft, Quartz premium RM350-600/ft, Marble local RM300-600/ft, Marble imported RM500-1200/ft, Sintered stone China RM250-400/ft, Sintered stone (Dekton/Neolith) RM500-900/ft, Solid Surface RM250-500/ft, Labour Only RM50-120/ft | Feature Wall / Bed Headboard / Wall Panel S&I RM70-150/sqft | Partition / Drywall S&I RM40-90/sqft`;
+    : fallbackPrices;
 
   return `You are a senior Quantity Surveyor (QS) AI for Malaysia and Singapore renovation projects.
 Audit the quotation below — parse ALL items AND catch problems. Return ONLY valid JSON. No markdown.
@@ -561,7 +565,10 @@ export async function fetchDbPriceReference(
     return lines.join('\n');
   } catch {
     // On error, return minimal fallback so AI still has basic price context
-    return 'Tiling S&I RM15-35/sqft | Electrical pt RM80-180 | Painting RM2.5-5/sqft | Carpentry RM350-1800/ft | Plumbing RM300-800/unit';
+    if (region === 'SG') {
+      return 'Tiling S&I $9-15/sqft | Tiling Labour incl. cement & sand $5-8/sqft (pure labour only $3-5/sqft) | Electrical pt $25-50 | Painting $1.5-3/sqft | Carpentry $150-700/ft | Plumbing $120-350/unit | Table Top: Postform $35-65/ft, Quartz std $80-150/ft, Quartz premium $150-280/ft, Marble local $120-250/ft, Marble imported $200-500/ft, Sintered stone China $100-180/ft, Sintered stone (Dekton/Neolith) $200-400/ft, Solid Surface $60-130/ft, Labour Only $25-55/ft | Feature Wall S&I $30-65/sqft | Partition / Drywall S&I $2.5-5/sqft';
+    }
+    return 'Tiling S&I RM15-35/sqft | Tiling Labour incl. cement & sand RM12-18/sqft (pure labour only RM6-10/sqft) | Electrical pt RM80-180 | Painting RM2.5-5/sqft | Carpentry RM350-1800/ft | Plumbing RM300-800/unit | Table Top: Postform RM80-150/ft, Quartz std RM180-350/ft, Quartz premium RM350-600/ft, Marble local RM300-600/ft, Marble imported RM500-1200/ft, Sintered stone China RM250-400/ft, Sintered stone (Dekton/Neolith) RM500-900/ft, Solid Surface RM250-500/ft, Labour Only RM50-120/ft | Feature Wall S&I RM70-150/sqft | Partition / Drywall S&I RM7-15/sqft';
   }
 }
 

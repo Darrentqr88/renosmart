@@ -707,7 +707,7 @@ export default function LandingPage() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
-          {ROLES.filter((role) => role.id === 'designer').map((role, i) => (
+          {ROLES.map((role, i) => (
             <Link
               key={role.id}
               href={`/register?role=${role.id === 'contractor' ? 'worker' : role.id}`}

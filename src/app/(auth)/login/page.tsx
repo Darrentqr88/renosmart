@@ -126,7 +126,9 @@ function LoginPageContent() {
       }
       const { error: signInErr } = await supabase.auth.signInWithPassword({ email: data.email, password: data.password });
       if (signInErr) throw signInErr;
-      router.push('/worker');
+      // Redirect based on role returned from API
+      const dest = data.role === 'owner' ? '/owner' : '/worker';
+      router.push(dest);
       router.refresh();
     } catch (error: unknown) {
       toast({ variant: 'destructive', title: 'Login failed', description: error instanceof Error ? error.message : 'Worker login failed' });
@@ -354,7 +356,7 @@ function LoginPageContent() {
               style={{ background: 'linear-gradient(to right, #F0B90B, #F7D060, #F0B90B)' }}
             >
               <Phone size={15} />
-              Worker? Sign in with phone number
+              Worker / Owner? Sign in with phone
             </button>
 
             {showWorkerLogin && (
@@ -388,7 +390,7 @@ function LoginPageContent() {
                 </div>
                 <Button type="submit" className="w-full h-10 rounded-xl bg-[#4F8EF7] hover:bg-[#3D7CE5] text-white" disabled={workerLoading || !workerPhone.trim()}>
                   {workerLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                  Sign in as Worker
+                  Sign in with Phone
                 </Button>
               </form>
             )}
