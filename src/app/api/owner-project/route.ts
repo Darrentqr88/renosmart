@@ -140,11 +140,12 @@ async function enrichProject(proj: Record<string, unknown>) {
   const id = proj.id as string;
   const designerId = proj.designer_id as string | null;
 
-  const [vos, photos, tasks, phases, designerProfile] = await Promise.all([
+  const [vos, photos, tasks, phases, quots, designerProfile] = await Promise.all([
     supabaseAdmin.from('variation_orders').select('*').eq('project_id', id).order('created_at', { ascending: false }),
     supabaseAdmin.from('site_photos').select('id, url, caption, trade, created_at').eq('project_id', id).eq('approved', true).order('created_at', { ascending: false }),
     supabaseAdmin.from('gantt_tasks').select('id, name, progress, sort_order').eq('project_id', id).order('sort_order', { ascending: true }),
     supabaseAdmin.from('payment_phases').select('*').eq('project_id', id).order('phase_number', { ascending: true }),
+    supabaseAdmin.from('project_quotations').select('id, version, file_url, file_name, is_active, created_at, total_amount').eq('project_id', id).order('version', { ascending: false }),
     designerId
       ? supabaseAdmin.from('profiles').select('name, company').eq('user_id', designerId).single()
       : Promise.resolve({ data: null }),
@@ -157,5 +158,6 @@ async function enrichProject(proj: Record<string, unknown>) {
     site_photos: photos.data || [],
     gantt_tasks: tasks.data || [],
     payment_phases: phases.data || [],
+    quotations: quots.data || [],
   };
 }

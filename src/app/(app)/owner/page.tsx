@@ -8,7 +8,7 @@ import {
   BarChart2, FileText, CreditCard, Camera, CheckSquare,
   LogOut, CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp,
   Sparkles, MessageCircle, Shield, ClipboardList, ArrowRight, Home,
-  Settings, User, Phone, MapPin, Building2, ChevronLeft, CameraIcon
+  Settings, User, Phone, MapPin, Building2, ChevronLeft, CameraIcon, Download, ExternalLink
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { VariationOrder, VOItem } from '@/types';
@@ -54,6 +54,7 @@ export default function OwnerDashboard() {
   const [designerInfo, setDesignerInfo] = useState<{ name: string; company: string } | null>(null);
   const [invitedProjects, setInvitedProjects] = useState<{ id: string; name: string; address?: string; client_name?: string; contract_amount?: number; designer?: { name: string; company: string } | null }[]>([]);
   const [importing, setImporting] = useState(false);
+  const [quotations, setQuotations] = useState<{ id: string; version: number; file_url?: string; file_name?: string; is_active: boolean; created_at: string; total_amount?: number }[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -73,13 +74,33 @@ export default function OwnerDashboard() {
       }
 
       // Fetch projects via API (bypasses RLS issues)
-      let data = null;
       try {
         const res = await fetch('/api/owner-project');
         if (res.ok) {
           const json = await res.json();
           if (json.projects?.length > 0) {
-            setInvitedProjects(json.projects);
+            // Auto-import first project
+            const firstProj = json.projects[0];
+            const importRes = await fetch(`/api/owner-project?id=${firstProj.id}`);
+            if (importRes.ok) {
+              const importJson = await importRes.json();
+              if (importJson.project) {
+                const proj = importJson.project;
+                setProject(proj);
+                if (proj.designer) setDesignerInfo(proj.designer);
+                if (proj.variation_orders) setVariationOrders(proj.variation_orders);
+                if (proj.site_photos) setSitePhotos(proj.site_photos);
+                if (proj.gantt_tasks) {
+                  const sorted = [...proj.gantt_tasks].sort((a: GanttMilestone, b: GanttMilestone) => a.sort_order - b.sort_order);
+                  setMilestones(sorted);
+                }
+                if (proj.payment_phases) setPaymentPhases(proj.payment_phases);
+                if (proj.quotations) setQuotations(proj.quotations);
+              }
+            } else {
+              // Fallback: show import button
+              setInvitedProjects(json.projects);
+            }
           }
         }
       } catch { /* non-critical */ }
@@ -137,8 +158,12 @@ export default function OwnerDashboard() {
         if (proj.designer) setDesignerInfo(proj.designer);
         if (proj.variation_orders) setVariationOrders(proj.variation_orders);
         if (proj.site_photos) setSitePhotos(proj.site_photos);
-        if (proj.gantt_tasks) setMilestones(proj.gantt_tasks);
+        if (proj.gantt_tasks) {
+          const sorted = [...proj.gantt_tasks].sort((a: GanttMilestone, b: GanttMilestone) => a.sort_order - b.sort_order);
+          setMilestones(sorted);
+        }
         if (proj.payment_phases) setPaymentPhases(proj.payment_phases);
+        if (proj.quotations) setQuotations(proj.quotations);
       }
     } finally {
       setImporting(false);
@@ -1093,38 +1118,46 @@ export default function OwnerDashboard() {
         {/* ═══════════ DOCS TAB ═══════════ */}
         {!showSettings && activeTab === 'docs' && (
           <>
-            <div className="ow-card" style={{ padding: '32px 24px', textAlign: 'center', overflow: 'hidden', position: 'relative' }}>
-              {/* Decorative background */}
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'var(--ow-grad-full)' }} />
-              <div className="ow-empty-icon" style={{ margin: '0 auto 16px', width: 64, height: 64, borderRadius: 20 }}>
-                <FileText size={30} color="#4F8EF7" />
-              </div>
-              <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--ow-text)', marginBottom: 4 }}>{t.owner.noDocs}</p>
-              <p style={{ fontSize: 13, color: 'var(--ow-text3)', lineHeight: 1.5, maxWidth: 260, margin: '0 auto' }}>
-                Your designer will share quotations, contracts, and project documents here for easy access.
-              </p>
-            </div>
-
-            {/* Document types preview */}
-            <div className="ow-card" style={{ marginTop: 12, overflow: 'hidden' }}>
-              <div style={{ padding: '14px 18px 0', fontSize: 13, fontWeight: 700, color: 'var(--ow-text)' }}>Documents you&apos;ll receive</div>
-              {[
-                { icon: ClipboardList, title: 'Original Quotation', desc: 'Review the full quotation uploaded by your designer', color: '#4F8EF7', bg: 'rgba(79,142,247,0.08)' },
-                { icon: FileText, title: 'Contract Agreement', desc: 'Terms, scope, and payment schedule', color: '#8B5CF6', bg: 'rgba(139,92,246,0.08)' },
-                { icon: Shield, title: 'Warranty Documents', desc: 'Workmanship and material warranties', color: '#22C55E', bg: 'rgba(34,197,94,0.08)' },
-              ].map((d, i) => (
-                <div key={d.title} style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12, borderTop: i > 0 ? '1px solid #F3F4F6' : 'none', opacity: 0.65 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: d.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <d.icon size={18} color={d.color} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ow-text)' }}>{d.title}</div>
-                    <div style={{ fontSize: 11, color: 'var(--ow-text3)' }}>{d.desc}</div>
-                  </div>
-                  <ArrowRight size={14} color="#D1D5DB" />
+            {quotations.length > 0 ? (
+              <div className="ow-card" style={{ overflow: 'hidden' }}>
+                <div style={{ padding: '16px 18px 0', fontSize: 13, fontWeight: 700, color: 'var(--ow-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <ClipboardList size={14} color="#4F8EF7" /> Quotations
                 </div>
-              ))}
-            </div>
+                {quotations.map((q, i) => (
+                  <div key={q.id} style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12, borderTop: i > 0 ? '1px solid #F3F4F6' : 'none' }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: q.is_active ? 'rgba(79,142,247,0.08)' : '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <FileText size={20} color={q.is_active ? '#4F8EF7' : '#9CA3AF'} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ow-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {q.file_name || `Quotation v${q.version}`}
+                        {q.is_active && <span style={{ fontSize: 9, fontWeight: 700, background: 'rgba(79,142,247,0.1)', color: '#4F8EF7', padding: '1px 6px', borderRadius: 10 }}>ACTIVE</span>}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--ow-text3)', marginTop: 2 }}>
+                        v{q.version} · {formatDate(q.created_at)}
+                        {q.total_amount ? ` · RM ${q.total_amount.toLocaleString('en-MY', { minimumFractionDigits: 2 })}` : ''}
+                      </div>
+                    </div>
+                    {q.file_url && (
+                      <a href={q.file_url} target="_blank" rel="noopener noreferrer" style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(79,142,247,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#4F8EF7' }}>
+                        <ExternalLink size={16} />
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="ow-card" style={{ padding: '32px 24px', textAlign: 'center', overflow: 'hidden', position: 'relative' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'var(--ow-grad-full)' }} />
+                <div className="ow-empty-icon" style={{ margin: '0 auto 16px', width: 64, height: 64, borderRadius: 20 }}>
+                  <FileText size={30} color="#4F8EF7" />
+                </div>
+                <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--ow-text)', marginBottom: 4 }}>{t.owner.noDocs}</p>
+                <p style={{ fontSize: 13, color: 'var(--ow-text3)', lineHeight: 1.5, maxWidth: 260, margin: '0 auto' }}>
+                  Your designer will share quotations, contracts, and project documents here for easy access.
+                </p>
+              </div>
+            )}
           </>
         )}
 
@@ -1352,42 +1385,59 @@ export default function OwnerDashboard() {
                           </div>
                         </div>
 
-                        {/* Expandable items */}
-                        {voItems.length > 0 && (
-                          <div style={{ marginBottom: 14 }}>
-                            <button
-                              onClick={() => setExpandedVOId(isExpanded ? null : vo.id)}
-                              style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, color: 'var(--ow-blue)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                            >
-                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                              {isExpanded ? t.owner.collapseDetails : `${t.owner.viewDetails} (${voItems.length})`}
-                            </button>
-                            {isExpanded && (
-                              <div style={{ marginTop: 10, background: '#F9FAFB', borderRadius: 12, overflow: 'hidden' }}>
-                                <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
-                                  <thead>
-                                    <tr style={{ borderBottom: '1px solid #E5E7EB' }}>
-                                      <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: 'var(--ow-text3)', width: 28 }}>#</th>
-                                      <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: 'var(--ow-text3)' }}>{t.owner.description}</th>
-                                      <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--ow-text3)' }}>{t.owner.subtotal}</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {voItems.map((item, idx) => (
-                                      <tr key={idx} style={{ borderTop: idx > 0 ? '1px solid #F0F1F3' : 'none' }}>
-                                        <td style={{ padding: '8px 12px', color: 'var(--ow-text3)' }}>{item.no || idx + 1}</td>
-                                        <td style={{ padding: '8px 12px', color: 'var(--ow-text)' }}>{item.description}</td>
-                                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--ow-text)' }}>
-                                          <span style={{ opacity: 0.4 }}>RM </span>{Number(item.total || 0).toLocaleString('en-MY', { minimumFractionDigits: 2 })}
-                                        </td>
+                        {/* Expandable details — always show button */}
+                        <div style={{ marginBottom: 14 }}>
+                          <button
+                            onClick={() => setExpandedVOId(isExpanded ? null : vo.id)}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, color: 'var(--ow-blue)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                          >
+                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            {isExpanded ? t.owner.collapseDetails : t.owner.viewDetails}
+                          </button>
+                          {isExpanded && (
+                            <div style={{ marginTop: 10, background: '#F9FAFB', borderRadius: 12, padding: '14px 16px' }}>
+                              {/* Full description */}
+                              {vo.description && (
+                                <div style={{ marginBottom: voItems.length > 0 || vo.notes ? 12 : 0 }}>
+                                  <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--ow-text3)', marginBottom: 4 }}>{t.owner.description}</p>
+                                  <p style={{ fontSize: 13, color: 'var(--ow-text)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{vo.description}</p>
+                                </div>
+                              )}
+                              {/* Notes */}
+                              {vo.notes && (
+                                <div style={{ marginBottom: voItems.length > 0 ? 12 : 0 }}>
+                                  <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--ow-text3)', marginBottom: 4 }}>Notes</p>
+                                  <p style={{ fontSize: 13, color: 'var(--ow-text)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{vo.notes}</p>
+                                </div>
+                              )}
+                              {/* Itemized breakdown */}
+                              {voItems.length > 0 && (
+                                <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #E5E7EB' }}>
+                                  <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                                    <thead>
+                                      <tr style={{ borderBottom: '1px solid #E5E7EB', background: '#F3F4F6' }}>
+                                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: 'var(--ow-text3)', width: 28 }}>#</th>
+                                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: 'var(--ow-text3)' }}>{t.owner.description}</th>
+                                        <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--ow-text3)' }}>{t.owner.subtotal}</th>
                                       </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                                    </thead>
+                                    <tbody>
+                                      {voItems.map((item, idx) => (
+                                        <tr key={idx} style={{ borderTop: idx > 0 ? '1px solid #F0F1F3' : 'none' }}>
+                                          <td style={{ padding: '8px 12px', color: 'var(--ow-text3)' }}>{item.no || idx + 1}</td>
+                                          <td style={{ padding: '8px 12px', color: 'var(--ow-text)' }}>{item.description}</td>
+                                          <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--ow-text)' }}>
+                                            <span style={{ opacity: 0.4 }}>RM </span>{Number(item.total || 0).toLocaleString('en-MY', { minimumFractionDigits: 2 })}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
 
                         {/* Action buttons */}
                         <div style={{ display: 'flex', gap: 10 }}>
@@ -1409,33 +1459,58 @@ export default function OwnerDashboard() {
                 <div style={{ marginTop: 24 }}>
                   <div className="ow-section-title">{t.owner.approvalHistory}</div>
                   <div className="ow-card" style={{ overflow: 'hidden' }}>
-                    {historyVOs.map((vo, i) => (
+                    {historyVOs.map((vo, i) => {
+                      const hItems: VOItem[] = (vo.items as VOItem[] | undefined) || [];
+                      const hExpanded = expandedVOId === vo.id;
+                      return (
                       <div key={vo.id} style={{
                         padding: '14px 18px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 12,
                         borderTop: i > 0 ? '1px solid #F3F4F6' : 'none',
                         borderLeft: `3px solid ${vo.status === 'approved' ? '#22C55E' : '#D1D5DB'}`,
-                      }}>
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                            <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--ow-text3)' }}>{vo.vo_number}</span>
-                            {vo.status === 'approved'
-                              ? <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 20, background: 'rgba(34,197,94,0.1)', color: '#16A34A' }}>{t.owner.accepted}</span>
-                              : <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 20, background: '#F3F4F6', color: '#9CA3AF' }}>{t.owner.rejected}</span>
-                            }
+                        cursor: 'pointer',
+                      }} onClick={() => setExpandedVOId(hExpanded ? null : vo.id)}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                              <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--ow-text3)' }}>{vo.vo_number}</span>
+                              {vo.status === 'approved'
+                                ? <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 20, background: 'rgba(34,197,94,0.1)', color: '#16A34A' }}>{t.owner.accepted}</span>
+                                : <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 20, background: '#F3F4F6', color: '#9CA3AF' }}>{t.owner.rejected}</span>
+                              }
+                              {hExpanded ? <ChevronUp size={12} color="var(--ow-text3)" /> : <ChevronDown size={12} color="var(--ow-text3)" />}
+                            </div>
+                            <p style={{ fontSize: 13, color: 'var(--ow-text)', overflow: hExpanded ? 'visible' : 'hidden', textOverflow: 'ellipsis', whiteSpace: hExpanded ? 'pre-wrap' : 'nowrap' }}>{vo.description}</p>
+                            {vo.approved_at && <p style={{ fontSize: 11, color: 'var(--ow-text3)', marginTop: 2 }}>{formatDate(vo.approved_at)}</p>}
                           </div>
-                          <p style={{ fontSize: 13, color: 'var(--ow-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{vo.description}</p>
-                          {vo.approved_at && <p style={{ fontSize: 11, color: 'var(--ow-text3)', marginTop: 2 }}>{formatDate(vo.approved_at)}</p>}
+                          <div className="ow-amount" style={{ fontSize: 15, flexShrink: 0, textDecoration: vo.status === 'rejected' ? 'line-through' : 'none', color: vo.status === 'rejected' ? 'var(--ow-text3)' : 'var(--ow-text)' }}>
+                            +<span className="ow-amount-currency" style={{ fontSize: 10 }}>RM</span>
+                            <span className="ow-amount-value">{vo.amount.toLocaleString('en-MY', { minimumFractionDigits: 2 })}</span>
+                          </div>
                         </div>
-                        <div className="ow-amount" style={{ fontSize: 15, flexShrink: 0, textDecoration: vo.status === 'rejected' ? 'line-through' : 'none', color: vo.status === 'rejected' ? 'var(--ow-text3)' : 'var(--ow-text)' }}>
-                          +<span className="ow-amount-currency" style={{ fontSize: 10 }}>RM</span>
-                          <span className="ow-amount-value">{vo.amount.toLocaleString('en-MY', { minimumFractionDigits: 2 })}</span>
-                        </div>
+                        {hExpanded && (vo.notes || hItems.length > 0) && (
+                          <div style={{ marginTop: 10, background: '#F9FAFB', borderRadius: 8, padding: '12px 14px' }}>
+                            {vo.notes && <p style={{ fontSize: 12, color: 'var(--ow-text2)', lineHeight: 1.5, whiteSpace: 'pre-wrap', marginBottom: hItems.length > 0 ? 10 : 0 }}>{vo.notes}</p>}
+                            {hItems.length > 0 && (
+                              <div style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #E5E7EB' }}>
+                                <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+                                  <tbody>
+                                    {hItems.map((item, idx) => (
+                                      <tr key={idx} style={{ borderTop: idx > 0 ? '1px solid #F0F1F3' : 'none' }}>
+                                        <td style={{ padding: '6px 10px', color: 'var(--ow-text)' }}>{item.description}</td>
+                                        <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 600, color: 'var(--ow-text)', whiteSpace: 'nowrap' }}>
+                                          RM {Number(item.total || 0).toLocaleString('en-MY', { minimumFractionDigits: 2 })}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

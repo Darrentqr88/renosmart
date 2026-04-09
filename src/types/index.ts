@@ -319,6 +319,7 @@ export interface VariationOrder {
   approved_at?: string;
   items?: VOItem[];
   file_name?: string;
+  notes?: string;
 }
 
 export interface Worker {
