@@ -66,9 +66,10 @@ async function findWorkerByPhone(phone: string, countryCode: string) {
       .select('user_id, role, email, phone')
       .in('role', ['worker', 'owner'])
       .eq('phone', pattern)
-      .single();
+      .order('role', { ascending: true })
+      .limit(1);
 
-    if (data) return data;
+    if (data && data.length > 0) return data[0];
   }
 
   // Last resort: ilike search on last 8 digits
@@ -79,9 +80,10 @@ async function findWorkerByPhone(phone: string, countryCode: string) {
       .select('user_id, role, email, phone')
       .in('role', ['worker', 'owner'])
       .ilike('phone', `%${last8}%`)
-      .single();
+      .order('role', { ascending: true })
+      .limit(1);
 
-    if (data) return data;
+    if (data && data.length > 0) return data[0];
   }
 
   return null;
