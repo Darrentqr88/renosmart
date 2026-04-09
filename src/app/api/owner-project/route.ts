@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 
@@ -8,13 +8,56 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     // Authenticate the user via their session
     const supabase = await createServerClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Single project fetch (for import)
+    const projectId = req.nextUrl.searchParams.get('id');
+    if (projectId) {
+      // Verify this project belongs to the owner
+      const { data: proj } = await supabaseAdmin
+        .from('projects')
+        .select('*')
+        .eq('id', projectId)
+        .or(`owner_user_id.eq.${user.id},owner_email.eq.${user.email}`)
+        .maybeSingle();
+
+      if (!proj) {
+        // Also check via invite_tokens
+        const { data: token } = await supabaseAdmin
+          .from('invite_tokens')
+          .select('project_id')
+          .eq('claimed_by_user_id', user.id)
+          .eq('project_id', projectId)
+          .eq('status', 'accepted')
+          .maybeSingle();
+
+        if (!token) {
+          return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+        }
+
+        // Fetch via admin
+        const { data: tokenProj } = await supabaseAdmin
+          .from('projects')
+          .select('*')
+          .eq('id', projectId)
+          .single();
+
+        if (!tokenProj) {
+          return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+        }
+
+        // Load related data + designer
+        return NextResponse.json({ project: await enrichProject(tokenProj) });
+      }
+
+      return NextResponse.json({ project: await enrichProject(proj) });
     }
 
     // 1. Check projects linked to this owner (bypass RLS with admin)
@@ -91,4 +134,28 @@ export async function GET() {
     console.error('owner-project error:', err);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
+}
+
+async function enrichProject(proj: Record<string, unknown>) {
+  const id = proj.id as string;
+  const designerId = proj.designer_id as string | null;
+
+  const [vos, photos, tasks, phases, designerProfile] = await Promise.all([
+    supabaseAdmin.from('variation_orders').select('*').eq('project_id', id).order('created_at', { ascending: false }),
+    supabaseAdmin.from('site_photos').select('id, url, caption, trade, created_at').eq('project_id', id).eq('approved', true).order('created_at', { ascending: false }),
+    supabaseAdmin.from('gantt_tasks').select('id, name, progress, sort_order').eq('project_id', id).order('sort_order', { ascending: true }),
+    supabaseAdmin.from('payment_phases').select('*').eq('project_id', id).order('phase_number', { ascending: true }),
+    designerId
+      ? supabaseAdmin.from('profiles').select('name, company').eq('user_id', designerId).single()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  return {
+    ...proj,
+    designer: designerProfile.data || null,
+    variation_orders: vos.data || [],
+    site_photos: photos.data || [],
+    gantt_tasks: tasks.data || [],
+    payment_phases: phases.data || [],
+  };
 }

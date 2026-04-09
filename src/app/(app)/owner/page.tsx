@@ -72,42 +72,17 @@ export default function OwnerDashboard() {
         setEditPhone(profileData.phone || '');
       }
 
-      const { data } = await supabase.from('projects').select('*').eq('owner_email', authUser.email).maybeSingle();
-      setProject(data);
-
-      // If no project found via RLS, check for invited projects via API
-      if (!data) {
-        try {
-          const res = await fetch('/api/owner-project');
-          if (res.ok) {
-            const json = await res.json();
-            if (json.projects?.length > 0) setInvitedProjects(json.projects);
+      // Fetch projects via API (bypasses RLS issues)
+      let data = null;
+      try {
+        const res = await fetch('/api/owner-project');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.projects?.length > 0) {
+            setInvitedProjects(json.projects);
           }
-        } catch { /* non-critical */ }
-      }
-
-      if (data?.id) {
-        const [vosResult, photosResult, tasksResult, phasesResult] = await Promise.all([
-          supabase.from('variation_orders').select('*').eq('project_id', data.id).order('created_at', { ascending: false }),
-          supabase.from('site_photos').select('id, url, caption, trade, created_at').eq('project_id', data.id).eq('approved', true).order('created_at', { ascending: false }),
-          supabase.from('gantt_tasks').select('id, name, progress, sort_order').eq('project_id', data.id).order('sort_order', { ascending: true }),
-          supabase.from('payment_phases').select('*').eq('project_id', data.id).order('phase_number', { ascending: true }),
-        ]);
-        if (vosResult.data) setVariationOrders(vosResult.data as VariationOrder[]);
-        if (photosResult.data) setSitePhotos(photosResult.data);
-        if (tasksResult.data) setMilestones(tasksResult.data as GanttMilestone[]);
-        if (phasesResult.data) setPaymentPhases(phasesResult.data as PaymentPhase[]);
-
-        // Fetch designer info
-        if (data.designer_id) {
-          const { data: dProfile } = await supabase
-            .from('profiles')
-            .select('name, company')
-            .eq('user_id', data.designer_id)
-            .single();
-          if (dProfile) setDesignerInfo(dProfile as { name: string; company: string });
         }
-      }
+      } catch { /* non-critical */ }
       setLoading(false);
     })();
   }, []);
@@ -148,26 +123,22 @@ export default function OwnerDashboard() {
   const handleImportProject = async (projectId: string) => {
     setImporting(true);
     try {
-      // Re-query project — RLS policy should now allow it
-      const { data } = await supabase.from('projects').select('*').eq('id', projectId).maybeSingle();
-      if (data) {
-        setProject(data);
+      // Fetch full project data via API (bypasses RLS)
+      const res = await fetch(`/api/owner-project?id=${projectId}`);
+      if (!res.ok) {
+        console.error('Import failed:', res.status);
+        return;
+      }
+      const json = await res.json();
+      const proj = json.project;
+      if (proj) {
+        setProject(proj);
         setInvitedProjects([]);
-        // Load related data
-        const [vosResult, photosResult, tasksResult, phasesResult] = await Promise.all([
-          supabase.from('variation_orders').select('*').eq('project_id', data.id).order('created_at', { ascending: false }),
-          supabase.from('site_photos').select('id, url, caption, trade, created_at').eq('project_id', data.id).eq('approved', true).order('created_at', { ascending: false }),
-          supabase.from('gantt_tasks').select('id, name, progress, sort_order').eq('project_id', data.id).order('sort_order', { ascending: true }),
-          supabase.from('payment_phases').select('*').eq('project_id', data.id).order('phase_number', { ascending: true }),
-        ]);
-        if (vosResult.data) setVariationOrders(vosResult.data as VariationOrder[]);
-        if (photosResult.data) setSitePhotos(photosResult.data);
-        if (tasksResult.data) setMilestones(tasksResult.data as GanttMilestone[]);
-        if (phasesResult.data) setPaymentPhases(phasesResult.data as PaymentPhase[]);
-        if (data.designer_id) {
-          const { data: dProfile } = await supabase.from('profiles').select('name, company').eq('user_id', data.designer_id).single();
-          if (dProfile) setDesignerInfo(dProfile as { name: string; company: string });
-        }
+        if (proj.designer) setDesignerInfo(proj.designer);
+        if (proj.variation_orders) setVariationOrders(proj.variation_orders);
+        if (proj.site_photos) setSitePhotos(proj.site_photos);
+        if (proj.gantt_tasks) setMilestones(proj.gantt_tasks);
+        if (proj.payment_phases) setPaymentPhases(proj.payment_phases);
       }
     } finally {
       setImporting(false);
