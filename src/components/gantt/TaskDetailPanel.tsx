@@ -12,6 +12,7 @@ interface TaskDetailPanelProps {
   onClose: () => void;
   onSubtaskToggle: (subtaskId: string) => void;
   onDurationChange: (newDuration: number) => void;
+  onProgressChange?: (newProgress: number) => void;
   quotationItems?: QuotationItem[];
   region?: 'MY' | 'SG';
   cachedHint?: TradeHint;
@@ -26,6 +27,7 @@ export function TaskDetailPanel({
   onClose,
   onSubtaskToggle,
   onDurationChange,
+  onProgressChange,
   quotationItems = [],
   region = 'MY',
   cachedHint,
@@ -216,6 +218,46 @@ export function TaskDetailPanel({
               {lang === 'ZH' ? '应用' : 'Apply'}
             </button>
           </div>
+
+          {/* ── Progress slider ── */}
+          {onProgressChange && (
+            <div className="mb-5">
+              <div className="text-[10px] font-bold tracking-[1.5px] uppercase text-rs-text3 mb-2">
+                {lang === 'ZH' ? '完成进度' : 'PROGRESS'}
+              </div>
+              <div className="p-3 bg-[#FAFBFC] rounded-xl border border-rs-border">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range" min={0} max={100} step={5}
+                    value={task.progress}
+                    onChange={(e) => onProgressChange(Number(e.target.value))}
+                    className="flex-1 h-2 rounded-full appearance-none cursor-pointer"
+                    style={{
+                      background: `linear-gradient(to right, ${task.progress >= 100 ? '#16A34A' : '#4F8EF7'} ${task.progress}%, #E5E7EB ${task.progress}%)`,
+                    }}
+                  />
+                  <span className={`text-[14px] font-bold min-w-[40px] text-right ${task.progress >= 100 ? 'text-[#16A34A]' : task.progress > 0 ? 'text-[#4F8EF7]' : 'text-rs-text3'}`}>
+                    {task.progress}%
+                  </span>
+                </div>
+                <div className="flex justify-between mt-2">
+                  {[0, 25, 50, 75, 100].map(v => (
+                    <button
+                      key={v}
+                      onClick={() => onProgressChange(v)}
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-md transition-all ${
+                        task.progress === v
+                          ? v === 100 ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                          : 'text-rs-text3 hover:bg-gray-100'
+                      }`}
+                    >
+                      {v === 100 ? (lang === 'ZH' ? '完工' : 'Done') : `${v}%`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ── Prep Reminders & Notes section ── */}
           {(relatedItems.length > 0 || staticChecklist.length > 0 || task.trade) && (

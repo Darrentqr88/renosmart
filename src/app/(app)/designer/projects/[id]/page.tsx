@@ -519,6 +519,13 @@ export default function ProjectDetailPage() {
     setIsDirty(true);
   };
 
+  const handleProgressChange = (taskId: string, newProgress: number) => {
+    setGanttTasks(prev => prev.map(t =>
+      t.id === taskId ? { ...t, progress: newProgress } : t
+    ));
+    setIsDirty(true);
+  };
+
   const handleRegenerateGantt = () => {
     if (!ganttStartDate) return;
     const newStart = new Date(ganttStartDate + 'T00:00:00');
@@ -2159,6 +2166,7 @@ export default function ProjectDetailPage() {
                   onClose={() => setSelectedTaskId(null)}
                   onSubtaskToggle={(subtaskId) => handleSubtaskToggle(selectedTaskId, subtaskId)}
                   onDurationChange={(newDuration) => handleDurationChange(selectedTaskId, newDuration)}
+                  onProgressChange={(newProgress) => handleProgressChange(selectedTaskId, newProgress)}
                   quotationItems={qItems}
                   region={region}
                   cachedHint={task.ai_hint ?? undefined}
