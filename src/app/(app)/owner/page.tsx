@@ -116,20 +116,17 @@ export default function OwnerDashboard() {
 
   // Poll for updates every 30s while page is visible
   useEffect(() => {
-    if (!projectIdRef.current) return;
-    const id = projectIdRef.current;
-    let timer: ReturnType<typeof setInterval>;
+    const getProjectId = () => projectIdRef.current;
+    // Start polling once we have a project ID
+    const timer = setInterval(() => {
+      const id = getProjectId();
+      if (id && !document.hidden) refreshProjectData(id);
+    }, 15000);
 
-    const startPolling = () => {
-      timer = setInterval(() => {
-        if (!document.hidden) refreshProjectData(id);
-      }, 30000);
-    };
-
-    startPolling();
     // Also refresh when tab becomes visible after being hidden
     const onVisibility = () => {
-      if (!document.hidden) refreshProjectData(id);
+      const id = getProjectId();
+      if (id && !document.hidden) refreshProjectData(id);
     };
     document.addEventListener('visibilitychange', onVisibility);
 
@@ -137,7 +134,7 @@ export default function OwnerDashboard() {
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [refreshProjectData, project]);
+  }, [refreshProjectData]);
 
   const handleVOAction = async (voId: string, action: 'approved' | 'rejected') => {
     setVoLoading(true);
@@ -1111,9 +1108,14 @@ export default function OwnerDashboard() {
                           <div className={`ow-tl-dot ${done ? 'ow-tl-dot--done' : active ? 'ow-tl-dot--active' : 'ow-tl-dot--pending'}`}>
                             {done ? <CheckCircle2 size={12} color="#fff" /> : active ? <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} /> : <span style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF' }}>{i + 1}</span>}
                           </div>
-                          <span style={{ flex: 1, fontSize: 13, fontWeight: active ? 600 : 400, color: done ? '#9CA3AF' : active ? 'var(--ow-text)' : '#9CA3AF', textDecoration: done ? 'line-through' : 'none' }}>
+                          <span style={{ flex: 1, fontSize: 13, fontWeight: active ? 600 : 400, color: done ? '#16A34A' : active ? 'var(--ow-text)' : '#9CA3AF' }}>
                             {m.name}
                           </span>
+                          {done && (
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#16A34A', background: 'rgba(34,197,94,0.08)', padding: '2px 8px', borderRadius: 20, flexShrink: 0 }}>
+                              ✓ 已完工
+                            </span>
+                          )}
                           {active && (
                             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ow-blue)', background: 'rgba(79,142,247,0.08)', padding: '2px 8px', borderRadius: 20, flexShrink: 0 }}>
                               {m.progress}%
