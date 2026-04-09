@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useI18n } from '@/lib/i18n/context';
 import { formatDate } from '@/lib/utils';
@@ -57,7 +57,30 @@ export default function OwnerDashboard() {
   const [importing, setImporting] = useState(false);
   const [quotations, setQuotations] = useState<{ id: string; version: number; file_url?: string; file_name?: string; is_active: boolean; created_at: string; total_amount?: number; parsed_items?: { no?: string; section?: string; name: string; unit?: string; qty?: number; unitPrice?: number; total?: number }[] }[]>([]);
   const [expandedQuotId, setExpandedQuotId] = useState<string | null>(null);
+  const projectIdRef = useRef<string | null>(null);
 
+  // Refresh project data from API (reusable for polling)
+  const refreshProjectData = useCallback(async (projId: string) => {
+    try {
+      const res = await fetch(`/api/owner-project?id=${projId}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      if (!json.project) return;
+      const proj = json.project;
+      setProject(proj);
+      if (proj.designer) setDesignerInfo(proj.designer);
+      if (proj.variation_orders) setVariationOrders(proj.variation_orders);
+      if (proj.site_photos) setSitePhotos(proj.site_photos);
+      if (proj.gantt_tasks) {
+        const sorted = [...proj.gantt_tasks].sort((a: GanttMilestone, b: GanttMilestone) => (a.start_date || '').localeCompare(b.start_date || ''));
+        setMilestones(sorted);
+      }
+      if (proj.payment_phases) setPaymentPhases(proj.payment_phases);
+      if (proj.quotations) setQuotations(proj.quotations);
+    } catch { /* non-critical */ }
+  }, []);
+
+  // Initial load
   useEffect(() => {
     (async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -81,34 +104,40 @@ export default function OwnerDashboard() {
         if (res.ok) {
           const json = await res.json();
           if (json.projects?.length > 0) {
-            // Auto-import first project
             const firstProj = json.projects[0];
-            const importRes = await fetch(`/api/owner-project?id=${firstProj.id}`);
-            if (importRes.ok) {
-              const importJson = await importRes.json();
-              if (importJson.project) {
-                const proj = importJson.project;
-                setProject(proj);
-                if (proj.designer) setDesignerInfo(proj.designer);
-                if (proj.variation_orders) setVariationOrders(proj.variation_orders);
-                if (proj.site_photos) setSitePhotos(proj.site_photos);
-                if (proj.gantt_tasks) {
-                  const sorted = [...proj.gantt_tasks].sort((a: GanttMilestone, b: GanttMilestone) => (a.start_date || '').localeCompare(b.start_date || ''));
-                  setMilestones(sorted);
-                }
-                if (proj.payment_phases) setPaymentPhases(proj.payment_phases);
-                if (proj.quotations) setQuotations(proj.quotations);
-              }
-            } else {
-              // Fallback: show import button
-              setInvitedProjects(json.projects);
-            }
+            projectIdRef.current = firstProj.id;
+            await refreshProjectData(firstProj.id);
           }
         }
       } catch { /* non-critical */ }
       setLoading(false);
     })();
-  }, []);
+  }, [refreshProjectData]);
+
+  // Poll for updates every 30s while page is visible
+  useEffect(() => {
+    if (!projectIdRef.current) return;
+    const id = projectIdRef.current;
+    let timer: ReturnType<typeof setInterval>;
+
+    const startPolling = () => {
+      timer = setInterval(() => {
+        if (!document.hidden) refreshProjectData(id);
+      }, 30000);
+    };
+
+    startPolling();
+    // Also refresh when tab becomes visible after being hidden
+    const onVisibility = () => {
+      if (!document.hidden) refreshProjectData(id);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [refreshProjectData, project]);
 
   const handleVOAction = async (voId: string, action: 'approved' | 'rejected') => {
     setVoLoading(true);
@@ -146,27 +175,9 @@ export default function OwnerDashboard() {
   const handleImportProject = async (projectId: string) => {
     setImporting(true);
     try {
-      // Fetch full project data via API (bypasses RLS)
-      const res = await fetch(`/api/owner-project?id=${projectId}`);
-      if (!res.ok) {
-        console.error('Import failed:', res.status);
-        return;
-      }
-      const json = await res.json();
-      const proj = json.project;
-      if (proj) {
-        setProject(proj);
-        setInvitedProjects([]);
-        if (proj.designer) setDesignerInfo(proj.designer);
-        if (proj.variation_orders) setVariationOrders(proj.variation_orders);
-        if (proj.site_photos) setSitePhotos(proj.site_photos);
-        if (proj.gantt_tasks) {
-          const sorted = [...proj.gantt_tasks].sort((a: GanttMilestone, b: GanttMilestone) => (a.start_date || '').localeCompare(b.start_date || ''));
-          setMilestones(sorted);
-        }
-        if (proj.payment_phases) setPaymentPhases(proj.payment_phases);
-        if (proj.quotations) setQuotations(proj.quotations);
-      }
+      projectIdRef.current = projectId;
+      await refreshProjectData(projectId);
+      setInvitedProjects([]);
     } finally {
       setImporting(false);
     }
@@ -206,7 +217,10 @@ export default function OwnerDashboard() {
   const historyVOs = variationOrders.filter(v => v.status !== 'pending');
   const nextPayment = paymentPhases.find(p => p.status === 'pending' || p.status === 'not_due');
 
-  const progressPct = (project?.progress as number) || 0;
+  // Calculate progress from actual gantt milestones (project.progress is never updated)
+  const progressPct = milestones.length > 0
+    ? Math.round(milestones.reduce((sum, m) => sum + (m.progress || 0), 0) / milestones.length)
+    : (project?.progress as number) || 0;
   const contractTotal = (project?.contract_amount as number) || 0;
   const totalPaid = paymentPhases.filter(p => p.status === 'collected').reduce((s, p) => s + p.amount, 0);
   const totalPending = paymentPhases.filter(p => p.status === 'pending').reduce((s, p) => s + p.amount, 0);
