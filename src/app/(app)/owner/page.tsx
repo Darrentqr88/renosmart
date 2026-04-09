@@ -52,6 +52,8 @@ export default function OwnerDashboard() {
   const [saving, setSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [designerInfo, setDesignerInfo] = useState<{ name: string; company: string } | null>(null);
+  const [invitedProjects, setInvitedProjects] = useState<{ id: string; name: string; address?: string; client_name?: string; contract_amount?: number; designer?: { name: string; company: string } | null }[]>([]);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -70,8 +72,20 @@ export default function OwnerDashboard() {
         setEditPhone(profileData.phone || '');
       }
 
-      const { data } = await supabase.from('projects').select('*').eq('owner_email', authUser.email).single();
+      const { data } = await supabase.from('projects').select('*').eq('owner_email', authUser.email).maybeSingle();
       setProject(data);
+
+      // If no project found via RLS, check for invited projects via API
+      if (!data) {
+        try {
+          const res = await fetch('/api/owner-project');
+          if (res.ok) {
+            const json = await res.json();
+            if (json.projects?.length > 0) setInvitedProjects(json.projects);
+          }
+        } catch { /* non-critical */ }
+      }
+
       if (data?.id) {
         const [vosResult, photosResult, tasksResult, phasesResult] = await Promise.all([
           supabase.from('variation_orders').select('*').eq('project_id', data.id).order('created_at', { ascending: false }),
@@ -129,6 +143,35 @@ export default function OwnerDashboard() {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push('/login');
+  };
+
+  const handleImportProject = async (projectId: string) => {
+    setImporting(true);
+    try {
+      // Re-query project — RLS policy should now allow it
+      const { data } = await supabase.from('projects').select('*').eq('id', projectId).maybeSingle();
+      if (data) {
+        setProject(data);
+        setInvitedProjects([]);
+        // Load related data
+        const [vosResult, photosResult, tasksResult, phasesResult] = await Promise.all([
+          supabase.from('variation_orders').select('*').eq('project_id', data.id).order('created_at', { ascending: false }),
+          supabase.from('site_photos').select('id, url, caption, trade, created_at').eq('project_id', data.id).eq('approved', true).order('created_at', { ascending: false }),
+          supabase.from('gantt_tasks').select('id, name, progress, sort_order').eq('project_id', data.id).order('sort_order', { ascending: true }),
+          supabase.from('payment_phases').select('*').eq('project_id', data.id).order('phase_number', { ascending: true }),
+        ]);
+        if (vosResult.data) setVariationOrders(vosResult.data as VariationOrder[]);
+        if (photosResult.data) setSitePhotos(photosResult.data);
+        if (tasksResult.data) setMilestones(tasksResult.data as GanttMilestone[]);
+        if (phasesResult.data) setPaymentPhases(phasesResult.data as PaymentPhase[]);
+        if (data.designer_id) {
+          const { data: dProfile } = await supabase.from('profiles').select('name, company').eq('user_id', data.designer_id).single();
+          if (dProfile) setDesignerInfo(dProfile as { name: string; company: string });
+        }
+      }
+    } finally {
+      setImporting(false);
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -877,6 +920,79 @@ export default function OwnerDashboard() {
                 </div>
                 <div className="ow-hero-title">Welcome to RenoSmart</div>
                 <div className="ow-hero-subtitle">Your renovation journey starts here. Once your designer connects your project, you&apos;ll track everything in real-time.</div>
+
+                {/* One-click import for invited projects */}
+                {invitedProjects.length > 0 && (
+                  <div style={{ marginTop: 20 }}>
+                    {invitedProjects.map(ip => (
+                      <div key={ip.id} style={{
+                        background: 'rgba(255,255,255,0.08)',
+                        borderRadius: 14,
+                        padding: '16px 18px',
+                        marginBottom: 10,
+                        border: '1px solid rgba(240,185,11,0.25)',
+                        backdropFilter: 'blur(8px)',
+                        textAlign: 'left',
+                      }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+                          Your Project
+                        </div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 4 }}>
+                          {ip.name || ip.client_name || 'Renovation Project'}
+                        </div>
+                        {ip.address && (
+                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <MapPin size={12} /> {ip.address}
+                          </div>
+                        )}
+                        {ip.designer && (
+                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Building2 size={12} /> {ip.designer.name}{ip.designer.company ? ` \u00B7 ${ip.designer.company}` : ''}
+                          </div>
+                        )}
+                        {ip.contract_amount && ip.contract_amount > 0 && (
+                          <div style={{ fontSize: 12, color: '#F0B90B', fontWeight: 600, marginTop: 6 }}>
+                            RM {ip.contract_amount.toLocaleString('en-MY', { minimumFractionDigits: 2 })}
+                          </div>
+                        )}
+                        <button
+                          onClick={() => handleImportProject(ip.id)}
+                          disabled={importing}
+                          style={{
+                            marginTop: 14,
+                            width: '100%',
+                            height: 44,
+                            borderRadius: 12,
+                            border: 'none',
+                            background: 'linear-gradient(135deg, #F0B90B, #F5D04E)',
+                            color: '#1A1D26',
+                            fontSize: 14,
+                            fontWeight: 700,
+                            cursor: importing ? 'wait' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 8,
+                            opacity: importing ? 0.7 : 1,
+                            transition: 'opacity 0.2s',
+                          }}
+                        >
+                          {importing ? (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ width: 16, height: 16, border: '2px solid rgba(26,29,38,0.3)', borderTopColor: '#1A1D26', borderRadius: '50%', animation: 'spin 0.6s linear infinite', display: 'inline-block' }} />
+                              Loading...
+                            </span>
+                          ) : (
+                            <>
+                              <ArrowRight size={16} />
+                              Import Project
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* How it works */}

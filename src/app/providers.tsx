@@ -3,6 +3,7 @@
 import posthog from 'posthog-js';
 import { PostHogProvider as PHProvider } from 'posthog-js/react';
 import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
@@ -25,11 +26,30 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   return <PHProvider client={posthog}>{children}</PHProvider>;
 }
 
-/** Crisp chat widget with logged-in user identification */
+/** Crisp chat widget with logged-in user identification — hidden on owner/worker routes */
 export function CrispChat() {
+  const pathname = usePathname();
+  const isHidden = pathname?.startsWith('/owner') || pathname?.startsWith('/worker');
+
   useEffect(() => {
+    if (isHidden) {
+      // Hide Crisp if it was already loaded
+      const crisp = (window as unknown as Record<string, unknown[]>).$crisp;
+      if (crisp) crisp.push(['do', 'chat:hide']);
+      return;
+    }
+
     const id = process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID;
     if (!id || typeof window === 'undefined') return;
+
+    // Show Crisp if it was previously hidden
+    const existingCrisp = (window as unknown as Record<string, unknown[]>).$crisp;
+    if (existingCrisp) {
+      existingCrisp.push(['do', 'chat:show']);
+      return;
+    }
+
+    // First-time initialization
     (window as unknown as Record<string, unknown>).$crisp = [];
     (window as unknown as Record<string, unknown>).CRISP_WEBSITE_ID = id;
     const s = document.createElement('script');
@@ -67,6 +87,6 @@ export function CrispChat() {
     };
 
     return () => { s.remove(); };
-  }, []);
+  }, [isHidden]);
   return null;
 }
