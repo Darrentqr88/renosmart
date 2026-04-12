@@ -56,7 +56,6 @@ export default function OwnerDashboard() {
   const [invitedProjects, setInvitedProjects] = useState<{ id: string; name: string; address?: string; client_name?: string; contract_amount?: number; designer?: { name: string; company: string } | null }[]>([]);
   const [importing, setImporting] = useState(false);
   const [quotations, setQuotations] = useState<{ id: string; version: number; file_url?: string; file_name?: string; is_active: boolean; created_at: string; total_amount?: number; parsed_items?: { no?: string; section?: string; name: string; unit?: string; qty?: number; unitPrice?: number; total?: number }[] }[]>([]);
-  const [expandedQuotId, setExpandedQuotId] = useState<string | null>(null);
   const projectIdRef = useRef<string | null>(null);
 
   // Refresh project data from API (reusable for polling)
@@ -1141,91 +1140,35 @@ export default function OwnerDashboard() {
                 <div style={{ padding: '16px 18px 0', fontSize: 13, fontWeight: 700, color: 'var(--ow-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <ClipboardList size={14} color="#4F8EF7" /> Quotations
                 </div>
-                {quotations.map((q, i) => {
-                  const qExpanded = expandedQuotId === q.id;
-                  const items = q.parsed_items || [];
-                  return (
-                  <div key={q.id} style={{ borderTop: i > 0 ? '1px solid #F3F4F6' : 'none' }}>
-                    <div
-                      style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
-                      onClick={() => setExpandedQuotId(qExpanded ? null : q.id)}
-                    >
-                      <div style={{ width: 40, height: 40, borderRadius: 10, background: q.is_active ? 'rgba(79,142,247,0.08)' : '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <FileText size={20} color={q.is_active ? '#4F8EF7' : '#9CA3AF'} />
+                {quotations.map((q, i) => (
+                  <div key={q.id} style={{ borderTop: i > 0 ? '1px solid #F3F4F6' : 'none', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: q.is_active ? 'rgba(79,142,247,0.08)' : '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <FileText size={20} color={q.is_active ? '#4F8EF7' : '#9CA3AF'} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ow-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {q.file_name || `Quotation v${q.version}`}
+                        {q.is_active && <span style={{ fontSize: 9, fontWeight: 700, background: 'rgba(79,142,247,0.1)', color: '#4F8EF7', padding: '1px 6px', borderRadius: 10 }}>ACTIVE</span>}
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ow-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                          {q.file_name || `Quotation v${q.version}`}
-                          {q.is_active && <span style={{ fontSize: 9, fontWeight: 700, background: 'rgba(79,142,247,0.1)', color: '#4F8EF7', padding: '1px 6px', borderRadius: 10 }}>ACTIVE</span>}
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--ow-text3)', marginTop: 2 }}>
-                          v{q.version} · {formatDate(q.created_at)}
-                          {q.total_amount ? ` · RM ${q.total_amount.toLocaleString('en-MY', { minimumFractionDigits: 2 })}` : ''}
-                        </div>
-                      </div>
-                      {q.file_url && (
-                        <a
-                          href={q.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(79,142,247,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#4F8EF7' }}
-                          title="Download original file"
-                        >
-                          <Download size={16} />
-                        </a>
-                      )}
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(79,142,247,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#4F8EF7' }}>
-                        {qExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      <div style={{ fontSize: 11, color: 'var(--ow-text3)', marginTop: 2 }}>
+                        v{q.version} · {formatDate(q.created_at)}
+                        {q.total_amount ? ` · RM ${q.total_amount.toLocaleString('en-MY', { minimumFractionDigits: 2 })}` : ''}
                       </div>
                     </div>
-                    {qExpanded && items.length > 0 && (
-                      <div style={{ padding: '0 18px 14px' }}>
-                        <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid #E5E7EB' }}>
-                          <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
-                            <thead>
-                              <tr style={{ background: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
-                                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--ow-text3)', width: 28 }}>#</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--ow-text3)' }}>Item</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: 'var(--ow-text3)' }}>Qty</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: 'var(--ow-text3)' }}>Unit Price</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: 'var(--ow-text3)' }}>Total</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {items.map((item, idx) => (
-                                <tr key={idx} style={{ borderTop: idx > 0 ? '1px solid #F0F1F3' : 'none' }}>
-                                  <td style={{ padding: '7px 10px', color: 'var(--ow-text3)' }}>{item.no || idx + 1}</td>
-                                  <td style={{ padding: '7px 10px', color: 'var(--ow-text)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {item.section ? <span style={{ fontSize: 9, color: 'var(--ow-text3)', marginRight: 4 }}>[{item.section}]</span> : null}
-                                    {item.name}
-                                  </td>
-                                  <td style={{ padding: '7px 10px', textAlign: 'right', color: 'var(--ow-text2)', whiteSpace: 'nowrap' }}>{item.qty ?? '-'} {item.unit || ''}</td>
-                                  <td style={{ padding: '7px 10px', textAlign: 'right', color: 'var(--ow-text2)', whiteSpace: 'nowrap' }}>{item.unitPrice ? `RM ${item.unitPrice.toLocaleString('en-MY', { minimumFractionDigits: 2 })}` : '-'}</td>
-                                  <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 600, color: 'var(--ow-text)', whiteSpace: 'nowrap' }}>{item.total ? `RM ${item.total.toLocaleString('en-MY', { minimumFractionDigits: 2 })}` : '-'}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                            {q.total_amount && (
-                              <tfoot>
-                                <tr style={{ borderTop: '2px solid #E5E7EB', background: '#F9FAFB' }}>
-                                  <td colSpan={4} style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontSize: 12, color: 'var(--ow-text)' }}>Total</td>
-                                  <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontSize: 12, color: '#4F8EF7' }}>RM {q.total_amount.toLocaleString('en-MY', { minimumFractionDigits: 2 })}</td>
-                                </tr>
-                              </tfoot>
-                            )}
-                          </table>
-                        </div>
-                      </div>
-                    )}
-                    {qExpanded && items.length === 0 && (
-                      <div style={{ padding: '0 18px 14px' }}>
-                        <p style={{ fontSize: 12, color: 'var(--ow-text3)', fontStyle: 'italic' }}>No itemized data available for this quotation.</p>
-                      </div>
+                    {q.file_url ? (
+                      <a
+                        href={q.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, background: 'rgba(79,142,247,0.08)', color: '#4F8EF7', fontSize: 12, fontWeight: 600, textDecoration: 'none', flexShrink: 0 }}
+                      >
+                        <ExternalLink size={14} /> View
+                      </a>
+                    ) : (
+                      <span style={{ fontSize: 11, color: 'var(--ow-text3)', fontStyle: 'italic', flexShrink: 0 }}>Pending upload</span>
                     )}
                   </div>
-                  );
-                })}
+                ))}
               </div>
             ) : (
               <div className="ow-card" style={{ padding: '32px 24px', textAlign: 'center', overflow: 'hidden', position: 'relative' }}>
