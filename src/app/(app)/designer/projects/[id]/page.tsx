@@ -136,6 +136,8 @@ export default function ProjectDetailPage() {
   const [workOnSunday, setWorkOnSunday] = useState(false);
   const [ganttDeadline, setGanttDeadline] = useState('');
   const [isDirty, setIsDirty] = useState(false);
+  const isDirtyRef = useRef(false);
+  useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
   const [showCompressConfirm, setShowCompressConfirm] = useState(false);
   const [pendingDeadline, setPendingDeadline] = useState('');
   const [showPublishModal, setShowPublishModal] = useState(false);
@@ -260,6 +262,40 @@ export default function ProjectDetailPage() {
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [isDirty]);
+
+  // ── Poll worker progress updates every 15s ────────────────────────────
+  useEffect(() => {
+    if (!id) return;
+    const poll = async () => {
+      // Skip if designer has unsaved local changes (avoid overwrite conflict)
+      if (isDirtyRef.current) return;
+      if (document.hidden) return;
+      try {
+        const { data } = await supabase
+          .from('gantt_tasks')
+          .select('id, progress')
+          .eq('project_id', id as string);
+        if (!data || data.length === 0) return;
+        const progressMap = new Map(data.map((t: { id: string; progress: number }) => [t.id, t.progress]));
+        setGanttTasks(prev => {
+          let changed = false;
+          const updated = prev.map(t => {
+            const dbProgress = progressMap.get(t.id);
+            if (dbProgress !== undefined && dbProgress !== t.progress) {
+              changed = true;
+              return { ...t, progress: dbProgress };
+            }
+            return t;
+          });
+          return changed ? updated : prev;
+        });
+      } catch { /* non-critical */ }
+    };
+    const timer = setInterval(poll, 15000);
+    const onVis = () => { if (!document.hidden) poll(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVis); };
+  }, [id, supabase]);
 
   useEffect(() => {
     loadProject();
