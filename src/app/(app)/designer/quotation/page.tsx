@@ -598,13 +598,15 @@ export default function QuotationPage() {
       const nextVer = existingQvs2 && existingQvs2.length > 0 ? (existingQvs2[0].version || 1) + 1 : 1;
       let fileUrl: string | null = null;
       if (originalFileRef.current) {
-        const storagePath = `${authUser.id}/${linkedProjectId}/${Date.now()}_${originalFileRef.current.name}`;
+        const storagePath = `quotations/${authUser.id}/${linkedProjectId}/${Date.now()}_${originalFileRef.current.name}`;
         const { error: uploadErr } = await supabase.storage
-          .from('quotations')
+          .from('site-photos')
           .upload(storagePath, originalFileRef.current, { contentType: originalFileRef.current.type, upsert: false });
         if (!uploadErr) {
-          const { data: { publicUrl } } = supabase.storage.from('quotations').getPublicUrl(storagePath);
+          const { data: { publicUrl } } = supabase.storage.from('site-photos').getPublicUrl(storagePath);
           fileUrl = publicUrl;
+        } else {
+          console.error('Quotation file upload failed:', uploadErr.message);
         }
       }
       await supabase.from('project_quotations').insert({
@@ -731,13 +733,15 @@ export default function QuotationPage() {
       const nextVersion = existingQvs && existingQvs.length > 0 ? (existingQvs[0].version || 1) + 1 : 1;
       let fileUrl2: string | null = null;
       if (originalFileRef.current) {
-        const storagePath = `${authUser.id}/${projectId}/${Date.now()}_${originalFileRef.current.name}`;
+        const storagePath = `quotations/${authUser.id}/${projectId}/${Date.now()}_${originalFileRef.current.name}`;
         const { error: uploadErr } = await supabase.storage
-          .from('quotations')
+          .from('site-photos')
           .upload(storagePath, originalFileRef.current, { contentType: originalFileRef.current.type, upsert: false });
         if (!uploadErr) {
-          const { data: { publicUrl } } = supabase.storage.from('quotations').getPublicUrl(storagePath);
+          const { data: { publicUrl } } = supabase.storage.from('site-photos').getPublicUrl(storagePath);
           fileUrl2 = publicUrl;
+        } else {
+          console.error('Quotation file upload failed:', uploadErr.message);
         }
       }
       await supabase.from('project_quotations').insert({
