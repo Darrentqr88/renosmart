@@ -1163,6 +1163,18 @@ export default function OwnerDashboard() {
                           {q.total_amount ? ` · RM ${q.total_amount.toLocaleString('en-MY', { minimumFractionDigits: 2 })}` : ''}
                         </div>
                       </div>
+                      {q.file_url && (
+                        <a
+                          href={q.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(79,142,247,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#4F8EF7' }}
+                          title="Download original file"
+                        >
+                          <Download size={16} />
+                        </a>
+                      )}
                       <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(79,142,247,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#4F8EF7' }}>
                         {qExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                       </div>

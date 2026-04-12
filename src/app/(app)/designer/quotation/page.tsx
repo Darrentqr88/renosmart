@@ -196,6 +196,7 @@ export default function QuotationPage() {
   const [fileName, setFileName] = useState('');
   const [fileSize, setFileSize] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const originalFileRef = useRef<File | null>(null);
 
   // Analysis
   const [analysis, setAnalysis] = useState<QuotationAnalysis | null>(null);
@@ -268,10 +269,12 @@ export default function QuotationPage() {
     setStep('idle');
     setProgress(0);
     setProgressLabel('');
+    originalFileRef.current = null;
   }, []);
 
   const processFile = async (file: File) => {
     clearAllState();
+    originalFileRef.current = file;
     setFileName(file.name);
     setFileSize(`${(file.size / 1024).toFixed(1)} KB`);
     if (file.name.endsWith('.pdf')) setPdfUrl(URL.createObjectURL(file));
@@ -593,10 +596,22 @@ export default function QuotationPage() {
       await supabase.from('project_quotations').update({ is_active: false }).eq('project_id', linkedProjectId);
       const { data: existingQvs2 } = await supabase.from('project_quotations').select('version').eq('project_id', linkedProjectId).order('version', { ascending: false }).limit(1);
       const nextVer = existingQvs2 && existingQvs2.length > 0 ? (existingQvs2[0].version || 1) + 1 : 1;
+      let fileUrl: string | null = null;
+      if (originalFileRef.current) {
+        const storagePath = `${authUser.id}/${linkedProjectId}/${Date.now()}_${originalFileRef.current.name}`;
+        const { error: uploadErr } = await supabase.storage
+          .from('quotations')
+          .upload(storagePath, originalFileRef.current, { contentType: originalFileRef.current.type, upsert: false });
+        if (!uploadErr) {
+          const { data: { publicUrl } } = supabase.storage.from('quotations').getPublicUrl(storagePath);
+          fileUrl = publicUrl;
+        }
+      }
       await supabase.from('project_quotations').insert({
         project_id: linkedProjectId,
         user_id: authUser.id,
         file_name: fileName,
+        file_url: fileUrl,
         version: nextVer,
         is_active: true,
         parsed_items: analysis.items,
@@ -714,10 +729,22 @@ export default function QuotationPage() {
       await supabase.from('project_quotations').update({ is_active: false }).eq('project_id', projectId);
       const { data: existingQvs } = await supabase.from('project_quotations').select('version').eq('project_id', projectId).order('version', { ascending: false }).limit(1);
       const nextVersion = existingQvs && existingQvs.length > 0 ? (existingQvs[0].version || 1) + 1 : 1;
+      let fileUrl2: string | null = null;
+      if (originalFileRef.current) {
+        const storagePath = `${authUser.id}/${projectId}/${Date.now()}_${originalFileRef.current.name}`;
+        const { error: uploadErr } = await supabase.storage
+          .from('quotations')
+          .upload(storagePath, originalFileRef.current, { contentType: originalFileRef.current.type, upsert: false });
+        if (!uploadErr) {
+          const { data: { publicUrl } } = supabase.storage.from('quotations').getPublicUrl(storagePath);
+          fileUrl2 = publicUrl;
+        }
+      }
       await supabase.from('project_quotations').insert({
         project_id: projectId,
         user_id: authUser.id,
         file_name: fileName,
+        file_url: fileUrl2,
         version: nextVersion,
         is_active: true,
         parsed_items: analysis.items,
