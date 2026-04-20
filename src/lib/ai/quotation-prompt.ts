@@ -421,8 +421,9 @@ ${tradeBlocks}${unmatchedBlock}
    b) 工作内容关键注意事项（施工技术要点，最多2条）
    c) 工前材料准备注意事项（需确认备妥的材料/品牌/规格/数量，最多2条）
 3. warnings：1-2条风险提醒（质量风险/常见漏项）
-4. quotationNotes：一句话总结该工种报价内容（含金额范围）${unmatchedItems.length > 0 ? `
-5. unmatchedClassifications：将未分类项目逐一归入正确工种（仅返回工种名，与trades中的工种名一致）` : ''}
+4. quotationNotes：一句话总结该工种报价内容（含金额范围）
+5. workSteps：3-6条工人实际施工步骤（按施工顺序排列）。必须是**施工动作**，不能照抄报价单项目名称。例如"铺贴600×600地砖并调整水平度"，而不是"Supply & Install floor tiles"。最后两步必须是：检查验收，清理现场。${unmatchedItems.length > 0 ? `
+6. unmatchedClassifications：将未分类项目逐一归入正确工种（仅返回工种名，与trades中的工种名一致）` : ''}
 
 只返回JSON，不加任何说明文字：
 {
@@ -430,7 +431,8 @@ ${tradeBlocks}${unmatchedBlock}
     "工种名称": {
       "prepItems": ["最多5条具体准备事项"],
       "warnings": ["1-2条风险提醒"],
-      "quotationNotes": "一句话总结"
+      "quotationNotes": "一句话总结",
+      "workSteps": ["3-6条施工步骤，最后两步固定为检查验收和清理现场"]
     }
   }${unmatchedItems.length > 0 ? `,
   "unmatchedClassifications": {
@@ -465,8 +467,9 @@ Requirements:
    b) Key work content notes (construction technical points, max 2)
    c) Pre-work material preparation (materials/brands/specs/quantities to confirm, max 2)
 3. warnings: 1-2 risk warnings (quality risks / common omissions)
-4. quotationNotes: One-line summary of this trade's quotation scope (include amount range)${unmatchedItems.length > 0 ? `
-5. unmatchedClassifications: Assign each unclassified item to the correct trade (return trade name only, matching trades above)` : ''}
+4. quotationNotes: One-line summary of this trade's quotation scope (include amount range)
+5. workSteps: 3-6 sequential steps describing what the worker actually DOES on site (in order). Must be **action verbs**, NOT quotation item names. E.g. "Apply adhesive and lay 600×600 tiles with 2mm joints" NOT "Supply & Install floor tiles". Last two steps must always be: inspect completed work and take photos, clean up site and remove waste.${unmatchedItems.length > 0 ? `
+6. unmatchedClassifications: Assign each unclassified item to the correct trade (return trade name only, matching trades above)` : ''}
 
 Return ONLY valid JSON:
 {
@@ -474,7 +477,8 @@ Return ONLY valid JSON:
     "Trade Name": {
       "prepItems": ["Up to 5 specific preparation items"],
       "warnings": ["1-2 risk warnings"],
-      "quotationNotes": "One-line summary"
+      "quotationNotes": "One-line summary",
+      "workSteps": ["3-6 action steps, last two always inspect+cleanup"]
     }
   }${unmatchedItems.length > 0 ? `,
   "unmatchedClassifications": {

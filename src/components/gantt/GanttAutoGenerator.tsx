@@ -162,11 +162,37 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
                 hintsLookup.set(key.toLowerCase(), val);
               }
               setTradeHints(rawHintsMap);
-              // Merge ai_hint into tasks — try exact match, then lowercase match
-              setTasks(prev => prev.map(t => ({
-                ...t,
-                ai_hint: hintsLookup.get(t.trade) ?? hintsLookup.get(t.trade.toLowerCase()) ?? t.ai_hint ?? null,
-              })));
+              // Merge ai_hint + workSteps into tasks — try exact match, then lowercase match
+              setTasks(prev => prev.map(t => {
+                const hint = hintsLookup.get(t.trade) ?? hintsLookup.get(t.trade.toLowerCase()) ?? t.ai_hint ?? null;
+                let updatedSubtasks = t.subtasks;
+                // Replace subtasks with AI work steps if no completed steps yet and hint has steps
+                const hasCompleted = t.subtasks.some(s => s.completed);
+                if (hint?.workSteps?.length && t.phase_group === 'construction' && !hasCompleted) {
+                  updatedSubtasks = hint.workSteps.map((step, idx) => ({
+                    id: `${t.id}-ws-${idx}`,
+                    name: step,
+                    completed: false,
+                  }));
+                  // Ensure inspect + cleanup are the final two steps
+                  const hasInspect = updatedSubtasks.some(s => s.id.endsWith('-ws-inspect'));
+                  if (!hasInspect) {
+                    updatedSubtasks.push({ id: `${t.id}-ws-inspect`, name: 'Inspect completed work and take photos', name_zh: '检查完成施工并拍照存档', completed: false });
+                    updatedSubtasks.push({ id: `${t.id}-ws-cleanup`, name: 'Clean up site and remove waste', name_zh: '清理施工现场及废料', completed: false });
+                  }
+                } else if (t.phase_group === 'construction' && updatedSubtasks.length > 0) {
+                  // Append final steps if missing
+                  const hasInspect = updatedSubtasks.some(s => s.id.endsWith('-ws-inspect'));
+                  if (!hasInspect) {
+                    updatedSubtasks = [
+                      ...updatedSubtasks,
+                      { id: `${t.id}-ws-inspect`, name: 'Inspect completed work and take photos', name_zh: '检查完成施工并拍照存档', completed: false },
+                      { id: `${t.id}-ws-cleanup`, name: 'Clean up site and remove waste', name_zh: '清理施工现场及废料', completed: false },
+                    ];
+                  }
+                }
+                return { ...t, ai_hint: hint, subtasks: updatedSubtasks };
+              }));
               // Trigger auto-save so hints persist to DB
               setPendingSave(true);
             }
@@ -284,6 +310,15 @@ export function GanttAutoGenerator({ analysis, projectId = 'temp', onSave }: Gan
         ),
       };
     }));
+    setPendingSave(true);
+  };
+
+  const handlePrepCheckToggle = (taskId: string, key: string, checked: boolean) => {
+    setTasks(prev => prev.map(t => {
+      if (t.id !== taskId) return t;
+      return { ...t, prep_checks: { ...(t.prep_checks ?? {}), [key]: checked } };
+    }));
+    setPendingSave(true);
   };
 
   const handleTaskDelete = (taskId: string) => {
@@ -748,6 +783,7 @@ Only include tasks where you changed the duration. Skip unchanged and locked tas
           onClose={() => setSelectedTaskId(null)}
           onSubtaskToggle={(subtaskId) => handleSubtaskToggle(selectedTask.id, subtaskId)}
           onDurationChange={(newDuration) => handleDurationChange(selectedTask.id, newDuration)}
+          onPrepCheckToggle={(key, checked) => handlePrepCheckToggle(selectedTask.id, key, checked)}
           quotationItems={analysis.items}
           cachedHint={tradeHints[selectedTask.trade] ?? Object.entries(tradeHints).find(([k]) => k.toLowerCase() === selectedTask.trade.toLowerCase())?.[1]}
           hintsLoading={hintsLoading}

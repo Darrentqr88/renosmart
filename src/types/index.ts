@@ -170,6 +170,7 @@ export interface TradeHint {
   prepItems: string[];       // pre-work reminders / 事前项目提醒
   warnings?: string[];       // trade-specific risk warnings
   quotationNotes?: string;   // summary of related quotation items
+  workSteps?: string[];      // AI-generated sequential work steps (actions the worker performs)
 }
 
 export type SiteType = 'residential' | 'condo' | 'apartment' | 'landed_terrace' | 'landed_semid' | 'landed_bungalow' | 'shop_lot' | 'commercial' | 'mall' | 'factory' | 'other';
@@ -271,6 +272,7 @@ export interface GanttTask {
   phase_id?: string; // original CONSTRUCTION_PHASES id (e.g. 'demolition', 'tiling')
   is_duration_locked?: boolean; // true when duration was manually set by designer/worker
   base_duration?: number; // original quotation-based calculated duration (floor for compression)
+  prep_checks?: Record<string, boolean>; // persisted checklist state: keys "static_0", "ai_0", etc.
   // ── AI-enhanced fields ──
   risks?: GanttRiskNote[];       // AI-identified risks for this task
   leadTimeDays?: number;         // material lead time before work starts

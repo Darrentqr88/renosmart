@@ -13,6 +13,7 @@ interface TaskDetailPanelProps {
   onSubtaskToggle: (subtaskId: string) => void;
   onDurationChange: (newDuration: number) => void;
   onProgressChange?: (newProgress: number) => void;
+  onPrepCheckToggle?: (key: string, checked: boolean) => void;
   quotationItems?: QuotationItem[];
   region?: 'MY' | 'SG';
   cachedHint?: TradeHint;
@@ -28,6 +29,7 @@ export function TaskDetailPanel({
   onSubtaskToggle,
   onDurationChange,
   onProgressChange,
+  onPrepCheckToggle,
   quotationItems = [],
   region = 'MY',
   cachedHint,
@@ -36,8 +38,24 @@ export function TaskDetailPanel({
 }: TaskDetailPanelProps) {
   const { lang } = useI18n();
   const [editDuration, setEditDuration] = useState<string>(String(task.duration));
-  const [prepChecks, setPrepChecks] = useState<Record<number, boolean>>({});
-  const [aiPrepChecks, setAiPrepChecks] = useState<Record<number, boolean>>({});
+
+  // Init from persisted prep_checks — split by prefix
+  const [prepChecks, setPrepChecks] = useState<Record<number, boolean>>(() => {
+    const saved = task.prep_checks ?? {};
+    const out: Record<number, boolean> = {};
+    for (const [k, v] of Object.entries(saved)) {
+      if (k.startsWith('static_')) out[Number(k.replace('static_', ''))] = v as boolean;
+    }
+    return out;
+  });
+  const [aiPrepChecks, setAiPrepChecks] = useState<Record<number, boolean>>(() => {
+    const saved = task.prep_checks ?? {};
+    const out: Record<number, boolean> = {};
+    for (const [k, v] of Object.entries(saved)) {
+      if (k.startsWith('ai_')) out[Number(k.replace('ai_', ''))] = v as boolean;
+    }
+    return out;
+  });
   const [aiHint, setAiHint] = useState<TradeHint | null>(null);
   const [hintLoading, setHintLoading] = useState(false);
   const [showAllItems, setShowAllItems] = useState(false);
@@ -73,8 +91,16 @@ export function TaskDetailPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task.ai_hint, cachedHint]);
 
-  const togglePrepCheck = (idx: number) => setPrepChecks(prev => ({ ...prev, [idx]: !prev[idx] }));
-  const toggleAiPrepCheck = (idx: number) => setAiPrepChecks(prev => ({ ...prev, [idx]: !prev[idx] }));
+  const togglePrepCheck = (idx: number) => {
+    const newVal = !prepChecks[idx];
+    setPrepChecks(prev => ({ ...prev, [idx]: newVal }));
+    onPrepCheckToggle?.(`static_${idx}`, newVal);
+  };
+  const toggleAiPrepCheck = (idx: number) => {
+    const newVal = !aiPrepChecks[idx];
+    setAiPrepChecks(prev => ({ ...prev, [idx]: newVal }));
+    onPrepCheckToggle?.(`ai_${idx}`, newVal);
+  };
 
   const calDays = differenceInDays(parseISO(task.end_date), parseISO(task.start_date)) + 1;
   const completedSubs = task.subtasks.filter(s => s.completed).length;

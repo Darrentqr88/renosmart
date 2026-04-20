@@ -1569,6 +1569,7 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                 is_critical: t.is_critical, subtasks: t.subtasks, assigned_workers: t.assigned_workers,
                 ai_hint: t.ai_hint ?? null, phase_id: t.phase_id ?? null,
                 source_items: t.source_items ?? [], sort_order: t.sort_order ?? 0,
+                prep_checks: t.prep_checks ?? {},
               }));
               await supabase.from('gantt_tasks').upsert(upsertData, { onConflict: 'id' });
             }} />}

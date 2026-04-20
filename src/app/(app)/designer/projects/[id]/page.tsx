@@ -227,6 +227,7 @@ export default function ProjectDetailPage() {
       quotation_items: t.quotation_items ?? t.source_items ?? [],
       ai_hint: t.ai_hint ?? null,
       phase_id: t.phase_id ?? null,
+      prep_checks: t.prep_checks ?? {},
     }));
   }, [sessionUserId]);
 
@@ -551,6 +552,14 @@ export default function ProjectDetailPage() {
           s.id === subtaskId ? { ...s, completed: !s.completed } : s
         ),
       };
+    }));
+    setIsDirty(true);
+  };
+
+  const handlePrepCheckToggle = (taskId: string, key: string, checked: boolean) => {
+    setGanttTasks(prev => prev.map(t => {
+      if (t.id !== taskId) return t;
+      return { ...t, prep_checks: { ...(t.prep_checks ?? {}), [key]: checked } };
     }));
     setIsDirty(true);
   };
@@ -2203,6 +2212,7 @@ export default function ProjectDetailPage() {
                   onSubtaskToggle={(subtaskId) => handleSubtaskToggle(selectedTaskId, subtaskId)}
                   onDurationChange={(newDuration) => handleDurationChange(selectedTaskId, newDuration)}
                   onProgressChange={(newProgress) => handleProgressChange(selectedTaskId, newProgress)}
+                  onPrepCheckToggle={(key, checked) => handlePrepCheckToggle(selectedTaskId, key, checked)}
                   quotationItems={qItems}
                   region={region}
                   cachedHint={task.ai_hint ?? undefined}
