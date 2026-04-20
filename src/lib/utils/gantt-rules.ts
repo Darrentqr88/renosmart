@@ -954,23 +954,13 @@ function _schedulePhases(
         cursor = addDays(cursor, -1);
       }
 
-      // Build subtasks: AI sub-tasks > quotation source items > hardcoded subItems
+      // Build subtasks from hardcoded subItems (AI workSteps replace these after hint generation)
+      // Do NOT use raw quotation item names as work steps — they are not actions
       let subtasks: GanttSubtask[];
       if (phase.aiSubTasks?.length) {
         subtasks = phase.aiSubTasks.map((sub, idx) => ({
           id: `${phase.id}-ai-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
         }));
-      } else if (phase.sourceItems?.length) {
-        // Generate subtasks from actual quotation items for this trade
-        subtasks = phase.sourceItems.map((itemName, idx) => ({
-          id: `${phase.id}-qi-${idx}`, name: itemName, name_zh: undefined, completed: false,
-        }));
-        // Append standard checklist items not covered by quotation
-        phase.subItems.forEach((sub, idx) => {
-          if (!subtasks.some(s => s.name.toLowerCase().includes(sub.name.toLowerCase().split(' ')[0]))) {
-            subtasks.push({ id: `${phase.id}-sub-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false });
-          }
-        });
       } else {
         subtasks = phase.subItems.map((sub, idx) => ({
           id: `${phase.id}-sub-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
@@ -1039,23 +1029,13 @@ function _schedulePhases(
       taskEndDates[phase.id] = taskEnd;
       taskStartDates[phase.id] = taskStart;
 
-      // Build subtasks: AI sub-tasks > quotation source items > hardcoded subItems
+      // Build subtasks from hardcoded subItems (AI workSteps replace these after hint generation)
+      // Do NOT use raw quotation item names as work steps — they are not actions
       let subtasks: GanttSubtask[];
       if (phase.aiSubTasks?.length) {
         subtasks = phase.aiSubTasks.map((sub, idx) => ({
           id: `${phase.id}-ai-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
         }));
-      } else if (phase.sourceItems?.length) {
-        // Generate subtasks from actual quotation items for this trade
-        subtasks = phase.sourceItems.map((itemName, idx) => ({
-          id: `${phase.id}-qi-${idx}`, name: itemName, name_zh: undefined, completed: false,
-        }));
-        // Append standard checklist items not covered by quotation
-        phase.subItems.forEach((sub, idx) => {
-          if (!subtasks.some(s => s.name.toLowerCase().includes(sub.name.toLowerCase().split(' ')[0]))) {
-            subtasks.push({ id: `${phase.id}-sub-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false });
-          }
-        });
       } else {
         subtasks = phase.subItems.map((sub, idx) => ({
           id: `${phase.id}-sub-${idx}`, name: sub.name, name_zh: sub.name_zh, completed: false,
@@ -1740,7 +1720,7 @@ const TRADE_PATTERNS_SHARED: Record<string, RegExp[]> = {
   waterproofing:  [/water.?proof/, /\bmembrane/, /\bponding/, /kalis\s*air/, /\b防水/, /torch.?on/],
   alarm:          [/\bcctv\b/, /\balarm\b/, /\bcamera\b/, /auto.?gate/, /\brecorder\b/, /smart\s*home/, /access\s*control/, /security\s*system/, /\bip\s*cam/, /\bintercom/],
   aircon:         [/air.?con/, /\baircon/, /\bdaikin/, /\bmidea/, /\byork\b/, /\bmitsubishi/, /split\s*unit/, /\bac\s/, /\b1\.?5\s*hp/, /\b2\s*hp/, /\b3\s*hp/, /\bhorse\s*power/, /\bcompressor/, /cassette\s*type/, /ceiling\s*type.*unit|unit.*ceiling\s*type/, /\b冷气/, /\b空调/],
-  falseCeiling:   [/false\s*ceil/, /\bgypsum/, /\bpartition/, /plaster\s*ceil/, /cove\s*light/, /\bcornice/, /\bL.box\b/, /[uU].?box/, /\bbulkhead/, /false\s*wall/, /\bsiling/, /\b石膏板/],
+  falseCeiling:   [/false\s*ceil/, /\bgypsum/, /plaster\s*ceil/, /\bcornice/, /\bL.box\b/, /[uU].?box/, /\bbulkhead/, /false\s*wall/, /\bsiling/, /\b石膏板/, /\bplaster.*board/, /ceiling.*partition(?!.*mirror|.*basin|.*platform)/, /\bpartition.*wall\b/],
   plumbing:       [/\bplumb/, /\bpipe\b/, /\bwc\b/, /\btoilet/, /\btap\b/, /\bdrain/, /\bshower/, /\bsanit/, /floor\s*trap/, /\bbidet/, /\binlet/, /\boutlet\s*pipe/, /\bbasin\b/, /\bfaucet/, /bi.?tap/, /water\s*heater/, /\bpaip\b/, /\bkran\b/, /pvc.*pipe/, /toilet\s*bowl/, /\b洗手盆/],
   electrical:     [/\belectr/, /\bwir(?:ing|e)\b/, /\bswitch\b/, /\bsocket\b/, /\bdb\s*box/, /\bdb\b.*(?:rewir|box)/, /\bmcb\b/, /\blight\s*point/, /\bdownlight/, /\bpendant/, /\bpower\s*point/, /\bcircuit/, /\bfan\s*point/, /\bconduit/, /\b13a\b/, /\b15a\b/, /\b20a\b/, /cable\s*tray/, /\bwifi\s*point/, /internet\s*point/, /\btel(?:ephone)?\s*point/, /tv\s*point/, /\bcctv\s*point/, /\bcat\s*5\b/, /\bcat\s*6\b/, /\bcat5\b/, /\bcat6\b/, /conceal.*wir/],
   tiling:         [/\btil(?:e[sd]?|ing)\b/, /\bceram/, /\bporcel/, /\bceramic/, /\bporcelain/, /\bmosaic/, /\bhomogeneous/, /anti.?slip/, /\bjubin/, /floor\s*tile/, /wall\s*tile/, /\d{3}.?x.?\d{3}/, /homogenous/],
