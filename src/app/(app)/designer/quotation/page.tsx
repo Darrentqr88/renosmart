@@ -809,9 +809,9 @@ export default function QuotationPage() {
         <td style="font-size:11px;color:#6B7A94">${dim ? `AI ${dim.aiScore} · 数据 ${dim.dataScore} · ${dim.detail}` : ''}</td>
       </tr>`;
 
-    // Price flags from score calculator (only data-sourced, not ai_status)
+    // Price flags — only show when backed by real DB data (≥10 samples), not known_range estimates
     const priceFlags = (scoreBreakdown?.priceComparisons ?? []).filter(
-      c => c.source !== 'ai_status' && c.source !== 'ai_estimate' && (c.verdict === 'flag_high' || c.verdict === 'flag_low' || c.verdict === 'warn_high'),
+      c => c.source === 'database' && (c.verdict === 'flag_high' || c.verdict === 'flag_low' || c.verdict === 'warn_high'),
     );
 
     // Missing items — prefer missingCritical (with urgency/reason/cost) over plain missing
@@ -928,7 +928,7 @@ ${infos.length > 0 ? `<h2>💡 提示（可选考虑）</h2>${infos.map(a => `<d
 <h2>报价工程项目 (${analysis.items.length} 项)</h2>
 <table><thead><tr><th>#</th><th>工程描述</th><th>类型</th><th>单位</th><th style="text-align:right">数量</th><th style="text-align:right">单价</th><th style="text-align:right">金额</th><th>状态</th></tr></thead>
 <tbody>
-${analysis.items.map(item => `<tr><td>${item.no}</td><td><div style="font-size:10px;color:#9CA3AF">${item.section||''}</div>${item.name}</td><td><span style="font-size:10px;color:#6B7A94">${item.supplyType === 'labour_only' ? 'Labour' : item.supplyType === 'supply_only' ? 'Supply' : 'S&I'}</span></td><td>${item.unit}</td><td style="text-align:right">${item.qty}</td><td style="text-align:right">${item.unitPrice.toFixed(2)}${item.unitPriceDerived ? '*' : ''}</td><td style="text-align:right;font-weight:600">${fmtCurrency(item.total)}</td><td style="white-space:nowrap">${STATUS_CONFIG[item.status].label}${item.note ? '<br><span style="font-size:10px;color:#6B7A94">'+item.note+'</span>' : ''}</td></tr>`).join('')}
+${analysis.items.map(item => `<tr><td>${item.no}</td><td><div style="font-size:10px;color:#9CA3AF">${item.section||''}</div>${item.name.replace(/\s*\[early \d+ samples?\]/gi, '')}</td><td><span style="font-size:10px;color:#6B7A94">${item.supplyType === 'labour_only' ? 'Labour' : item.supplyType === 'supply_only' ? 'Supply' : 'S&I'}</span></td><td>${item.unit}</td><td style="text-align:right">${item.qty}</td><td style="text-align:right">${item.unitPrice.toFixed(2)}${item.unitPriceDerived ? '*' : ''}</td><td style="text-align:right;font-weight:600">${fmtCurrency(item.total)}</td><td style="white-space:nowrap">${STATUS_CONFIG[item.status].label}${item.note ? '<br><span style="font-size:10px;color:#6B7A94">'+item.note+'</span>' : ''}</td></tr>`).join('')}
 </tbody>
 ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:right;font-weight:600">${s.label}</td><td style="text-align:right;font-weight:700">${fmtCurrency(s.amount)}</td><td></td></tr></tfoot>`).join('')}
 <tfoot><tr class="total-row"><td colspan="6" style="text-align:right">报价总额</td><td style="text-align:right;color:#4F8EF7">${fmtCurrency(analysis.totalAmount)}</td><td></td></tr></tfoot></table>
@@ -1310,7 +1310,7 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                                     : null;
                                 return (
                                   <div key={i} className={`rounded-lg p-3 ${comp.verdict === 'flag_high' ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
-                                    <div className="text-[12px] font-semibold text-gray-800 leading-snug">{item.name}</div>
+                                    <div className="text-[12px] font-semibold text-gray-800 leading-snug">{item.name.replace(/\s*\[early \d+ samples?\]/gi, '')}</div>
                                     <div className="text-[11px] text-gray-500 mt-1">Quoted: {currency} {(item.unitPrice ?? 0).toFixed(2)}/{item.unit || 'unit'}</div>
                                     {marketRange && <div className="text-[11px] text-gray-500">Market: {marketRange}/{item.unit || 'unit'}</div>}
                                     {pct != null && (
@@ -1476,7 +1476,7 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                             <td style={{ padding: '11px 12px', color: '#9CA3AF', fontSize: 11, fontFamily: 'monospace', verticalAlign: 'top', paddingTop: 13 }}>
                               {item.no || i + 1}{pageBadge}
                             </td>
-                            <td style={{ padding: '11px 12px', fontWeight: 500, color: '#1B2336', lineHeight: 1.5, minWidth: 200 }}>{item.name}</td>
+                            <td style={{ padding: '11px 12px', fontWeight: 500, color: '#1B2336', lineHeight: 1.5, minWidth: 200 }}>{item.name.replace(/\s*\[early \d+ samples?\]/gi, '')}</td>
                             <td style={{ padding: '11px 12px', textAlign: 'center' }}><SupplyBadge type={item.supplyType} /></td>
                             <td style={{ padding: '11px 12px', color: '#6B7A94', textAlign: 'center' }}>{item.unit}</td>
                             <td style={{ padding: '11px 12px', fontFamily: 'monospace', textAlign: 'right', color: '#6B7A94' }}>{item.qty}</td>
