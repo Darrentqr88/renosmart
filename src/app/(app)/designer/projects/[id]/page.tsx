@@ -53,11 +53,12 @@ type QAnalysisResult = {
 };
 type QuotationVersionLocal = {
   id: string;
-  version: string;
+  version: number;
   total_amount: number;
   created_at: string;
   is_active: boolean;
   file_name?: string;
+  file_url?: string;
   parsed_items?: { name: string; section?: string; total?: number; qty?: number; unitPrice?: number; status?: string; note?: string }[];
   analysis_result?: QAnalysisResult;
 };
@@ -1188,7 +1189,7 @@ export default function ProjectDetailPage() {
     const win = window.open('', '_blank');
     if (!win) return;
     const rows = items.map(i =>
-      `<tr><td>${i.section || ''}</td><td>${i.name}</td><td style="text-align:right">${i.qty || ''}</td><td style="text-align:right">RM ${(i.unitPrice || 0).toFixed(2)}</td><td style="text-align:right">RM ${(i.total || 0).toFixed(2)}</td></tr>`
+      `<tr><td>${i.section || ''}</td><td>${(i.name || '').replace(/\s*\[early \d+ samples?\]/gi, '')}</td><td style="text-align:right">${i.qty || ''}</td><td style="text-align:right">RM ${(i.unitPrice || 0).toFixed(2)}</td><td style="text-align:right">RM ${(i.total || 0).toFixed(2)}</td></tr>`
     ).join('');
     win.document.write(`
       <html><head><title>${qv.file_name || 'Quotation'}</title>
@@ -3056,6 +3057,13 @@ export default function ProjectDetailPage() {
                           onClick={() => { setViewingQuotation(aq); setQuotationViewTab('items'); }}>
                           <Eye className="w-3 h-3" /> {t.proj.viewItems}
                         </Button>
+                        {aq.file_url && (
+                          <a href={aq.file_url} target="_blank" rel="noopener noreferrer">
+                            <Button variant="outline" size="sm" className="text-xs h-7 gap-1">
+                              <FileText className="w-3 h-3" /> 原文件
+                            </Button>
+                          </a>
+                        )}
                         <Button variant="outline" size="sm" className="text-xs h-7 gap-1"
                           onClick={() => printQuotation(aq)}>
                           <Printer className="w-3 h-3" /> {t.proj.print}
@@ -3245,6 +3253,13 @@ export default function ProjectDetailPage() {
                             onClick={() => setViewingQuotation(qv)}>
                             <Eye className="w-3 h-3" /> 查看
                           </Button>
+                          {qv.file_url && (
+                            <a href={qv.file_url} target="_blank" rel="noopener noreferrer">
+                              <Button variant="outline" size="sm" className="text-xs h-7 gap-1">
+                                <FileText className="w-3 h-3" /> 原文件
+                              </Button>
+                            </a>
+                          )}
                           <Button variant="outline" size="sm" className="text-xs h-7 gap-1"
                             onClick={() => printQuotation(qv)}>
                             <Printer className="w-3 h-3" /> {t.proj.print}
@@ -3659,7 +3674,7 @@ export default function ProjectDetailPage() {
                                   <tr key={i} className={`hover:bg-gray-50 ${statusColor}`}>
                                     <td className="px-3 py-2 text-xs text-gray-400">{item.section || '—'}</td>
                                     <td className="px-3 py-2 text-gray-800">
-                                      {item.name}
+                                      {(item.name || '').replace(/\s*\[early \d+ samples?\]/gi, '')}
                                       {item.note && <span className="ml-1.5 text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">{item.note}</span>}
                                     </td>
                                     <td className="px-3 py-2 text-right text-gray-600">{item.qty ?? '—'}</td>
