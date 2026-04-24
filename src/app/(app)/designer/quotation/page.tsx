@@ -211,6 +211,9 @@ export default function QuotationPage() {
   // Hybrid scoring
   const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdown | null>(null);
 
+  // Extraction diagnostics
+  const [extractedTextLen, setExtractedTextLen] = useState(0);
+
   // Full report
   const [showFullReport, setShowFullReport] = useState(false);
   const [expandMissing, setExpandMissing] = useState(false);
@@ -266,6 +269,7 @@ export default function QuotationPage() {
     setExpandTips(false);
     setScoreBreakdown(null);
     setSavedProjectId(null);
+    setExtractedTextLen(0);
     setStep('idle');
     setProgress(0);
     setProgressLabel('');
@@ -284,6 +288,7 @@ export default function QuotationPage() {
       setProgressLabel(lang === 'ZH' ? '正在读取文件...' : 'Reading file...');
       setProgress(20);
       const text = await extractTextFromFile(file);
+      setExtractedTextLen(text.length);
       setProgress(50);
 
       setStep('analyzing');
@@ -369,7 +374,19 @@ export default function QuotationPage() {
       setAnalysis(sanitizeAnalysis(parsed));
       setStep('done');
       setProgressLabel(lang === 'ZH' ? '分析完成' : 'Analysis complete');
-      toast({ title: '✅ 分析完成', description: parsed.summary?.slice(0, 80) });
+
+      if (!parsed.items || parsed.items.length === 0) {
+        const isLikelyImagePDF = text.length < 500 && file.name.endsWith('.pdf');
+        toast({
+          variant: 'destructive',
+          title: '⚠ 未识别到工程项目',
+          description: isLikelyImagePDF
+            ? 'PDF 可能为扫描件（图片格式），无法提取文字。请将报价单另存为 XLSX 或文字版 PDF 后重新上传。'
+            : `AI 未能解析出工程项目（提取了 ${text.length} 字符）。请尝试重新上传，或改用 XLSX 格式。`,
+        });
+      } else {
+        toast({ title: '✅ 分析完成', description: parsed.summary?.slice(0, 80) });
+      }
       setProgress(100);
 
       // ── Detect effective region for price scoring + DB update ──
@@ -1117,6 +1134,29 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
               </button>
               <input ref={fileInputRef} type="file" accept=".pdf,.xlsx,.xls,.csv,.txt" className="hidden" onChange={handleFileSelect} />
             </div>
+
+            {/* Zero-items warning banner */}
+            {analysis.items.length === 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+                <div className="flex items-start gap-3">
+                  <span className="text-amber-500 text-lg leading-none mt-0.5">⚠</span>
+                  <div>
+                    <p className="text-[13px] font-semibold text-amber-800">未识别到工程项目</p>
+                    <p className="text-[12px] text-amber-700 mt-1">
+                      {extractedTextLen < 500
+                        ? 'PDF 可能为扫描件（图片格式），pdfjs 无法提取文字内容。'
+                        : `已提取 ${extractedTextLen.toLocaleString()} 个字符，但 AI 未能解析出工程项目。`}
+                      {' '}建议：将报价单另存为 <strong>XLSX</strong> 格式后重新上传，或使用文字版（非扫描）PDF。
+                    </p>
+                    <button
+                      onClick={() => { clearAllState(); fileInputRef.current?.click(); }}
+                      className="mt-2 text-[12px] font-medium text-amber-700 underline hover:text-amber-900">
+                      重新上传
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Client info (editable) */}
             <div className="bg-white border border-rs-surface3 rounded-xl overflow-hidden">
