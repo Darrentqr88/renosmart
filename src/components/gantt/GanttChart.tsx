@@ -591,6 +591,43 @@ export function GanttChart({
                     />
                   ))}
 
+                  {/* Material lead-time segment: procurement window before task start.
+                      Order deadline = start − leadTimeDays (calendar days). Red = overdue. */}
+                  {(task.leadTimeDays || 0) > 0 && (() => {
+                    const leadDays = task.leadTimeDays!;
+                    const leadW = Math.min((leadDays / totalDays) * 100, bLeft);
+                    const leadL = Math.max(0, bLeft - leadW);
+                    const orderBy = addDays(parseISO(getEffTask(task).start_date), -leadDays);
+                    const overdue = today > orderBy && isUpcoming(task) && (task.progress || 0) === 0;
+                    const label = lang === 'ZH'
+                      ? `📦 最迟 ${format(orderBy, 'dd MMM')} 下单材料（提前 ${leadDays} 天）${task.leadTimeNote ? ` — ${task.leadTimeNote}` : ''}${overdue ? ' ⚠ 已逾期！' : ''}`
+                      : `📦 Order materials by ${format(orderBy, 'dd MMM')} (${leadDays}d lead time)${task.leadTimeNote ? ` — ${task.leadTimeNote}` : ''}${overdue ? ' ⚠ OVERDUE!' : ''}`;
+                    return (
+                      <div
+                        title={label}
+                        style={{
+                          position: 'absolute',
+                          left: `${leadL.toFixed(3)}%`,
+                          width: `${leadW.toFixed(3)}%`,
+                          top: '50%', transform: 'translateY(-50%)',
+                          height: 8, borderRadius: 4,
+                          background: overdue
+                            ? 'repeating-linear-gradient(45deg, rgba(229,57,53,0.55) 0 4px, rgba(229,57,53,0.2) 4px 8px)'
+                            : 'repeating-linear-gradient(45deg, rgba(240,185,11,0.5) 0 4px, rgba(240,185,11,0.15) 4px 8px)',
+                          border: `1px dashed ${overdue ? '#E53935' : '#D9A400'}`,
+                          zIndex: 1, cursor: 'help',
+                        }}
+                      >
+                        <span style={{
+                          position: 'absolute', left: -7, top: '50%', transform: 'translateY(-50%)',
+                          fontSize: 10, lineHeight: 1,
+                        }}>
+                          {overdue ? '🔴' : '📦'}
+                        </span>
+                      </div>
+                    );
+                  })()}
+
                   {/* Gantt bar */}
                   <div
                     className={`rs-gantt-bar${isHov ? ' hovered' : ''}`}

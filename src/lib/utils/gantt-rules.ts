@@ -1056,7 +1056,7 @@ function _schedulePhases(
         progress: 0,
         dependencies: phase.deps.map(d => deterministicUUID(`${projectId}-${d}`)),
         color: TRADE_COLORS[phase.trade] || '#94A3B8',
-        is_critical: ['demolition', 'tiling', 'carpentry_mfg', 'carpentry_install', 'handover'].includes(phase.id),
+        is_critical: false, // computed by CPM (computeCriticalPath) before return
         subtasks,
         assigned_workers: [],
         sort_order: tasks.length,
@@ -1086,7 +1086,7 @@ function _schedulePhases(
   // Reindex sort_order
   tasks.forEach((t, i) => { t.sort_order = i; });
 
-  return tasks;
+  return computeCriticalPath(tasks);
 }
 
 export function generateGanttTasks(
@@ -1989,6 +1989,72 @@ export function addWorkdays_simple(start: Date, workdays: number, workSat = fals
   return d;
 }
 
+/**
+ * Critical Path Method (CPM): compute float per task from the dependency graph
+ * and mark zero-float tasks as critical. Replaces the old hardcoded phase list.
+ * Metric = workday durations (date-independent, so it stays correct after
+ * drags/compaction as long as durations and dependencies hold).
+ */
+export function computeCriticalPath(tasks: GanttTask[]): GanttTask[] {
+  if (tasks.length === 0) return tasks;
+  const byId = new Map(tasks.map(t => [t.id, t]));
+
+  // Topological order (Kahn); cycle leftovers appended defensively
+  const inDegree = new Map<string, number>();
+  const dependents = new Map<string, string[]>();
+  for (const t of tasks) {
+    if (!inDegree.has(t.id)) inDegree.set(t.id, 0);
+    for (const depId of t.dependencies || []) {
+      if (!byId.has(depId)) continue;
+      if (!dependents.has(depId)) dependents.set(depId, []);
+      dependents.get(depId)!.push(t.id);
+      inDegree.set(t.id, (inDegree.get(t.id) || 0) + 1);
+    }
+  }
+  const queue = tasks.filter(t => (inDegree.get(t.id) || 0) === 0).map(t => t.id);
+  const order: string[] = [];
+  let qi = 0;
+  while (qi < queue.length) {
+    const id = queue[qi++];
+    order.push(id);
+    for (const childId of dependents.get(id) || []) {
+      const deg = (inDegree.get(childId) || 0) - 1;
+      inDegree.set(childId, deg);
+      if (deg === 0) queue.push(childId);
+    }
+  }
+  const inOrder = new Set(order);
+  for (const t of tasks) if (!inOrder.has(t.id)) order.push(t.id);
+
+  // Forward pass: earliest start/finish
+  const ef = new Map<string, number>();
+  const es = new Map<string, number>();
+  for (const id of order) {
+    const t = byId.get(id)!;
+    const deps = (t.dependencies || []).filter(d => byId.has(d));
+    const start = deps.length > 0 ? Math.max(...deps.map(d => ef.get(d) ?? 0)) : 0;
+    es.set(id, start);
+    ef.set(id, start + Math.max(1, t.duration || 1));
+  }
+  const projectEnd = Math.max(...order.map(id => ef.get(id) ?? 0));
+
+  // Backward pass: latest start; float = LS − ES
+  const ls = new Map<string, number>();
+  for (const id of [...order].reverse()) {
+    const t = byId.get(id)!;
+    const children = dependents.get(id) || [];
+    const finish = children.length > 0
+      ? Math.min(...children.map(c => ls.get(c) ?? projectEnd))
+      : projectEnd;
+    ls.set(id, finish - Math.max(1, t.duration || 1));
+  }
+
+  return tasks.map(t => ({
+    ...t,
+    is_critical: ((ls.get(t.id) ?? 0) - (es.get(t.id) ?? 0)) <= 0,
+  }));
+}
+
 export function nextWorkday_simple(d: Date, workSat = false, workSun = false): Date {
   let cursor = new Date(d);
   while (!isWorkday_simple(cursor, workSat, workSun)) {
@@ -2049,7 +2115,7 @@ export function fullReschedule(tasks: GanttTask[], workSat = false, workSun = fa
     const taskEnd = dur > 1 ? addWorkdays_simple(taskStart, dur - 1, workSat, workSun) : taskStart;
     updMap.set(taskId, { ...task, start_date: format(taskStart, 'yyyy-MM-dd'), end_date: format(taskEnd, 'yyyy-MM-dd') });
   }
-  return tasks.map(t => updMap.get(t.id)!);
+  return computeCriticalPath(tasks.map(t => updMap.get(t.id)!));
 }
 
 /**
@@ -2124,7 +2190,7 @@ export function forwardReschedule(tasks: GanttTask[], workSat = false, workSun =
     }
   }
   if (shifted.size === 0) return tasks;
-  return tasks.map(t => updMap.get(t.id)!);
+  return computeCriticalPath(tasks.map(t => updMap.get(t.id)!));
 }
 
 /**

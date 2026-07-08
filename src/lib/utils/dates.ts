@@ -41,6 +41,26 @@ export const MY_HOLIDAY_NAMES: Map<string, string> = new Map([
   ['2026-09-25', 'Maulidur Rasul 先知诞辰'],
   ['2026-11-08', 'Deepavali 屠妖节'],
   ['2026-12-25', 'Christmas Day 圣诞节'],
+  // 2027 — lunar/Islamic dates are best-known estimates; Nager.Date API overlay
+  // (ensureHolidaysLoaded) corrects them at runtime once officially gazetted
+  ['2027-01-01', "New Year's Day 元旦"],
+  ['2027-02-01', 'Federal Territory Day'],
+  ['2027-02-06', 'Chinese New Year 春节 Day 1'],
+  ['2027-02-07', 'Chinese New Year 春节 Day 2'],
+  ['2027-02-08', 'Chinese New Year 春节 (replacement)'],
+  ['2027-02-24', 'Nuzul Al-Quran 可兰经降世'],
+  ['2027-03-10', 'Hari Raya Aidilfitri Day 1'],
+  ['2027-03-11', 'Hari Raya Aidilfitri Day 2'],
+  ['2027-05-01', 'Labour Day 劳动节'],
+  ['2027-05-17', 'Hari Raya Haji 哈芝节'],
+  ['2027-05-20', 'Wesak Day 卫塞节'],
+  ['2027-06-07', "Agong's Birthday 最高元首诞辰"],
+  ['2027-07-06', 'Awal Muharram 回历新年'],
+  ['2027-08-31', 'National Day 独立日'],
+  ['2027-09-14', 'Maulidur Rasul 先知诞辰'],
+  ['2027-09-16', 'Malaysia Day 马来西亚日'],
+  ['2027-10-29', 'Deepavali 屠妖节'],
+  ['2027-12-25', 'Christmas Day 圣诞节'],
 ]);
 
 export const SG_HOLIDAY_NAMES: Map<string, string> = new Map([
@@ -69,6 +89,19 @@ export const SG_HOLIDAY_NAMES: Map<string, string> = new Map([
   ['2026-08-09', 'National Day'],
   ['2026-11-08', 'Deepavali'],
   ['2026-12-25', 'Christmas Day'],
+  // 2027 — lunar/Islamic dates are estimates; API overlay corrects at runtime
+  ['2027-01-01', "New Year's Day"],
+  ['2027-02-06', 'Chinese New Year Day 1'],
+  ['2027-02-07', 'Chinese New Year Day 2'],
+  ['2027-02-08', 'Chinese New Year (observed)'],
+  ['2027-03-10', 'Hari Raya Puasa'],
+  ['2027-03-26', 'Good Friday'],
+  ['2027-05-01', 'Labour Day'],
+  ['2027-05-17', 'Hari Raya Haji'],
+  ['2027-05-20', 'Vesak Day'],
+  ['2027-08-09', 'National Day'],
+  ['2027-10-29', 'Deepavali'],
+  ['2027-12-25', 'Christmas Day'],
 ]);
 
 // Derived Sets (for fast O(1) lookup) — includes hardcoded + API-fetched holidays
