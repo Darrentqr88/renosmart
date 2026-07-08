@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-const BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://renosmart.vercel.app';
+const BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renosmart.app';
 
 export default function robots(): MetadataRoute.Robots {
   return {

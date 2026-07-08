@@ -77,6 +77,7 @@ export interface QuotationItem {
   unitPrice: number;
   total: number;
   unitPriceDerived: boolean;
+  spec?: string;              // verbatim size/dimension column, e.g. "3750mm L x 3000mm H", "539 Sqft"
   supplyType?: SupplyType;
   status: AIItemStatus;
   note?: string;

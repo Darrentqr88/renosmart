@@ -17,7 +17,38 @@ const EXPECTED_CATEGORIES: Record<string, string[]> = {
 // Unit normalization
 // ============================================
 function normalizeUnit(unit: string): string {
-  return unit.toLowerCase().replace(/[\s-]/g, '').replace(/sq\.?ft/, 'sqft').replace(/ft\.?run/, 'ftrun');
+  return unit.toLowerCase()
+    .replace(/[\s\-]/g, '')
+    .replace(/sq\.?ft/, 'sqft')
+    .replace(/ft\.?run/, 'ftrun')
+    .replace(/^m2$|^m²$|^sqm$|^m\^2$/, 'm2')
+    .replace(/^metre$|^meter$/, 'm');
+}
+
+/**
+ * Convert unit price to a canonical unit for comparison against known ranges.
+ * Returns { unit, price } where unit is the target comparison unit and price
+ * is the converted unit price.
+ *
+ * Conversion constants:
+ *   1 m² = 10.7639 sqft
+ *   1 m  = 3.28084 ft
+ *   1 ft = 304.8 mm → 1 mm = 1/304.8 ft  (AI should already convert, but safeguard)
+ */
+function toComparisonUnit(rawUnit: string, unitPrice: number): { unit: string; price: number; converted: boolean } {
+  const u = normalizeUnit(rawUnit);
+  if (u === 'm2') {
+    return { unit: 'sqft', price: unitPrice / 10.7639, converted: true };
+  }
+  if (u === 'm') {
+    // Linear metre → ft (carpentry / ceiling / partition measured in m)
+    return { unit: 'ft', price: unitPrice / 3.28084, converted: true };
+  }
+  if (u === 'mm') {
+    // Millimetre → ft (should have been converted by AI, safeguard)
+    return { unit: 'ft', price: unitPrice * 304.8, converted: true };
+  }
+  return { unit: u, price: unitPrice, converted: false };
 }
 
 // ============================================
@@ -175,7 +206,8 @@ export async function calculateHybridScores(
     if (!item.unitPrice || item.unitPrice <= 0) continue;
 
     const classification = classifyItem(item.name, item.subcategory, item.materialMethod);
-    const unit = normalizeUnit(item.unit || 'unit');
+    // Convert unit price to canonical comparison unit (m² → sqft, m → ft, mm → ft)
+    const { unit, price: comparablePrice } = toComparisonUnit(item.unit || 'unit', item.unitPrice);
     const supplyType = item.supplyType || 'supply_install';
     const weight = item.total || item.unitPrice * item.qty || 1;
 
@@ -225,15 +257,15 @@ export async function calculateHybridScores(
     };
 
     if (dbEntry && dbEntry.sample_count >= 10) {
-      // Priority 1: Database data
+      // Priority 1: Database data — compare using unit-converted price
       comp.dbMin = dbEntry.min_price;
       comp.dbMax = dbEntry.max_price;
       comp.dbAvg = dbEntry.avg_price;
       comp.sampleCount = dbEntry.sample_count;
       comp.source = 'database';
-      comp.deviation = dbEntry.avg_price > 0 ? (item.unitPrice - dbEntry.avg_price) / dbEntry.avg_price : null;
+      comp.deviation = dbEntry.avg_price > 0 ? (comparablePrice - dbEntry.avg_price) / dbEntry.avg_price : null;
 
-      const result = scoreItemAgainstRange(item.unitPrice, dbEntry.min_price, dbEntry.max_price, false);
+      const result = scoreItemAgainstRange(comparablePrice, dbEntry.min_price, dbEntry.max_price, false);
       comp.verdict = result.verdict;
       weightedSum += result.contribution * weight;
       totalWeight += weight;
@@ -241,25 +273,25 @@ export async function calculateHybridScores(
     } else {
       const known = getKnownRange(classification.category, classification.subcategory, unit, region);
       if (known) {
-        // Priority 2: Built-in known range (more reliable than AI estimate for this category/unit)
+        // Priority 2: Built-in known range — compare using unit-converted price
         comp.source = 'known_range';
         comp.dbMin = known.min;
         comp.dbMax = known.max;
         const knownAvg = (known.min + known.max) / 2;
-        comp.deviation = knownAvg > 0 ? (item.unitPrice - knownAvg) / knownAvg : null;
+        comp.deviation = knownAvg > 0 ? (comparablePrice - knownAvg) / knownAvg : null;
 
-        const result = scoreItemAgainstRange(item.unitPrice, known.min, known.max, false);
+        const result = scoreItemAgainstRange(comparablePrice, known.min, known.max, false);
         comp.verdict = result.verdict;
         weightedSum += result.contribution * weight;
         totalWeight += weight;
         dbMatchCount++;
       } else if (item.estMinPrice && item.estMaxPrice && item.estMinPrice > 0) {
-        // Priority 3: AI estimated range
+        // Priority 3: AI estimated range — also use comparablePrice for consistency
         comp.source = 'ai_estimate';
         const aiAvg = (item.estMinPrice + item.estMaxPrice) / 2;
-        comp.deviation = aiAvg > 0 ? (item.unitPrice - aiAvg) / aiAvg : null;
+        comp.deviation = aiAvg > 0 ? (comparablePrice - aiAvg) / aiAvg : null;
 
-        const result = scoreItemAgainstRange(item.unitPrice, item.estMinPrice, item.estMaxPrice, true);
+        const result = scoreItemAgainstRange(comparablePrice, item.estMinPrice, item.estMaxPrice, true);
         comp.verdict = result.verdict;
         weightedSum += result.contribution * weight;
         totalWeight += weight;

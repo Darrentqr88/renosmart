@@ -1,0 +1,9 @@
+.agents/
+.claude/
+.trae/
+scripts/__pycache__/
+*.pptx
+*.docx
+supabase/.temp/
+crisp-knowledge-base.md
+generate_deck.js

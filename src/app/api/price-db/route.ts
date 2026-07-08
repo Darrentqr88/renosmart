@@ -3,12 +3,28 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createRawClient } from '@supabase/supabase-js';
 import { classifyItem, normalizeItemName, extractSupplyType } from '@/lib/utils/item-classifier';
 
-// Use untyped client to avoid Database schema constraint on new tables
+// Use untyped client with service role to bypass RLS for privileged writes.
+// Auth is enforced at the route entry point — see POST handler below.
 function getRawDb() {
   return createRawClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+}
+
+// Rolling window: keep only the most recent N data points per item combination.
+// Older samples are pruned so price_database always reflects the LATEST market
+// quotations, not stale history. 50 = the "high" confidence tier threshold.
+const ROLLING_WINDOW = 50;
+
+// Lump-sum / non-comparable units — a "unit price" here is really a lump total
+// and would poison the per-unit statistics. These items are never stored.
+function isLumpSumUnit(unit: string): boolean {
+  const u = (unit || '').trim().toLowerCase();
+  if (!u) return true;
+  if (/^(l[\-\/ ]?sum|lump\s*sums?|lumpsum|ls|l\.s\.?|lot|job|area|item|trip|visit)$/.test(u)) return true;
+  if (u.includes('according')) return true; // "According Design/Site/Quantity"
+  return false;
 }
 
 async function recalculatePriceDB(
@@ -20,17 +36,27 @@ async function recalculatePriceDB(
   region: string,
 ) {
   const db = getRawDb();
-
-  // Fetch all data points for this combination
-  const { data } = await db
-    .from('price_data_points')
-    .select('unit_price')
+  const combo = (q: any) => q
     .eq('category', category)
     .eq('subcategory', subcategory)
     .eq('material_method', materialMethod)
     .eq('unit', unit)
     .eq('supply_type', supplyType)
     .eq('region', region);
+
+  // Prune: once more than ROLLING_WINDOW samples exist, delete the OLDEST ones
+  // so newly uploaded quotations override the original records over time
+  const { data: stale } = await combo(db.from('price_data_points').select('id'))
+    .order('created_at', { ascending: false })
+    .range(ROLLING_WINDOW, ROLLING_WINDOW + 499);
+  if (stale && stale.length > 0) {
+    await db.from('price_data_points').delete().in('id', (stale as { id: string }[]).map(r => r.id));
+  }
+
+  // Recalculate from the most recent samples only (newest-first window)
+  const { data } = await combo(db.from('price_data_points').select('unit_price'))
+    .order('created_at', { ascending: false })
+    .limit(ROLLING_WINDOW);
 
   if (!data || data.length < 10) return;
 
@@ -88,6 +114,13 @@ export async function POST(request: Request) {
 
     for (const item of items) {
       if (!item.unitPrice || item.status === 'flag' || item.unitPrice <= 0) {
+        skipped++;
+        continue;
+      }
+
+      // Discard lump-sum items — no real unit price can be derived from them,
+      // storing them would poison the per-unit market statistics
+      if (isLumpSumUnit(item.unit)) {
         skipped++;
         continue;
       }

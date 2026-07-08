@@ -186,10 +186,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Build Gemini model
+    // Main quotation audit → gemini-2.5-flash (accuracy-critical, quota-counted)
+    // Secondary calls (Gantt params, trade hints) → flash-lite (cheap, quota-exempt)
+    // temperature 0: extraction/audit must be deterministic, not creative
     const geminiModel = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash-lite',
+      model: isSecondaryCall ? 'gemini-2.5-flash-lite' : 'gemini-2.5-flash',
       ...(system ? { systemInstruction: system } : {}),
-      generationConfig: { maxOutputTokens: max_tokens || 16000 },
+      generationConfig: { maxOutputTokens: max_tokens || 16000, temperature: 0 },
     });
 
     const contents = (messages as Array<{ role: string; content: string }>).map((m) => ({

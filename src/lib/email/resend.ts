@@ -5,7 +5,7 @@ const resend = process.env.RESEND_API_KEY
   : null;
 
 const FROM = 'RenoSmart <noreply@renosmart.app>';
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://renosmart.vercel.app';
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renosmart.app';
 
 /** Send email via Resend — fails silently if not configured */
 async function send(to: string, subject: string, html: string) {

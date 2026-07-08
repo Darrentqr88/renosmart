@@ -52,6 +52,14 @@ Rules:
 - If qty or unit_price are not shown, estimate from total or leave as null.
 - Always return valid JSON even if some fields are unclear.`;
 
+// Prompt for extracting raw text from a quotation PDF (scanned/image-based)
+const QUOTATION_TEXT_PROMPT = `You are reading a renovation quotation document from Malaysia or Singapore.
+Extract ALL text content from this document exactly as it appears.
+Preserve the table structure using tabs between columns and newlines between rows.
+Include: item numbers, descriptions, units, quantities, unit prices, totals, section headers, client info, and grand totals.
+Do NOT summarize or skip any rows. Do NOT return JSON — return plain text only.
+Output the full document content as plain text.`;
+
 const VALID_MIME_TYPES = [
   'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'
 ];
@@ -67,7 +75,8 @@ export async function POST(request: Request) {
 
     const { imageBase64, mimeType, type } = await request.json();
     const isVOMode = type === 'vo';
-    const activePrompt = isVOMode ? VO_PROMPT : OCR_PROMPT;
+    const isQuotationText = type === 'quotation_text';
+    const activePrompt = isVOMode ? VO_PROMPT : isQuotationText ? QUOTATION_TEXT_PROMPT : OCR_PROMPT;
 
     if (!imageBase64 || !mimeType) {
       return NextResponse.json({ error: 'Missing imageBase64 or mimeType' }, { status: 400 });
@@ -88,7 +97,7 @@ export async function POST(request: Request) {
     // Gemini Vision: unified handling for images AND PDFs (no beta flag needed)
     const geminiModel = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash-lite',
-      generationConfig: { maxOutputTokens: isVOMode ? 4096 : 1024 },
+      generationConfig: { maxOutputTokens: isVOMode ? 4096 : isQuotationText ? 16384 : 1024 },
     });
 
     const result = await geminiModel.generateContent({
@@ -102,6 +111,11 @@ export async function POST(request: Request) {
     });
 
     const responseText = result.response.text();
+
+    // quotation_text mode: return raw extracted text (not JSON)
+    if (isQuotationText) {
+      return NextResponse.json({ text: responseText.trim() });
+    }
 
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {

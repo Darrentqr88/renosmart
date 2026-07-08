@@ -59,7 +59,7 @@ async function generateAIResponse(visitorMessage: string, visitorName?: string):
     return result.response.text().trim();
   } catch (err) {
     console.error('[Crisp AI] Gemini error:', err);
-    return "Thanks for reaching out! I'll connect you with our team shortly. In the meantime, feel free to explore our features at renosmart.vercel.app 😊";
+    return "Thanks for reaching out! I'll connect you with our team shortly. In the meantime, feel free to explore our features at www.renosmart.app 😊";
   }
 }
 

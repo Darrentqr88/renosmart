@@ -103,7 +103,17 @@ export async function extractPDFText(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const uint8Array = new Uint8Array(arrayBuffer);
 
-  const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
+  let pdf: Awaited<ReturnType<typeof pdfjsLib.getDocument>['promise']>;
+  try {
+    pdf = await pdfjsLib.getDocument({ data: uint8Array, useWorkerFetch: false }).promise;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Password-protected PDF
+    if (/password/i.test(msg)) {
+      throw new Error('PDF_PASSWORD_PROTECTED');
+    }
+    throw new Error(`PDF_LOAD_FAILED: ${msg}`);
+  }
   const numPages = Math.min(pdf.numPages, 20);
 
   const pageTexts: string[] = [];
@@ -114,19 +124,23 @@ export async function extractPDFText(file: File): Promise<string> {
     const page = await pdf.getPage(pageNum);
     const textContent = await page.getTextContent();
 
-    // Group text items by Y position (same line = same row)
-    const lineMap: Record<string, { text: string; x: number }[]> = {};
+    // Group text items by Y position with 2-unit tolerance bands (same row = within 2 PDF units)
+    const lineMap: Record<string, { text: string; x: number; w: number }[]> = {};
 
     for (const item of textContent.items) {
       if (!('str' in item)) continue;
-      const str = (item as { str: string; transform: number[] }).str;
-      const transform = (item as { str: string; transform: number[] }).transform;
+      const typedItem = item as { str: string; transform: number[]; width: number };
+      const str = typedItem.str;
+      const transform = typedItem.transform;
       if (!str.trim()) continue;
 
-      const y = Math.round(transform[5]);
+      // Round Y to nearest 2 units — groups items on same row even with sub-pixel Y differences
+      const y = Math.round(transform[5] / 2) * 2;
       const x = transform[4];
+      // Use actual pdfjs item.width for accurate gap detection; fall back to char estimate
+      const w = typedItem.width > 0 ? typedItem.width : str.length * 6;
       if (!lineMap[y]) lineMap[y] = [];
-      lineMap[y].push({ text: str, x });
+      lineMap[y].push({ text: str, x, w });
     }
 
     // Sort lines top-to-bottom (descending Y in PDF coords)
@@ -138,11 +152,11 @@ export async function extractPDFText(file: File): Promise<string> {
     for (const y of sortedYs) {
       const items = lineMap[y].sort((a, b) => a.x - b.x);
 
-      // Join with tab if gap > 20px (column separator)
+      // Join with tab if gap > 8 PDF units (column separator); use accurate item.width
       let line = items[0].text;
       for (let i = 1; i < items.length; i++) {
-        const gap = items[i].x - (items[i - 1].x + items[i - 1].text.length * 6);
-        line += (gap > 20 ? '\t' : ' ') + items[i].text;
+        const gap = items[i].x - (items[i - 1].x + items[i - 1].w);
+        line += (gap > 8 ? '\t' : ' ') + items[i].text;
       }
 
       const trimmed = line.trim();
@@ -177,7 +191,7 @@ export async function extractPDFText(file: File): Promise<string> {
     ...supplyAnnotated,
   ].filter(Boolean).join('\n');
 
-  return result.slice(0, 20000); // CRITICAL: 20,000 chars max
+  return result.slice(0, 40000); // CRITICAL: 40,000 chars max
 }
 
 export async function extractExcelText(file: File): Promise<string> {
@@ -200,7 +214,7 @@ export async function extractExcelText(file: File): Promise<string> {
   const raw = lines.join('\n');
   const format = detectFormat(raw);
   const hints = extractClientHints(raw);
-  return `${hints}[DETECTED FORMAT: ${format}]\n${raw}`.slice(0, 20000);
+  return `${hints}[DETECTED FORMAT: ${format}]\n${raw}`.slice(0, 40000);
 }
 
 export async function extractTextFromFile(file: File): Promise<string> {
@@ -217,7 +231,7 @@ export async function extractTextFromFile(file: File): Promise<string> {
     const annotated = annotateSupplyTypes(lines);
     const raw = annotated.join('\n');
     const format = detectFormat(raw);
-    return `${hints}[DETECTED FORMAT: ${format}]\n${raw}`.slice(0, 20000);
+    return `${hints}[DETECTED FORMAT: ${format}]\n${raw}`.slice(0, 40000);
   }
 
   throw new Error(`Unsupported file type: .${ext}`);

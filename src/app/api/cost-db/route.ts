@@ -3,10 +3,12 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createRawClient } from '@supabase/supabase-js';
 import { classifyItem, normalizeItemName } from '@/lib/utils/item-classifier';
 
+// Use untyped client with service role to bypass RLS for privileged writes.
+// Auth is enforced at the route entry point — see POST handler below.
 function getRawDb() {
   return createRawClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 }
 

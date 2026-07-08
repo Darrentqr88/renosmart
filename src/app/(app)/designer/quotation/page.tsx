@@ -10,6 +10,7 @@ import { generateGanttFromAIParams, generateGanttFromQuotation } from '@/lib/uti
 import { QuotationAnalysis, QuotationItem, AIItemStatus, SupplyType, GanttParams, ScoreBreakdown, DimensionBreakdown } from '@/types';
 import { formatCurrency, getCurrencySymbol } from '@/lib/utils';
 import { calculateHybridScores } from '@/lib/utils/score-calculator';
+import { deriveLumpSumUnits } from '@/lib/utils/item-derivation';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { Button } from '@/components/ui/button';
@@ -110,12 +111,15 @@ function detectMYRegion(address?: string, textForAI?: string): string {
 
 /* ─── Sanitize AI response ───────────────────────────────────────────────── */
 function sanitizeAnalysis(raw: QuotationAnalysis): QuotationAnalysis {
-  const items = (raw.items ?? []).map(item => ({
+  // Derive qty/unit for lump-sum items with dimension text (deterministic,
+  // in code — the AI is unreliable at mm→ft arithmetic). Without this, every
+  // no-qty-column quotation ends up 100% "nodata" (待确认).
+  const items = deriveLumpSumUnits((raw.items ?? []).map(item => ({
     ...item,
     qty:       Number(item.qty)       || 0,
     unitPrice: Number(item.unitPrice) || 0,
     total:     Number(item.total)     || 0,
-  }));
+  })));
   const subtotals = (raw.subtotals ?? []).map(s => ({
     ...s,
     amount: Number(s.amount) || 0,
@@ -213,6 +217,7 @@ export default function QuotationPage() {
 
   // Extraction diagnostics
   const [extractedTextLen, setExtractedTextLen] = useState(0);
+  const [isOCRRunning, setIsOCRRunning] = useState(false);
 
   // Full report
   const [showFullReport, setShowFullReport] = useState(false);
@@ -290,6 +295,15 @@ export default function QuotationPage() {
       const text = await extractTextFromFile(file);
       setExtractedTextLen(text.length);
       setProgress(50);
+
+      // Scanned / image-only PDF: skip AI analysis entirely — show OCR option instead
+      const isLikelyScanned = file.name.toLowerCase().endsWith('.pdf') && text.length < 500;
+      if (isLikelyScanned) {
+        setAnalysis({ items: [], score: { total: 0, completeness: 0, price: 0, logic: 0, risk: 0 }, summary: '', client: {}, subtotals: [], totalAmount: 0, missing: [], missingCritical: [], alerts: [], projectType: 'landed_terrace', projectSqft: 0 } as unknown as QuotationAnalysis);
+        setStep('done');
+        setProgress(100);
+        return;
+      }
 
       setStep('analyzing');
       setProgressLabel(lang === 'ZH' ? 'AI 正在分析报价单...' : 'AI analyzing quotation...');
@@ -371,11 +385,12 @@ export default function QuotationPage() {
       }
 
       setProgress(98);
-      setAnalysis(sanitizeAnalysis(parsed));
+      const clean = sanitizeAnalysis(parsed);
+      setAnalysis(clean);
       setStep('done');
       setProgressLabel(lang === 'ZH' ? '分析完成' : 'Analysis complete');
 
-      if (!parsed.items || parsed.items.length === 0) {
+      if (!clean.items || clean.items.length === 0) {
         const isLikelyImagePDF = text.length < 500 && file.name.endsWith('.pdf');
         toast({
           variant: 'destructive',
@@ -385,15 +400,15 @@ export default function QuotationPage() {
             : `AI 未能解析出工程项目（提取了 ${text.length} 字符）。请尝试重新上传，或改用 XLSX 格式。`,
         });
       } else {
-        toast({ title: '✅ 分析完成', description: parsed.summary?.slice(0, 80) });
+        toast({ title: '✅ 分析完成', description: clean.summary?.slice(0, 80) });
       }
       setProgress(100);
 
       // ── Detect effective region for price scoring + DB update ──
-      const effectiveRegion = region === 'SG' ? 'SG' : detectMYRegion(parsed.client?.address, text);
+      const effectiveRegion = region === 'SG' ? 'SG' : detectMYRegion(clean.client?.address, text);
 
-      // ── Background: hybrid scoring ──
-      calculateHybridScores(parsed, effectiveRegion).then(breakdown => {
+      // ── Background: hybrid scoring (uses sanitized items so derived ft/sqft unit prices are compared, not lump totals) ──
+      calculateHybridScores(clean, effectiveRegion).then(breakdown => {
         setScoreBreakdown(breakdown);
         setAnalysis(prev => prev ? {
           ...prev,
@@ -431,19 +446,123 @@ export default function QuotationPage() {
         } : prev);
       }).catch(() => {});
 
-      // Background: price-db update
-      if (parsed.items?.length > 0) {
+      // Background: price-db update (sanitized items — derived per-ft/sqft prices, not lump totals)
+      if (clean.items?.length > 0) {
         fetch('/api/price-db', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeaders },
-          body: JSON.stringify({ items: parsed.items, region: effectiveRegion }),
+          body: JSON.stringify({ items: clean.items, region: effectiveRegion }),
         }).catch(() => {});
       }
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : '分析失败';
+      const rawMsg = error instanceof Error ? error.message : '分析失败';
+      let userMsg = rawMsg;
+      if (rawMsg === 'PDF_PASSWORD_PROTECTED') {
+        userMsg = 'PDF 文件已设置密码保护，无法读取内容。请先移除密码保护后重新上传。';
+      } else if (rawMsg.startsWith('PDF_LOAD_FAILED')) {
+        userMsg = 'PDF 文件无法读取（可能已损坏或格式不支持）。请尝试重新导出 PDF，或改用 XLSX 格式上传。';
+      }
+      setStep('error');
+      setProgressLabel(userMsg);
+      toast({ variant: 'destructive', title: '无法读取文件', description: userMsg });
+    }
+  };
+
+  // ── AI Vision OCR fallback for scanned / image-based PDFs ──────────────────
+  const runOCRFallback = async () => {
+    const file = originalFileRef.current;
+    if (!file) return;
+    setIsOCRRunning(true);
+    try {
+      setStep('extracting');
+      setProgressLabel('AI 视觉识别中（扫描件 OCR）...');
+      setProgress(25);
+
+      // Read PDF as base64
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+      const base64 = btoa(binary);
+
+      const { data: { session: tokenSession } } = await supabase.auth.getSession();
+      const authHeaders: Record<string, string> = tokenSession?.access_token
+        ? { Authorization: `Bearer ${tokenSession.access_token}` } : {};
+
+      const ocrRes = await fetch('/api/ocr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({ imageBase64: base64, mimeType: 'application/pdf', type: 'quotation_text' }),
+      });
+
+      if (!ocrRes.ok) throw new Error('OCR 识别失败，请重试');
+      const { text, error: ocrErr } = await ocrRes.json();
+      if (ocrErr) throw new Error(ocrErr);
+      if (!text || text.length < 100) throw new Error('OCR 未能提取到足够内容');
+
+      setExtractedTextLen(text.length);
+      setProgress(55);
+      setStep('analyzing');
+      setProgressLabel('AI 正在分析报价单...');
+
+      const outputLang = lang === 'ZH' ? 'Chinese (Simplified)' : 'English';
+      const dbPriceRef = await fetchDbPriceReference(supabase, region === 'SG' ? 'SG' : 'MY_KL');
+      const dbRegion = region === 'SG' ? 'SG' : 'MY_KL';
+      const prompt = buildQuotationPrompt(`[OCR extracted from scanned PDF]\n${text}`, outputLang, dbPriceRef, dbRegion);
+
+      const streamRes = await fetch('/api/claude/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 32000, messages: [{ role: 'user', content: prompt }] }),
+      });
+      if (!streamRes.ok) { const e = await streamRes.json(); throw new Error(e.error || 'AI 分析失败'); }
+
+      const reader = streamRes.body?.getReader();
+      if (!reader) throw new Error('Stream unavailable');
+      const decoder = new TextDecoder();
+      let content = '';
+      let charCount = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        for (const line of chunk.split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') break;
+          try {
+            const p = JSON.parse(data);
+            if (p.error) throw new Error(p.error);
+            if (p.text) { content += p.text; charCount += p.text.length; setProgress(Math.min(95, 55 + Math.floor(charCount / 400))); }
+          } catch { /* skip */ }
+        }
+      }
+
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('AI 返回格式异常，请重试');
+      let parsed: QuotationAnalysis;
+      try { parsed = JSON.parse(jsonMatch[0]); }
+      catch {
+        const repaired = jsonMatch[0].replace(/,\s*$/, '');
+        parsed = JSON.parse(repaired);
+      }
+      setProgress(98);
+      setAnalysis(sanitizeAnalysis(parsed));
+      setStep('done');
+      setProgressLabel('OCR 分析完成');
+      if (!parsed.items || parsed.items.length === 0) {
+        toast({ variant: 'destructive', title: '⚠ OCR 未识别到项目', description: 'AI 视觉识别已完成但未找到工程项目，文件可能质量过低或格式特殊。' });
+      } else {
+        toast({ title: '✅ OCR 分析完成', description: `已从扫描件识别 ${parsed.items.length} 个工程项目` });
+      }
+      setProgress(100);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'OCR 识别失败';
       setStep('error');
       setProgressLabel(msg);
-      toast({ variant: 'destructive', title: '分析失败', description: msg });
+      toast({ variant: 'destructive', title: 'OCR 识别失败', description: msg });
+    } finally {
+      setIsOCRRunning(false);
     }
   };
 
@@ -945,7 +1064,7 @@ ${infos.length > 0 ? `<h2>💡 提示（可选考虑）</h2>${infos.map(a => `<d
 <h2>报价工程项目 (${analysis.items.length} 项)</h2>
 <table><thead><tr><th>#</th><th>工程描述</th><th>类型</th><th>单位</th><th style="text-align:right">数量</th><th style="text-align:right">单价</th><th style="text-align:right">金额</th><th>状态</th></tr></thead>
 <tbody>
-${analysis.items.map(item => `<tr><td>${item.no}</td><td><div style="font-size:10px;color:#9CA3AF">${item.section||''}</div>${item.name.replace(/\s*\[early \d+ samples?\]/gi, '')}</td><td><span style="font-size:10px;color:#6B7A94">${item.supplyType === 'labour_only' ? 'Labour' : item.supplyType === 'supply_only' ? 'Supply' : 'S&I'}</span></td><td>${item.unit}</td><td style="text-align:right">${item.qty}</td><td style="text-align:right">${item.unitPrice.toFixed(2)}${item.unitPriceDerived ? '*' : ''}</td><td style="text-align:right;font-weight:600">${fmtCurrency(item.total)}</td><td style="white-space:nowrap">${STATUS_CONFIG[item.status].label}${item.note ? '<br><span style="font-size:10px;color:#6B7A94">'+item.note+'</span>' : ''}</td></tr>`).join('')}
+${analysis.items.map(item => `<tr><td>${item.no}</td><td><div style="font-size:10px;color:#9CA3AF">${item.section||''}</div>${item.name.replace(/\s*\[(?:early )?\d+ samples?\]/gi, '')}</td><td><span style="font-size:10px;color:#6B7A94">${item.supplyType === 'labour_only' ? 'Labour' : item.supplyType === 'supply_only' ? 'Supply' : 'S&I'}</span></td><td>${item.unit}</td><td style="text-align:right">${item.qty}</td><td style="text-align:right">${item.unitPrice.toFixed(2)}${item.unitPriceDerived ? '*' : ''}</td><td style="text-align:right;font-weight:600">${fmtCurrency(item.total)}</td><td style="white-space:nowrap">${STATUS_CONFIG[item.status].label}${item.note ? '<br><span style="font-size:10px;color:#6B7A94">'+item.note+'</span>' : ''}</td></tr>`).join('')}
 </tbody>
 ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:right;font-weight:600">${s.label}</td><td style="text-align:right;font-weight:700">${fmtCurrency(s.amount)}</td><td></td></tr></tfoot>`).join('')}
 <tfoot><tr class="total-row"><td colspan="6" style="text-align:right">报价总额</td><td style="text-align:right;color:#4F8EF7">${fmtCurrency(analysis.totalAmount)}</td><td></td></tr></tfoot></table>
@@ -1144,15 +1263,25 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                     <p className="text-[13px] font-semibold text-amber-800">未识别到工程项目</p>
                     <p className="text-[12px] text-amber-700 mt-1">
                       {extractedTextLen < 500
-                        ? 'PDF 可能为扫描件（图片格式），pdfjs 无法提取文字内容。'
-                        : `已提取 ${extractedTextLen.toLocaleString()} 个字符，但 AI 未能解析出工程项目。`}
-                      {' '}建议：将报价单另存为 <strong>XLSX</strong> 格式后重新上传，或使用文字版（非扫描）PDF。
+                        ? 'PDF 可能为扫描件（图片格式），pdfjs 无法提取文字内容。可尝试 AI 视觉识别，或将报价单另存为 XLSX 格式后重新上传。'
+                        : `已提取 ${extractedTextLen.toLocaleString()} 个字符，但 AI 未能解析出工程项目。请尝试 AI 视觉识别，或改用 XLSX 格式。`}
                     </p>
-                    <button
-                      onClick={() => { clearAllState(); fileInputRef.current?.click(); }}
-                      className="mt-2 text-[12px] font-medium text-amber-700 underline hover:text-amber-900">
-                      重新上传
-                    </button>
+                    <div className="flex items-center gap-3 mt-2">
+                      {(extractedTextLen < 500 || true) && originalFileRef.current?.name.endsWith('.pdf') && (
+                        <button
+                          onClick={runOCRFallback}
+                          disabled={isOCRRunning}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-[12px] font-medium hover:bg-amber-700 disabled:opacity-50 transition-colors">
+                          {isOCRRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : '👁'}
+                          {isOCRRunning ? 'AI 识别中...' : 'AI 视觉识别 (OCR)'}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { clearAllState(); fileInputRef.current?.click(); }}
+                        className="text-[12px] font-medium text-amber-700 underline hover:text-amber-900">
+                        重新上传
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1350,7 +1479,7 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                                     : null;
                                 return (
                                   <div key={i} className={`rounded-lg p-3 ${comp.verdict === 'flag_high' ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
-                                    <div className="text-[12px] font-semibold text-gray-800 leading-snug">{item.name.replace(/\s*\[early \d+ samples?\]/gi, '')}</div>
+                                    <div className="text-[12px] font-semibold text-gray-800 leading-snug">{item.name.replace(/\s*\[(?:early )?\d+ samples?\]/gi, '')}</div>
                                     <div className="text-[11px] text-gray-500 mt-1">Quoted: {currency} {(item.unitPrice ?? 0).toFixed(2)}/{item.unit || 'unit'}</div>
                                     {marketRange && <div className="text-[11px] text-gray-500">Market: {marketRange}/{item.unit || 'unit'}</div>}
                                     {pct != null && (
@@ -1516,7 +1645,7 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                             <td style={{ padding: '11px 12px', color: '#9CA3AF', fontSize: 11, fontFamily: 'monospace', verticalAlign: 'top', paddingTop: 13 }}>
                               {item.no || i + 1}{pageBadge}
                             </td>
-                            <td style={{ padding: '11px 12px', fontWeight: 500, color: '#1B2336', lineHeight: 1.5, minWidth: 200 }}>{item.name.replace(/\s*\[early \d+ samples?\]/gi, '')}</td>
+                            <td style={{ padding: '11px 12px', fontWeight: 500, color: '#1B2336', lineHeight: 1.5, minWidth: 200 }}>{item.name.replace(/\s*\[(?:early )?\d+ samples?\]/gi, '')}</td>
                             <td style={{ padding: '11px 12px', textAlign: 'center' }}><SupplyBadge type={item.supplyType} /></td>
                             <td style={{ padding: '11px 12px', color: '#6B7A94', textAlign: 'center' }}>{item.unit}</td>
                             <td style={{ padding: '11px 12px', fontFamily: 'monospace', textAlign: 'right', color: '#6B7A94' }}>{item.qty}</td>

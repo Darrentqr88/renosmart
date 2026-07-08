@@ -71,7 +71,7 @@ It helps interior designers, property owners, and contractors manage renovation 
 - Custom branding
 
 ## Registration
-- Free to sign up: https://renosmart.vercel.app/register
+- Free to sign up: https://www.renosmart.app/register
 - Google OAuth or email/password
 - Takes under 2 minutes
 - No credit card required for free plan

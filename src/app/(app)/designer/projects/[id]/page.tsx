@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { formatCurrency, formatDate, getCurrencySymbol } from '@/lib/utils';
 import { GanttChart, GanttWorkerInfo } from '@/components/gantt/GanttChart';
 import { TaskDetailPanel } from '@/components/gantt/TaskDetailPanel';
-import { generateGanttTasks, generateGanttFromQuotation, generateGanttFromAIParams, appendVOTask, addWorkdays, detectTradeForVO, forwardReschedule, fullReschedule, validateDurations } from '@/lib/utils/gantt-rules';
+import { generateGanttTasks, generateGanttFromQuotation, generateGanttFromAIParams, appendVOTask, addWorkdays, detectTradeForVO, forwardReschedule, fullReschedule, validateDurations, repairDependencyGraph } from '@/lib/utils/gantt-rules';
 import { isWorkday, preloadHolidays } from '@/lib/utils/dates';
 import { Project, PaymentPhase, GanttTask, GanttTaskStatus, VariationOrder, VOItem, GanttParams } from '@/types';
 import {
@@ -473,6 +473,7 @@ export default function ProjectDetailPage() {
 
   const handleTaskUpdate = (taskId: string, updates: Partial<GanttTask>) => {
     setGanttTasks(prev => {
+      const orig = prev.find(t => t.id === taskId);
       // If duration is explicitly changed by the user, lock it so date reschedules won't scale it
       const lockDuration = 'duration' in updates;
       const withUpdate = prev.map(t =>
@@ -480,7 +481,14 @@ export default function ProjectDetailPage() {
           ? { ...t, ...updates, ...(lockDuration ? { is_duration_locked: true } : {}) }
           : t,
       );
-      return forwardReschedule(withUpdate, workOnSaturday, workOnSunday, taskId);
+      // Dragged later (or extended later)? Freeze everything scheduled before the
+      // task's original start — only downstream tasks may cascade backward in time
+      const movedLater = !!orig && (
+        (!!updates.start_date && updates.start_date > orig.start_date) ||
+        (!updates.start_date && !!updates.end_date && updates.end_date > orig.end_date)
+      );
+      const freezeBefore = movedLater ? orig.start_date : undefined;
+      return forwardReschedule(withUpdate, workOnSaturday, workOnSunday, taskId, freezeBefore);
     });
     setIsDirty(true);
   };
@@ -505,9 +513,28 @@ export default function ProjectDetailPage() {
       const reordered = updated.map((t, i) => ({ ...t, sort_order: i }));
 
       if (recalcDates) {
+        const movedTask = reordered[newIndex];
+        const oldDeps = movedTask.dependencies || [];
+
+        // Bridge the hole at the old position: tasks that depended on the moved
+        // task inherit its old dependencies instead. Without this, old dependents
+        // stay chained to the moved task and get scheduled after its NEW dates,
+        // tearing a blank gap into the timeline.
+        for (let i = 0; i < reordered.length; i++) {
+          if (i === newIndex) continue;
+          const t = reordered[i];
+          if (!(t.dependencies || []).includes(movedTask.id)) continue;
+          reordered[i] = {
+            ...t,
+            dependencies: [
+              ...(t.dependencies || []).filter(d => d !== movedTask.id),
+              ...oldDeps.filter(d => d !== t.id && !(t.dependencies || []).includes(d)),
+            ],
+          };
+        }
+
         // Update moved task's dependencies → point to the task above it
         const prevTask = newIndex > 0 ? reordered[newIndex - 1] : null;
-        const movedTask = reordered[newIndex];
         reordered[newIndex] = {
           ...movedTask,
           dependencies: prevTask ? [prevTask.id] : [],
@@ -530,8 +557,33 @@ export default function ProjectDetailPage() {
     setIsDirty(true);
   };
 
+  // ── Close blank gaps: snap every dependent task to right after its latest dep end ──
+  // Repairs schedules damaged by earlier reorders/drags (blank periods between tasks).
+  const handleCompactSchedule = () => {
+    if (ganttTasks.length === 0) return;
+    // Repair stale/cyclic dependencies left by older reorder logic first —
+    // rescheduling a cyclic graph produces garbage dates instead of closing gaps
+    const { tasks: repaired, removedEdges } = repairDependencyGraph(ganttTasks);
+    const compacted = fullReschedule(repaired, workOnSaturday, workOnSunday);
+    const changed = compacted.some((t, i) =>
+      t.start_date !== ganttTasks[i].start_date || t.end_date !== ganttTasks[i].end_date);
+    if (!changed) {
+      toast({ title: '✅ 没有空白时段', description: '当前进度表已经是紧凑排程' });
+      return;
+    }
+    setGanttTasks(compacted);
+    setIsDirty(true);
+    toast({
+      title: '🧲 已消除空白时段',
+      description: removedEdges > 0
+        ? `已修复 ${removedEdges} 条异常依赖并紧凑排程，记得保存进度表`
+        : '所有任务已按依赖关系紧凑排程，记得保存进度表',
+    });
+  };
+
   const handleDurationChange = (taskId: string, newDuration: number) => {
     setGanttTasks(prev => {
+      const orig = prev.find(t => t.id === taskId);
       const updated = prev.map(t => {
         if (t.id !== taskId) return t;
         const start = new Date(t.start_date + 'T00:00:00');
@@ -539,7 +591,8 @@ export default function ProjectDetailPage() {
         const newEndStr = newEnd.toISOString().split('T')[0];
         return { ...t, duration: newDuration, end_date: newEndStr };
       });
-      return forwardReschedule(updated, workOnSaturday, workOnSunday, taskId);
+      // Extending duration only pushes downstream — never tasks scheduled earlier
+      return forwardReschedule(updated, workOnSaturday, workOnSunday, taskId, orig?.start_date);
     });
     setIsDirty(true);
   };
@@ -1189,7 +1242,7 @@ export default function ProjectDetailPage() {
     const win = window.open('', '_blank');
     if (!win) return;
     const rows = items.map(i =>
-      `<tr><td>${i.section || ''}</td><td>${(i.name || '').replace(/\s*\[early \d+ samples?\]/gi, '')}</td><td style="text-align:right">${i.qty || ''}</td><td style="text-align:right">RM ${(i.unitPrice || 0).toFixed(2)}</td><td style="text-align:right">RM ${(i.total || 0).toFixed(2)}</td></tr>`
+      `<tr><td>${i.section || ''}</td><td>${(i.name || '').replace(/\s*\[(?:early )?\d+ samples?\]/gi, '')}</td><td style="text-align:right">${i.qty || ''}</td><td style="text-align:right">RM ${(i.unitPrice || 0).toFixed(2)}</td><td style="text-align:right">RM ${(i.total || 0).toFixed(2)}</td></tr>`
     ).join('');
     win.document.write(`
       <html><head><title>${qv.file_name || 'Quotation'}</title>
@@ -2098,6 +2151,14 @@ export default function ProjectDetailPage() {
                         ) : null;
                       })()}
                       {/* Auto-sync happens when new quotation is uploaded/activated — no manual button needed */}
+                      <button
+                        onClick={handleCompactSchedule}
+                        disabled={ganttTasks.length === 0}
+                        className="text-xs px-3 py-1.5 text-rs-text2 border border-rs-border rounded-lg hover:border-[#4F8EF7] hover:text-[#2563EB] transition-colors whitespace-nowrap flex items-center gap-1 disabled:opacity-40"
+                        title="按依赖关系紧凑排程，消除任务之间的空白时段"
+                      >
+                        🧲 消除空白
+                      </button>
                       <button
                         onClick={async () => {
                           const { exportGanttToExcel } = await import('@/lib/utils/excel-export');
@@ -3674,7 +3735,7 @@ export default function ProjectDetailPage() {
                                   <tr key={i} className={`hover:bg-gray-50 ${statusColor}`}>
                                     <td className="px-3 py-2 text-xs text-gray-400">{item.section || '—'}</td>
                                     <td className="px-3 py-2 text-gray-800">
-                                      {(item.name || '').replace(/\s*\[early \d+ samples?\]/gi, '')}
+                                      {(item.name || '').replace(/\s*\[(?:early )?\d+ samples?\]/gi, '')}
                                       {item.note && <span className="ml-1.5 text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">{item.note}</span>}
                                     </td>
                                     <td className="px-3 py-2 text-right text-gray-600">{item.qty ?? '—'}</td>

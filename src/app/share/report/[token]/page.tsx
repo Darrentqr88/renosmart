@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
-const BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://renosmart.vercel.app';
+const BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renosmart.app';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 

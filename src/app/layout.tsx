@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   },
   robots: { index: true, follow: true },
   alternates: {
-    canonical: process.env.NEXT_PUBLIC_APP_URL || 'https://renosmart.vercel.app',
+    canonical: process.env.NEXT_PUBLIC_APP_URL || 'https://www.renosmart.app',
   },
 };
 

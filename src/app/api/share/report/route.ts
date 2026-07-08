@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error;
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://renosmart.vercel.app';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renosmart.app';
     return NextResponse.json({ share_url: `${baseUrl}/share/report/${shareToken}`, token: shareToken });
   } catch (error) {
     console.error('Share report error:', error);

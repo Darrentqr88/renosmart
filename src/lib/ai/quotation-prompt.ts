@@ -4,13 +4,17 @@ export function buildQuotationPrompt(textForAI: string, outputLang: string, dbPr
     ? `Market price reference (baseline SG): Tiling S&I $9-15/sqft | Tiling Labour incl. cement & sand $5-8/sqft (pure labour only $3-5/sqft) | Electrical pt $25-50 | Painting $1.5-3/sqft | Carpentry $150-700/ft | Plumbing $120-350/unit | Table Top: Postform $35-65/ft, Quartz std $80-150/ft, Quartz premium $150-280/ft, Marble local $120-250/ft, Marble imported $200-500/ft, Sintered stone China $100-180/ft, Sintered stone (Dekton/Neolith) $200-400/ft, Solid Surface $60-130/ft, Labour Only $25-55/ft | Feature Wall / Bed Headboard / Wall Panel S&I $30-65/sqft | Partition / Drywall S&I $2.5-5/sqft`
     : `Market price reference (baseline MY): Tiling S&I RM15-35/sqft | Tiling Labour incl. cement & sand RM12-18/sqft (pure labour only RM6-10/sqft) | Electrical pt RM80-180 | Painting RM2.5-5/sqft | Carpentry RM350-1800/ft | Plumbing RM300-800/unit | Table Top: Postform RM80-150/ft, Quartz std RM180-350/ft, Quartz premium RM350-600/ft, Marble local RM300-600/ft, Marble imported RM500-1200/ft, Sintered stone China RM250-400/ft, Sintered stone (Dekton/Neolith) RM500-900/ft, Solid Surface RM250-500/ft, Labour Only RM50-120/ft | Feature Wall / Bed Headboard / Wall Panel S&I RM70-150/sqft | Partition / Drywall S&I RM7-15/sqft`;
   const priceSection = dbPriceRef
-    ? `Market price reference (MY/SG 2025-2026, verified market data):\n${dbPriceRef}`
-    : fallbackPrices;
+    ? `=== PRICE REFERENCE (comparison only — NOT quotation items) ===\n${dbPriceRef}\n=== END PRICE REFERENCE ===`
+    : `=== PRICE REFERENCE (comparison only — NOT quotation items) ===\n${fallbackPrices}\n=== END PRICE REFERENCE ===`;
 
   return `You are a senior Quantity Surveyor (QS) AI for Malaysia and Singapore renovation projects.
 Audit the quotation below — parse ALL items AND catch problems. Return ONLY valid JSON. No markdown.
 Output language: ${outputLang}
+
+⚠ CRITICAL — ITEM SOURCE: Extract items ONLY from the QUOTATION TEXT section (between triple backticks). The PRICE REFERENCE block is for price comparison only. NEVER include any price reference entry as a quotation item. If a price reference entry name matches a quotation item, use it only to set the item's status/note — do not create a duplicate.
+
 ${priceSection}
+
 Quotation:
 \`\`\`
 ${textForAI}
@@ -220,10 +224,19 @@ RULES:
     • "(600mmL × 2700mmH)" → length = 600 ÷ 300 = 2ft ✓
     Cross-check: if both size column (ft) and description (mm) exist, use the ft column value; mm is for verification.
 
+17b. spec FIELD — for EVERY item, copy the size/dimension/spec column text VERBATIM into "spec" (e.g. "3750mm L x 3000mm H", "2100mm x Full Height", "539 Sqft", "1500mm L (x2)", "According Design"). If the row has no size/spec text, use "". Do NOT compute anything here — raw text only.
+
+18. UNIT STANDARDISATION — always output unit prices in these standard units for MY/SG:
+    Area items  → use "sqft"  (NEVER "m2" or "m²" — convert: RM/m² ÷ 10.764 = RM/sqft)
+    Linear items → use "ft"   (NEVER "m" or "mm"  — convert: RM/m ÷ 3.281 = RM/ft; RM/mm × 304.8 = RM/ft)
+    Point/unit   → keep as "pt" or "unit"
+    Lump sum     → "L-sum"
+    This ensures all unit prices are comparable against the market reference ranges above.
+
 IMPORTANT: Output missing/missingCritical/alerts BEFORE items array to ensure they are not truncated.
 
 JSON structure:
-{"projectType":"landed_terrace","projectSqft":1200,"client":{"company":"","address":"","attention":"","tel":"","email":null,"projectRef":"","projectName":""},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"one-line summary","missing":["item1","item2"],"missingCritical":[{"item":"Post-renovation cleaning","reason":"Full renovation scope but no cleaning item quoted","estimatedCost":"RM 800–1,500","urgency":"warning"}],"alerts":[{"level":"critical","title":"Title","desc":"Short desc under 150 chars"},{"level":"warning","title":"Title","desc":"desc"},{"level":"info","title":"Title","desc":"desc"}],"items":[{"no":"1","section":"Section","name":"Item name verbatim","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"supplyType":"supply_install","status":"ok","note":"","subcategory":"Floor Tiles","materialMethod":"600x600","estMinPrice":5.0,"estMaxPrice":12.0,"page":1}],"subtotals":[{"label":"Section Total","amount":1000}],"totalAmount":50000,"paymentTerms":[]}`;
+{"projectType":"landed_terrace","projectSqft":1200,"client":{"company":"","address":"","attention":"","tel":"","email":null,"projectRef":"","projectName":""},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"one-line summary","missing":["item1","item2"],"missingCritical":[{"item":"Post-renovation cleaning","reason":"Full renovation scope but no cleaning item quoted","estimatedCost":"RM 800–1,500","urgency":"warning"}],"alerts":[{"level":"critical","title":"Title","desc":"Short desc under 150 chars"},{"level":"warning","title":"Title","desc":"desc"},{"level":"info","title":"Title","desc":"desc"}],"items":[{"no":"1","section":"Section","name":"Item name verbatim","spec":"raw size column text or empty","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"supplyType":"supply_install","status":"ok","note":"","subcategory":"Floor Tiles","materialMethod":"600x600","estMinPrice":5.0,"estMaxPrice":12.0,"page":1}],"subtotals":[{"label":"Section Total","amount":1000}],"totalAmount":50000,"paymentTerms":[]}`;
 }
 
 /**
@@ -553,9 +566,11 @@ export async function fetchDbPriceReference(
     }
 
     for (const [, g] of earlyMap) {
+      // Only include early samples with ≥3 data points to reduce single-quotation noise
+      if (g.count < 3) continue;
       if (!groups.has(g.cat)) groups.set(g.cat, []);
       const supplyLabel = g.supply === 'labour_only' ? ' [Labour]' : '';
-      groups.get(g.cat)!.push(`${g.name}${supplyLabel} [early ${g.count} samples]: ${currency}${fmtNum(g.min)}-${fmtNum(g.max)}/${g.unit}`);
+      groups.get(g.cat)!.push(`${g.name}${supplyLabel} [${g.count} samples]: ${currency}${fmtNum(g.min)}-${fmtNum(g.max)}/${g.unit}`);
     }
 
     if (groups.size === 0) return '';

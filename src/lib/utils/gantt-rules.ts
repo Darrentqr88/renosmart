@@ -2056,8 +2056,13 @@ export function fullReschedule(tasks: GanttTask[], workSat = false, workSun = fa
  * Forward reschedule (BFS/topological): shift tasks FORWARD when a dependency
  * ends later than a dependent's start. Never pulls tasks backward.
  * Used after drag/resize so downstream tasks cascade correctly.
+ *
+ * `freezeBefore` (ISO date): tasks starting BEFORE this date are never touched.
+ * Pass the dragged task's ORIGINAL start when dragging it later, so only
+ * downstream tasks cascade — tasks scheduled earlier (including ones the user
+ * deliberately moved forward) stay put even if stale deps point at the moved task.
  */
-export function forwardReschedule(tasks: GanttTask[], workSat = false, workSun = false, movedTaskId?: string | string[]): GanttTask[] {
+export function forwardReschedule(tasks: GanttTask[], workSat = false, workSun = false, movedTaskId?: string | string[], freezeBefore?: string): GanttTask[] {
   const inDegree = new Map<string, number>();
   const adj = new Map<string, string[]>();
   for (const t of tasks) {
@@ -2096,6 +2101,9 @@ export function forwardReschedule(tasks: GanttTask[], workSat = false, workSun =
     if (deps.length === 0) continue;
     // Skip explicitly moved task(s) — user's choice takes priority (allows overlap/parallel work)
     if (movedTaskId && (Array.isArray(movedTaskId) ? movedTaskId.includes(taskId) : taskId === movedTaskId)) continue;
+    // Freeze tasks scheduled before the anchor — dragging a task later must
+    // never drag earlier tasks along with it (only downstream cascades)
+    if (freezeBefore && task.start_date < freezeBefore) continue;
     // Check if any dependency was shifted (cascade trigger)
     const anyDepShifted = deps.some(dId => shifted.has(dId));
     let latestDepEndStr = '';
@@ -2117,6 +2125,92 @@ export function forwardReschedule(tasks: GanttTask[], workSat = false, workSun =
   }
   if (shifted.size === 0) return tasks;
   return tasks.map(t => updMap.get(t.id)!);
+}
+
+/**
+ * Repair a corrupted dependency graph before rescheduling.
+ * Older reorder code could leave stale deps behind, producing forward-pointing
+ * edges and even cycles (A→B→C→A) — fullReschedule then generates garbage dates
+ * and blank gaps. Repairs applied:
+ *   1. Drop self-deps and deps referencing missing task IDs.
+ *   2. Break cycles by removing the most forward-pointing edge in each cycle
+ *      (a dep whose target sits LATER in display order — display order is the
+ *      intended construction sequence).
+ *   3. A task that lost ALL its deps in repair is re-chained to the task
+ *      directly above it in display order (same semantics as manual reorder).
+ */
+export function repairDependencyGraph(tasks: GanttTask[]): { tasks: GanttTask[]; removedEdges: number } {
+  const idSet = new Set(tasks.map(t => t.id));
+  const idx = new Map(tasks.map((t, i) => [t.id, i]));
+  const deps = new Map<string, string[]>(
+    tasks.map(t => [t.id, (t.dependencies || []).filter(d => d !== t.id && idSet.has(d))]),
+  );
+  let removedEdges = tasks.reduce(
+    (n, t) => n + ((t.dependencies || []).length - deps.get(t.id)!.length), 0);
+  const repairedTaskIds = new Set<string>();
+
+  // Find one cycle via DFS following dep edges; returns nodes in edge order
+  // (cycle[i] depends on cycle[(i+1) % len]).
+  const findCycle = (): string[] | null => {
+    const state = new Map<string, number>(); // 0=unvisited 1=visiting 2=done
+    const stack: string[] = [];
+    let found: string[] | null = null;
+    const visit = (id: string): boolean => {
+      state.set(id, 1);
+      stack.push(id);
+      for (const d of deps.get(id) || []) {
+        const s = state.get(d) || 0;
+        if (s === 1) { found = stack.slice(stack.indexOf(d)); return true; }
+        if (s === 0 && visit(d)) return true;
+      }
+      stack.pop();
+      state.set(id, 2);
+      return false;
+    };
+    for (const t of tasks) {
+      if ((state.get(t.id) || 0) === 0 && visit(t.id)) return found;
+    }
+    return null;
+  };
+
+  const breakCycles = (trackRepaired: boolean) => {
+    let guard = 0;
+    while (guard++ < tasks.length + 10) {
+      const cycle = findCycle();
+      if (!cycle || cycle.length === 0) break;
+      // Remove the edge that points furthest FORWARD in display order
+      let worst: { from: string; to: string; score: number } | null = null;
+      for (let i = 0; i < cycle.length; i++) {
+        const from = cycle[i];
+        const to = cycle[(i + 1) % cycle.length];
+        if (!(deps.get(from) || []).includes(to)) continue;
+        const score = (idx.get(to) ?? 0) - (idx.get(from) ?? 0);
+        if (!worst || score > worst.score) worst = { from, to, score };
+      }
+      if (!worst) break;
+      deps.set(worst.from, deps.get(worst.from)!.filter(d => d !== worst.to));
+      if (trackRepaired) repairedTaskIds.add(worst.from);
+      removedEdges++;
+    }
+  };
+
+  breakCycles(true);
+
+  // Re-chain orphaned tasks (had deps, lost them all) to the row above
+  for (const id of repairedTaskIds) {
+    if ((deps.get(id) || []).length > 0) continue;
+    const i = idx.get(id) ?? 0;
+    if (i > 0) deps.set(id, [tasks[i - 1].id]);
+  }
+
+  // Re-chaining may itself introduce a cycle (row above pointing forward) — break again
+  breakCycles(false);
+
+  if (removedEdges === 0) return { tasks, removedEdges: 0 };
+  return {
+    tasks: tasks.map(t => ({ ...t, dependencies: deps.get(t.id)! })),
+    removedEdges,
+  };
 }
 
 /**
