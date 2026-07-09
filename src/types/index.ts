@@ -97,6 +97,8 @@ export interface QuotationAlert {
   level: AlertLevel;
   title: string;
   desc: string;
+  title_zh?: string;  // Simplified Chinese version (bilingual audit output)
+  desc_zh?: string;
 }
 
 export interface QuotationScore {
@@ -228,10 +230,12 @@ export interface QuotationAnalysis {
   client: QuotationClient;
   score: QuotationScore;
   summary: string;
+  summary_zh?: string;   // Simplified Chinese version (bilingual audit output)
   items: QuotationItem[];
   subtotals: QuotationSubtotal[];
   totalAmount: number;
   missing: string[];
+  missing_zh?: string[]; // parallel Chinese array for missing[]
   alerts: QuotationAlert[];
   projectType?: string;
   projectSqft?: number;
@@ -242,6 +246,8 @@ export interface QuotationAnalysis {
     reason: string;
     estimatedCost: string;
     urgency: 'critical' | 'warning';
+    item_zh?: string;
+    reason_zh?: string;
   }[];
 }
 

@@ -7,7 +7,7 @@ import { useI18n } from '@/lib/i18n/context';
 import { extractTextFromFile } from '@/lib/pdf/extractor';
 import { buildQuotationPrompt, buildGanttParamsPrompt, fetchDbPriceReference } from '@/lib/ai/quotation-prompt';
 import { generateGanttFromAIParams, generateGanttFromQuotation } from '@/lib/utils/gantt-rules';
-import { QuotationAnalysis, QuotationItem, AIItemStatus, SupplyType, GanttParams, ScoreBreakdown, DimensionBreakdown } from '@/types';
+import { QuotationAnalysis, QuotationItem, QuotationAlert, AIItemStatus, SupplyType, GanttParams, ScoreBreakdown, DimensionBreakdown } from '@/types';
 import { formatCurrency, getCurrencySymbol } from '@/lib/utils';
 import { calculateHybridScores } from '@/lib/utils/score-calculator';
 import { deriveLumpSumUnits } from '@/lib/utils/item-derivation';
@@ -190,6 +190,7 @@ function isFalsePositiveAlert(alert: { title: string; desc: string }): boolean {
 /* ─── Main Page ─────────────────────────────────────────────────────────── */
 export default function QuotationPage() {
   const { lang, region, t } = useI18n();
+  const zh = lang === 'ZH';
   const currency = getCurrencySymbol(region);
   const fmtCurrency = (amount: number) => formatCurrency(amount, currency);
   const router = useRouter();
@@ -928,9 +929,13 @@ export default function QuotationPage() {
   /* ─── Export PDF ───────────────────────────────────────────────────────── */
   const handleExportPDF = () => {
     if (!analysis) return;
-    const criticals = analysis.alerts.filter(a => a.level === 'critical');
-    const warnings  = analysis.alerts.filter(a => a.level === 'warning' && !isFalsePositiveAlert(a));
-    const infos     = analysis.alerts.filter(a => a.level === 'info');
+    // Filter on English base fields, then swap in _zh text for ZH display
+    const toDisplay = (a: QuotationAlert) =>
+      zh ? { ...a, title: a.title_zh || a.title, desc: a.desc_zh || a.desc } : a;
+    const criticals = analysis.alerts.filter(a => a.level === 'critical').map(toDisplay);
+    const warnings  = analysis.alerts.filter(a => a.level === 'warning' && !isFalsePositiveAlert(a)).map(toDisplay);
+    const infos     = analysis.alerts.filter(a => a.level === 'info').map(toDisplay);
+    const displaySummary = zh && analysis.summary_zh ? analysis.summary_zh : analysis.summary;
 
     // Use blended scores from scoreBreakdown when available, otherwise fall back to AI scores
     const totalScore        = scoreBreakdown ? scoreBreakdown.total                         : analysis.score.total;
@@ -955,15 +960,16 @@ export default function QuotationPage() {
 
     // Missing items — prefer missingCritical (with urgency/reason/cost) over plain missing
     const hasMissingCritical = (analysis.missingCritical ?? []).length > 0;
+    const missingZhArr = analysis.missing_zh ?? [];
     const missingHtml = hasMissingCritical
       ? (analysis.missingCritical ?? []).map(m =>
           `<div class="missing-card ${m.urgency === 'critical' ? 'miss-critical' : 'miss-warn'}">
-            <div class="miss-title">${m.urgency === 'critical' ? '✗' : '⚠'} ${m.item}</div>
-            ${m.reason ? `<div class="miss-reason">${m.reason}</div>` : ''}
+            <div class="miss-title">${m.urgency === 'critical' ? '✗' : '⚠'} ${zh && m.item_zh ? m.item_zh : m.item}</div>
+            ${(zh && m.reason_zh) || m.reason ? `<div class="miss-reason">${zh && m.reason_zh ? m.reason_zh : m.reason}</div>` : ''}
             ${m.estimatedCost ? `<div class="miss-cost">预估费用：${m.estimatedCost}</div>` : ''}
           </div>`
         ).join('')
-      : analysis.missing.map(m => `<div class="missing-card miss-warn"><div class="miss-title">⚠ ${m}</div></div>`).join('');
+      : analysis.missing.map((m, i) => `<div class="missing-card miss-warn"><div class="miss-title">⚠ ${zh && missingZhArr[i] ? missingZhArr[i] : m}</div></div>`).join('');
 
     const win = window.open('', '_blank');
     if (!win) return;
@@ -1044,7 +1050,7 @@ export default function QuotationPage() {
   </div>
 </div>
 
-${analysis.summary ? `<div class="summary-box">🤖 <strong>{t.quotation.aiSummary}:</strong>${analysis.summary}</div>` : ''}
+${displaySummary ? `<div class="summary-box">🤖 <strong>AI 总结：</strong>${displaySummary}</div>` : ''}
 
 ${(hasMissingCritical || analysis.missing.length > 0) ? `
 <h2>📋 关键缺失项目 (${hasMissingCritical ? (analysis.missingCritical?.length ?? 0) : analysis.missing.length} 项)</h2>
@@ -1401,7 +1407,8 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                 {analysis.summary && (
                   <div className="bg-[#F8F9FB] rounded-xl px-4 py-3 text-[13px] text-rs-text2 leading-relaxed border border-rs-surface3">
                     <span className="text-base mr-1.5">🤖</span>
-                    <strong className="text-rs-text">AI 总结：</strong>{analysis.summary}
+                    <strong className="text-rs-text">{zh ? 'AI 总结：' : 'AI Summary: '}</strong>
+                    {zh && analysis.summary_zh ? analysis.summary_zh : analysis.summary}
                   </div>
                 )}
               </div>
@@ -1412,44 +1419,61 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
               <div className="bg-white border border-rs-surface3 rounded-xl overflow-hidden">
                 <div className="px-5 py-3.5 border-b border-[#F0F2F7] bg-gradient-to-r from-[rgba(233,30,99,0.04)] to-transparent flex items-center gap-2">
                   <span className="text-base">🔍</span>
-                  <span className="text-[14px] font-bold text-rs-text tracking-wide">AI QS AUDIT SUMMARY</span>
-                  <span className="text-[11px] text-rs-text3 ml-2">Powered by price_database + AI</span>
+                  <span className="text-[14px] font-bold text-rs-text tracking-wide">{zh ? 'AI QS 审核摘要' : 'AI QS AUDIT SUMMARY'}</span>
+                  <span className="text-[11px] text-rs-text3 ml-2">{zh ? '由价格数据库 + AI 驱动' : 'Powered by price_database + AI'}</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#F0F2F7]">
-                  {/* Column 1: Missing Items */}
+                  {/* Column 1: Missing Items — missingCritical first, then plain missing[]
+                      entries not already covered (previously missing[] was silently dropped) */}
                   {(() => {
                     const mc = analysis.missingCritical ?? [];
-                    const allItems = mc.length > 0 ? mc : analysis.missing.map(m => ({ item: m, reason: '', estimatedCost: '', urgency: 'critical' as const }));
+                    const missingZh = analysis.missing_zh ?? [];
+                    const mcNames = new Set(mc.map(m => m.item.toLowerCase().trim()));
+                    const extras = analysis.missing
+                      .map((m, idx) => ({ en: m, zhTxt: missingZh[idx] }))
+                      .filter(m => m.en && !mcNames.has(m.en.toLowerCase().trim()));
+                    const allItems = [
+                      ...mc.map(m => ({
+                        item: zh && m.item_zh ? m.item_zh : m.item,
+                        reason: zh && m.reason_zh ? m.reason_zh : m.reason,
+                        estimatedCost: m.estimatedCost,
+                        urgency: m.urgency,
+                      })),
+                      ...extras.map(m => ({
+                        item: zh && m.zhTxt ? m.zhTxt : m.en,
+                        reason: '', estimatedCost: '', urgency: 'warning' as const,
+                      })),
+                    ];
                     const visible = expandMissing ? allItems : allItems.slice(0, 5);
                     return (
                       <div className="p-4 flex flex-col">
                         <div className="flex items-center gap-2 mb-3">
                           <span className="w-2 h-2 rounded-full bg-red-500" />
-                          <span className="text-[12px] font-bold text-red-600 tracking-wide">MISSING ITEMS</span>
+                          <span className="text-[12px] font-bold text-red-600 tracking-wide">{zh ? '关键缺失项目' : 'MISSING ITEMS'}</span>
                           <span className="bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{allItems.length}</span>
                         </div>
                         {allItems.length > 0 ? (
                           <>
                             <div className="space-y-2">
                               {visible.map((m, i) => (
-                                <div key={i} className={`rounded-lg p-3 ${'urgency' in m && m.urgency === 'critical' ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
-                                  <div className={`text-[12px] font-semibold flex items-start gap-1.5 ${'urgency' in m && m.urgency === 'critical' ? 'text-red-700' : 'text-amber-700'}`}>
-                                    <span className="flex-shrink-0">{'urgency' in m && m.urgency === 'critical' ? '✗' : '⚠'}</span>
+                                <div key={i} className={`rounded-lg p-3 ${m.urgency === 'critical' ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
+                                  <div className={`text-[12px] font-semibold flex items-start gap-1.5 ${m.urgency === 'critical' ? 'text-red-700' : 'text-amber-700'}`}>
+                                    <span className="flex-shrink-0">{m.urgency === 'critical' ? '✗' : '⚠'}</span>
                                     <span>{m.item}</span>
                                   </div>
                                   {m.reason && <div className="text-[11px] text-gray-500 mt-1 leading-relaxed">{m.reason}</div>}
-                                  {m.estimatedCost && <div className="text-[11px] font-semibold text-red-600 mt-1">Est. {m.estimatedCost}</div>}
+                                  {m.estimatedCost && <div className="text-[11px] font-semibold text-red-600 mt-1">{zh ? '预估 ' : 'Est. '}{m.estimatedCost}</div>}
                                 </div>
                               ))}
                             </div>
                             {allItems.length > 5 && (
                               <button onClick={() => setExpandMissing(v => !v)} className="mt-2 text-[11px] text-red-500 hover:text-red-700 font-medium self-start">
-                                {expandMissing ? '▲ 收起' : `▼ 展开全部 (${allItems.length})`}
+                                {expandMissing ? (zh ? '▲ 收起' : '▲ Collapse') : (zh ? `▼ 展开全部 (${allItems.length})` : `▼ Show all (${allItems.length})`)}
                               </button>
                             )}
                           </>
                         ) : (
-                          <p className="text-[12px] text-green-600">✓ No missing items detected</p>
+                          <p className="text-[12px] text-green-600">{zh ? '✓ 未发现缺失项目' : '✓ No missing items detected'}</p>
                         )}
                       </div>
                     );
@@ -1464,7 +1488,7 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                       <div className="p-4 flex flex-col">
                         <div className="flex items-center gap-2 mb-3">
                           <span className="w-2 h-2 rounded-full bg-amber-500" />
-                          <span className="text-[12px] font-bold text-amber-600 tracking-wide">PRICE FLAGS</span>
+                          <span className="text-[12px] font-bold text-amber-600 tracking-wide">{zh ? '价格警示' : 'PRICE FLAGS'}</span>
                           <span className="bg-amber-100 text-amber-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{flagged.length}</span>
                         </div>
                         {flagged.length > 0 ? (
@@ -1483,11 +1507,11 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                                 return (
                                   <div key={i} className={`rounded-lg p-3 ${comp.verdict === 'flag_high' ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
                                     <div className="text-[12px] font-semibold text-gray-800 leading-snug">{item.name.replace(/\s*\[(?:early )?\d+ samples?\]/gi, '')}</div>
-                                    <div className="text-[11px] text-gray-500 mt-1">Quoted: {currency} {(item.unitPrice ?? 0).toFixed(2)}/{item.unit || 'unit'}</div>
-                                    {marketRange && <div className="text-[11px] text-gray-500">Market: {marketRange}/{item.unit || 'unit'}</div>}
+                                    <div className="text-[11px] text-gray-500 mt-1">{zh ? '报价：' : 'Quoted: '}{currency} {(item.unitPrice ?? 0).toFixed(2)}/{item.unit || 'unit'}</div>
+                                    {marketRange && <div className="text-[11px] text-gray-500">{zh ? '市场价：' : 'Market: '}{marketRange}/{item.unit || 'unit'}</div>}
                                     {pct != null && (
                                       <div className={`text-[11px] font-semibold mt-1 ${isHigh ? 'text-red-500' : 'text-blue-500'}`}>
-                                        {isHigh ? '▲' : '▼'} {isHigh ? 'Above' : 'Below'} {pct}%
+                                        {isHigh ? '▲' : '▼'} {zh ? (isHigh ? '高于市场' : '低于市场') : (isHigh ? 'Above' : 'Below')} {pct}%
                                       </div>
                                     )}
                                   </div>
@@ -1496,26 +1520,31 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                             </div>
                             {flagged.length > 5 && (
                               <button onClick={() => setExpandFlags(v => !v)} className="mt-2 text-[11px] text-amber-600 hover:text-amber-800 font-medium self-start">
-                                {expandFlags ? '▲ 收起' : `▼ 展开全部 (${flagged.length})`}
+                                {expandFlags ? (zh ? '▲ 收起' : '▲ Collapse') : (zh ? `▼ 展开全部 (${flagged.length})` : `▼ Show all (${flagged.length})`)}
                               </button>
                             )}
                           </>
                         ) : (
-                          <p className="text-[12px] text-green-600">✓ No price anomalies detected</p>
+                          <p className="text-[12px] text-green-600">{zh ? '✓ 未发现价格异常' : '✓ No price anomalies detected'}</p>
                         )}
                       </div>
                     );
                   })()}
 
-                  {/* Column 3: SUGGESTIONS — info-level tips only, NO pricing anomaly (those belong in PRICE FLAGS) */}
+                  {/* Column 3: SUGGESTIONS — info-level tips only, NO pricing anomaly (those belong in PRICE FLAGS).
+                      Filter on the English base title, then swap in _zh text for display before grouping. */}
                   {(() => {
-                    const tips = groupAlertsByTitle(analysis.alerts.filter(a => a.level === 'info' && !/pric(e|ing)\s*anomal/i.test(a.title ?? '')));
+                    const tips = groupAlertsByTitle(
+                      analysis.alerts
+                        .filter(a => a.level === 'info' && !/pric(e|ing)\s*anomal/i.test(a.title ?? ''))
+                        .map(a => zh ? { ...a, title: a.title_zh || a.title, desc: a.desc_zh || a.desc } : a),
+                    );
                     const visible = expandTips ? tips : tips.slice(0, 5);
                     return (
                       <div className="p-4 flex flex-col">
                         <div className="flex items-center gap-2 mb-3">
                           <span className="w-2 h-2 rounded-full bg-blue-500" />
-                          <span className="text-[12px] font-bold text-blue-600 tracking-wide">SUGGESTIONS</span>
+                          <span className="text-[12px] font-bold text-blue-600 tracking-wide">{zh ? '建议提示' : 'SUGGESTIONS'}</span>
                           <span className="bg-blue-100 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{tips.length}</span>
                         </div>
                         {tips.length > 0 ? (
@@ -1530,12 +1559,12 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                             </div>
                             {tips.length > 5 && (
                               <button onClick={() => setExpandTips(v => !v)} className="mt-2 text-[11px] text-blue-500 hover:text-blue-700 font-medium self-start">
-                                {expandTips ? '▲ 收起' : `▼ 展开全部 (${tips.length})`}
+                                {expandTips ? (zh ? '▲ 收起' : '▲ Collapse') : (zh ? `▼ 展开全部 (${tips.length})` : `▼ Show all (${tips.length})`)}
                               </button>
                             )}
                           </>
                         ) : (
-                          <p className="text-[12px] text-green-600">✓ 没有额外提示</p>
+                          <p className="text-[12px] text-green-600">{zh ? '✓ 没有额外提示' : '✓ No additional suggestions'}</p>
                         )}
                       </div>
                     );
@@ -1851,7 +1880,7 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
               </div>
               {analysis.summary && (
                 <div className="bg-[#F8F9FB] rounded-xl px-4 py-3 text-[13px] text-rs-text2 leading-relaxed">
-                  🤖 <strong>{t.quotation.aiSummary}:</strong>{analysis.summary}
+                  🤖 <strong>{t.quotation.aiSummary}:</strong>{zh && analysis.summary_zh ? analysis.summary_zh : analysis.summary}
                 </div>
               )}
 
@@ -1864,15 +1893,15 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                       ? (analysis.missingCritical ?? []).map((m, i) => (
                         <div key={i} className={`rounded-lg px-3 py-2.5 ${m.urgency === 'critical' ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
                           <div className={`flex items-start gap-2 text-[13px] font-semibold ${m.urgency === 'critical' ? 'text-red-700' : 'text-amber-700'}`}>
-                            <XCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" /> {m.item}
+                            <XCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" /> {zh && m.item_zh ? m.item_zh : m.item}
                           </div>
-                          <div className="text-[12px] text-gray-500 mt-1 ml-5">{m.reason}</div>
-                          {m.estimatedCost && <div className="text-[12px] font-semibold text-red-600 mt-1 ml-5">Est. {m.estimatedCost}</div>}
+                          <div className="text-[12px] text-gray-500 mt-1 ml-5">{zh && m.reason_zh ? m.reason_zh : m.reason}</div>
+                          {m.estimatedCost && <div className="text-[12px] font-semibold text-red-600 mt-1 ml-5">{zh ? '预估 ' : 'Est. '}{m.estimatedCost}</div>}
                         </div>
                       ))
                       : analysis.missing.map((m, i) => (
                         <div key={i} className="flex items-start gap-2 text-[13px] text-rs-text2 bg-red-50 rounded-lg px-3 py-2">
-                          <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" /> {m}
+                          <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" /> {zh && analysis.missing_zh?.[i] ? analysis.missing_zh[i] : m}
                         </div>
                       ))
                     }
@@ -1880,11 +1909,11 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                 </div>
               )}
 
-              {/* Criticals — grouped by title */}
-              {groupAlertsByTitle(analysis.alerts.filter(a => a.level === 'critical')).length > 0 && (
+              {/* Criticals — grouped by title (filter on EN base, display in UI language) */}
+              {groupAlertsByTitle(analysis.alerts.filter(a => a.level === 'critical').map(a => zh ? { ...a, title: a.title_zh || a.title, desc: a.desc_zh || a.desc } : a)).length > 0 && (
                 <div>
-                  <h4 className="font-bold text-red-600 text-sm mb-2 uppercase tracking-wide">严重问题（需立即处理）</h4>
-                  {groupAlertsByTitle(analysis.alerts.filter(a => a.level === 'critical')).map((alert, i) => (
+                  <h4 className="font-bold text-red-600 text-sm mb-2 uppercase tracking-wide">{zh ? '严重问题（需立即处理）' : 'CRITICAL ISSUES (Act Immediately)'}</h4>
+                  {groupAlertsByTitle(analysis.alerts.filter(a => a.level === 'critical').map(a => zh ? { ...a, title: a.title_zh || a.title, desc: a.desc_zh || a.desc } : a)).map((alert, i) => (
                     <div key={i} className="flex gap-3 p-4 rounded-xl mb-2 bg-[rgba(229,57,53,0.06)] border border-[rgba(229,57,53,0.2)]">
                       <span className="text-lg flex-shrink-0">🔴</span>
                       <div>
@@ -1896,12 +1925,12 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                 </div>
               )}
 
-              {/* Warnings — grouped by title, false-positives removed */}
+              {/* Warnings — grouped by title, false-positives removed (filter on EN base, display in UI language) */}
               {(() => {
-                const grouped = groupAlertsByTitle(analysis.alerts.filter(a => a.level === 'warning' && !isFalsePositiveAlert(a)));
+                const grouped = groupAlertsByTitle(analysis.alerts.filter(a => a.level === 'warning' && !isFalsePositiveAlert(a)).map(a => zh ? { ...a, title: a.title_zh || a.title, desc: a.desc_zh || a.desc } : a));
                 return grouped.length > 0 ? (
                   <div>
-                    <h4 className="font-bold text-amber-600 text-sm mb-2 uppercase tracking-wide">警告（建议确认）</h4>
+                    <h4 className="font-bold text-amber-600 text-sm mb-2 uppercase tracking-wide">{zh ? '警告（建议确认）' : 'WARNINGS (Please Confirm)'}</h4>
                     {grouped.map((alert, i) => (
                       <div key={i} className="flex gap-3 p-4 rounded-xl mb-2 bg-[rgba(251,191,36,0.08)] border border-[rgba(251,191,36,0.25)]">
                         <span className="text-lg flex-shrink-0">🟡</span>
@@ -1915,12 +1944,12 @@ ${analysis.subtotals.map(s => `<tfoot><tr><td colspan="6" style="text-align:righ
                 ) : null;
               })()}
 
-              {/* Infos — grouped by title */}
+              {/* Infos — grouped by title (display in UI language) */}
               {(() => {
-                const grouped = groupAlertsByTitle(analysis.alerts.filter(a => a.level === 'info'));
+                const grouped = groupAlertsByTitle(analysis.alerts.filter(a => a.level === 'info').map(a => zh ? { ...a, title: a.title_zh || a.title, desc: a.desc_zh || a.desc } : a));
                 return grouped.length > 0 ? (
                   <div>
-                    <h4 className="font-bold text-blue-600 text-sm mb-2 uppercase tracking-wide">提示（可选考虑）</h4>
+                    <h4 className="font-bold text-blue-600 text-sm mb-2 uppercase tracking-wide">{zh ? '提示（可选考虑）' : 'SUGGESTIONS (Optional)'}</h4>
                     {grouped.map((alert, i) => (
                       <div key={i} className="flex gap-3 p-4 rounded-xl mb-2 bg-[rgba(46,107,230,0.06)] border border-[rgba(46,107,230,0.2)]">
                         <span className="text-lg flex-shrink-0">💡</span>

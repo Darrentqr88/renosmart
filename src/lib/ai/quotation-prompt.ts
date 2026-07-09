@@ -10,6 +10,12 @@ export function buildQuotationPrompt(textForAI: string, outputLang: string, dbPr
   return `You are a senior Quantity Surveyor (QS) AI for Malaysia and Singapore renovation projects.
 Audit the quotation below — parse ALL items AND catch problems. Return ONLY valid JSON. No markdown.
 Output language: ${outputLang}
+BILINGUAL AUDIT FIELDS: regardless of output language, the audit narrative fields must be
+output in BOTH English (base field) and Simplified Chinese (_zh suffixed field):
+summary + summary_zh, missing[] + missing_zh[] (parallel array, same order/length),
+missingCritical[].item/reason + item_zh/reason_zh, alerts[].title/desc + title_zh/desc_zh.
+The _zh versions are natural Chinese translations (construction trade terminology),
+NOT transliterations. Item names in items[] stay VERBATIM (rule 3) — never translated.
 
 ⚠ CRITICAL — ITEM SOURCE: Extract items ONLY from the QUOTATION TEXT section (between triple backticks). The PRICE REFERENCE block is for price comparison only. NEVER include any price reference entry as a quotation item. If a price reference entry name matches a quotation item, use it only to set the item's status/note — do not create a duplicate.
 
@@ -254,7 +260,7 @@ RULES:
 IMPORTANT: Output missing/missingCritical/alerts BEFORE items array to ensure they are not truncated.
 
 JSON structure:
-{"projectType":"landed_terrace","projectSqft":1200,"client":{"company":"","address":"","attention":"","tel":"","email":null,"projectRef":"","projectName":""},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"one-line summary","missing":["item1","item2"],"missingCritical":[{"item":"Post-renovation cleaning","reason":"Full renovation scope but no cleaning item quoted","estimatedCost":"RM 800–1,500","urgency":"warning"}],"alerts":[{"level":"critical","title":"Title","desc":"Short desc under 150 chars"},{"level":"warning","title":"Title","desc":"desc"},{"level":"info","title":"Title","desc":"desc"}],"items":[{"no":"1","section":"Section","name":"Item name verbatim","spec":"raw size column text or empty","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"supplyType":"supply_install","status":"ok","note":"","subcategory":"Floor Tiles","materialMethod":"600x600","estMinPrice":5.0,"estMaxPrice":12.0,"page":1}],"subtotals":[{"label":"Section Total","amount":1000}],"totalAmount":50000,"paymentTerms":[]}`;
+{"projectType":"landed_terrace","projectSqft":1200,"client":{"company":"","address":"","attention":"","tel":"","email":null,"projectRef":"","projectName":""},"score":{"total":75,"completeness":70,"price":80,"logic":85,"risk":50},"summary":"one-line summary","summary_zh":"一句话中文总结","missing":["item1","item2"],"missing_zh":["项目1","项目2"],"missingCritical":[{"item":"Post-renovation cleaning","item_zh":"装修后清洁","reason":"Full renovation scope but no cleaning item quoted","reason_zh":"全屋装修范围但未报清洁项目","estimatedCost":"RM 800–1,500","urgency":"warning"}],"alerts":[{"level":"critical","title":"Title","title_zh":"中文标题","desc":"Short desc under 150 chars","desc_zh":"中文描述"},{"level":"warning","title":"Title","title_zh":"中文标题","desc":"desc","desc_zh":"中文描述"},{"level":"info","title":"Title","title_zh":"中文标题","desc":"desc","desc_zh":"中文描述"}],"items":[{"no":"1","section":"Section","name":"Item name verbatim","spec":"raw size column text or empty","unit":"sqft","qty":100,"unitPrice":2.5,"total":250,"unitPriceDerived":false,"supplyType":"supply_install","status":"ok","note":"","subcategory":"Floor Tiles","materialMethod":"600x600","estMinPrice":5.0,"estMaxPrice":12.0,"page":1}],"subtotals":[{"label":"Section Total","amount":1000}],"totalAmount":50000,"paymentTerms":[]}`;
 }
 
 /**

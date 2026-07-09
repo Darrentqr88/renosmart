@@ -40,13 +40,15 @@ type CostRecordLocal = {
   receipt_number?: string;
   receipt_url?: string;
 };
-type QAuditAlert = { level: 'critical' | 'warning' | 'info'; title: string; desc?: string };
+type QAuditAlert = { level: 'critical' | 'warning' | 'info'; title: string; desc?: string; title_zh?: string; desc_zh?: string };
 type QAuditScore = { total?: number; completeness?: number; price?: number; logic?: number; risk?: number };
 type QAnalysisResult = {
   score?: QAuditScore;
   summary?: string;
+  summary_zh?: string;
   alerts?: QAuditAlert[];
   missing?: string[];
+  missing_zh?: string[];
   ganttParams?: GanttParams;
   totalAmount?: number;
   paymentTerms?: { label: string; percentage: number; amount: number; condition?: string }[];
@@ -90,7 +92,7 @@ export default function ProjectDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const supabase = createClient();
-  const { t, region } = useI18n();
+  const { t, region, lang } = useI18n();
   const currency = getCurrencySymbol(region);
   // Region-aware currency formatter (S$ for SG, RM for MY)
   const fmtCurrency = (amount: number) => formatCurrency(amount, currency);
@@ -3665,8 +3667,11 @@ export default function ProjectDetailPage() {
             {viewingQuotation && (() => {
               const ar = viewingQuotation.analysis_result;
               const score = ar?.score?.total ?? null;
-              const alerts = ar?.alerts || [];
-              const missing = ar?.missing || [];
+              // Swap in Chinese audit text when UI language is ZH (bilingual AI output; old data falls back to EN)
+              const zhView = lang === 'ZH';
+              const alerts = (ar?.alerts || []).map(a =>
+                zhView && (a.title_zh || a.desc_zh) ? { ...a, title: a.title_zh || a.title, desc: a.desc_zh || a.desc } : a);
+              const missing = zhView && ar?.missing_zh?.length ? ar.missing_zh : (ar?.missing || []);
               const ALERT_CFG: Record<string, { bg: string; border: string; dot: string; label: string }> = {
                 critical: { bg: 'bg-red-50',    border: 'border-red-200',    dot: 'bg-red-500',    label: '⚠ 严重' },
                 warning:  { bg: 'bg-amber-50',  border: 'border-amber-200',  dot: 'bg-amber-400',  label: '⚡ 警告' },
@@ -3793,7 +3798,7 @@ export default function ProjectDetailPage() {
                               {ar.summary && (
                                 <div className="bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-700 border border-gray-100">
                                   <span className="font-semibold text-gray-500 text-xs uppercase tracking-wide block mb-1">AI 总结</span>
-                                  {ar.summary}
+                                  {zhView && ar.summary_zh ? ar.summary_zh : ar.summary}
                                 </div>
                               )}
 
