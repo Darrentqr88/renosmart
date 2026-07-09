@@ -10,7 +10,7 @@ import { generateGanttFromAIParams, generateGanttFromQuotation } from '@/lib/uti
 import { QuotationAnalysis, QuotationItem, AIItemStatus, SupplyType, GanttParams, ScoreBreakdown, DimensionBreakdown } from '@/types';
 import { formatCurrency, getCurrencySymbol } from '@/lib/utils';
 import { calculateHybridScores } from '@/lib/utils/score-calculator';
-import { deriveLumpSumUnits, dedupeRevisionItems } from '@/lib/utils/item-derivation';
+import { deriveLumpSumUnits } from '@/lib/utils/item-derivation';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { Button } from '@/components/ui/button';
@@ -114,13 +114,12 @@ function sanitizeAnalysis(raw: QuotationAnalysis): QuotationAnalysis {
   // Derive qty/unit for lump-sum items with dimension text (deterministic,
   // in code — the AI is unreliable at mm→ft arithmetic). Without this, every
   // no-qty-column quotation ends up 100% "nodata" (待确认).
-  // dedupeRevisionItems drops identical rows extracted from multi-revision PDFs
-  const items = deriveLumpSumUnits(dedupeRevisionItems((raw.items ?? []).map(item => ({
+  const items = deriveLumpSumUnits((raw.items ?? []).map(item => ({
     ...item,
     qty:       Number(item.qty)       || 0,
     unitPrice: Number(item.unitPrice) || 0,
     total:     Number(item.total)     || 0,
-  }))));
+  })));
   const subtotals = (raw.subtotals ?? []).map(s => ({
     ...s,
     amount: Number(s.amount) || 0,

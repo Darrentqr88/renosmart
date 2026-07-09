@@ -109,6 +109,7 @@ RULES:
     Cite: "Market RM X-Y/unit, Quoted RM Z/unit". Match unit types. Consider supplyType + material grade.
     IMPORTANT: For tiles priced per pcs, apply Rule 16 derivation BEFORE comparing to sqft reference. For split supply+labour, combine both before comparing to S&I reference. Never flag a correctly-split supply_only+labour_only pair as anomaly unless their COMBINED price is out of range.
     CALC ERROR: qty × unitPrice ≠ total by >1% → flag critical. If calculation IS correct → NO alert. Never create a "Calculation Error" alert that says "Calculation is correct" — that is contradictory. Only create a Calculation Error alert when there is a genuine discrepancy.
+    UNIT-COLUMN-AS-QTY FORMAT: many quotations put the quantity in the UNIT/size column (e.g. QTY=1, UNIT="765sq", AMOUNT=26,775). This is a formatting convention, NOT an error: output qty=765, unit="sqft", unitPrice=total÷765, unitPriceDerived=true. NEVER create Calculation Error alerts for rows in this format.
     COORDINATION: tiling + no waterproofing (condo/upper floor) → critical.
     ALERTS — strict rules:
     - level="critical"/"warning": ONLY for items with status="warn" or "flag", calculation errors, missing critical scope, coordination failures. NEVER for status="ok" items.
@@ -226,13 +227,13 @@ RULES:
 
 17b. spec FIELD — for EVERY item, copy the size/dimension/spec column text VERBATIM into "spec" (e.g. "3750mm L x 3000mm H", "2100mm x Full Height", "539 Sqft", "1500mm L (x2)", "According Design"). If the row has no size/spec text, use "". Do NOT compute anything here — raw text only.
 
-17c. MULTI-REVISION DOCUMENTS — some PDFs bundle SEVERAL revisions of the same quotation
-    (repeated sections/items across pages, multiple TOTAL lines, RV1/RV2/Rev markers).
-    Detect this: if the same numbered items repeat on later pages with identical or slightly
-    changed prices, the document contains multiple revisions.
-    → Extract items from ONE revision only — the LATEST/FINAL one (higher RV number, later
-    date, or the version whose items reflect the most recent changes). NEVER output the same
-    item twice from different revisions. totalAmount must equal that single revision's total.
+17c. MULTI-SECTION TOTALS — quotations often contain SEVERAL section/page totals
+    (e.g. one TOTAL per floor/block/work package). These are ALL part of one quotation:
+    extract every section's items and set totalAmount = the grand total (sum of all
+    section totals, or the stated GRAND TOTAL). Repeated similar items across different
+    floors/areas are LEGITIMATE separate items — never drop them as duplicates.
+    DISCOUNT lines: include as subtotals entry (negative), NOT as an item; totalAmount
+    must be the FINAL amount after discount.
 
 18. UNIT STANDARDISATION — always output unit prices in these standard units for MY/SG:
     Area items  → use "sqft"  (NEVER "m2" or "m²" — convert: RM/m² ÷ 10.764 = RM/sqft)

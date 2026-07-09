@@ -14,7 +14,7 @@
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from 'fs';
 import { join, extname, basename } from 'path';
 import { buildQuotationPrompt } from '../../src/lib/ai/quotation-prompt';
-import { deriveLumpSumUnits, dedupeRevisionItems } from '../../src/lib/utils/item-derivation';
+import { deriveLumpSumUnits } from '../../src/lib/utils/item-derivation';
 import type { QuotationItem } from '../../src/types';
 
 const ROOT = join(__dirname, '..', '..');
@@ -168,6 +168,23 @@ function parseAiJson(content: string): Record<string, unknown> {
   return JSON.parse(truncated + stack.reverse().join(''));
 }
 
+// ── alert post-processing (mirror of quotation page UI filters) ─────────────
+// The app filters false-positive alerts and groups same-title alerts before
+// display — eval reports BOTH raw and user-visible counts.
+function visibleAlertCount(alerts: { level: string; title: string; desc: string }[]): number {
+  const kept = alerts.filter(a => {
+    const d = (a.desc || '').toLowerCase();
+    const t = (a.title || '').toLowerCase();
+    const withinRange = (t.includes('price')) &&
+      (d.includes('within range') || d.includes('within the range') || d.includes('is in range') ||
+       d.includes('this is within') || d.includes('reasonable for') || d.includes('in range'));
+    const correctCalc = t.includes('calculation') &&
+      (d.includes('calculation is correct') || d.includes('is correct') || d.includes('= correct') || d.includes('matches'));
+    return !withinRange && !correctCalc;
+  });
+  return new Set(kept.map(a => `${a.level}::${a.title}`)).size;
+}
+
 // ── automatic ground truth from raw text ────────────────────────────────────
 function docGrandTotal(rawText: string): number | null {
   const matches = [...rawText.matchAll(/(?:GRAND\s+TOTAL|TOTAL)\s*[:：]?\s*(?:RM|SGD|\$)?\s*([\d,]{4,}\.\d{2})/gi)];
@@ -186,6 +203,10 @@ async function main() {
 
   const files = readdirSync(folder).filter(f => /\.(pdf|xlsx|xls|csv|txt)$/i.test(f));
   console.log(`Eval: ${files.length} quotation(s) | model gemini-2.5-flash @ temp 0 | region ${region}\n`);
+
+  // Hand-verified ground truth (overrides regex-detected doc totals)
+  let groundTruth: Record<string, { expectedTotal?: number; expectedItems?: number }> = {};
+  try { groundTruth = JSON.parse(readFileSync(join(__dirname, 'ground-truth.json'), 'utf8')); } catch { /* optional */ }
 
   const report: Record<string, unknown>[] = [];
   for (const file of files) {
@@ -207,12 +228,14 @@ async function main() {
         subtotals?: { amount: number }[]; missingCritical?: unknown[]; alerts?: { level: string }[];
         projectType?: string;
       };
-      const items = deriveLumpSumUnits(dedupeRevisionItems((parsed.items ?? []).map(i => ({
+      const items = deriveLumpSumUnits((parsed.items ?? []).map(i => ({
         ...i, qty: Number(i.qty) || 0, unitPrice: Number(i.unitPrice) || 0, total: Number(i.total) || 0,
-      }))));
+      })));
 
       const sumItems = items.reduce((s, i) => s + i.total, 0);
-      const docTotal = docGrandTotal(text);
+      const gt = groundTruth[file];
+      // Ground truth beats regex: regex can catch a pre-discount or section total
+      const docTotal = gt?.expectedTotal ?? docGrandTotal(text);
       const aiTotal = Number(parsed.totalAmount) || 0;
       const pct = (a: number, b: number) => b > 0 ? Math.abs(a - b) / b : 1;
       const calcErrors = items.filter(i => i.qty > 0 && i.unitPrice > 0 && pct(i.qty * i.unitPrice, i.total) > 0.02).length;
@@ -234,7 +257,7 @@ async function main() {
         derived,
         specField: `${specCoverage}/${items.length}`,
         client: [parsed.client?.attention, parsed.client?.tel, parsed.client?.address].filter(Boolean).length + '/3',
-        alerts: (parsed.alerts || []).length,
+        alerts: `${visibleAlertCount((parsed.alerts || []) as { level: string; title: string; desc: string }[])}/${(parsed.alerts || []).length}`,
         missing: (parsed.missingCritical || []).length,
         projectType: parsed.projectType || '',
         finish: finishReason,

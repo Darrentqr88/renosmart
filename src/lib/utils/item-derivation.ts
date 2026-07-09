@@ -18,8 +18,9 @@ const SQMM_PER_SQFT = 92903;
 // Items priced per sqft of face area (L×H) rather than per ft run
 const AREA_PRICED_PATTERN = /feature\s*wall|wall\s*panel|divider|partition|platform|backdrop|headboard/i;
 
-// Explicit sqft quantity, e.g. "539 Sqft", "70 sq.ft"
-const SQFT_PATTERN = /(\d+(?:\.\d+)?)\s*sq\.?\s*(?:ft|feet)\b/i;
+// Explicit sqft quantity, e.g. "539 Sqft", "70 sq.ft", "765sq" (MY trade shorthand).
+// (?!\.?\s*m) rejects metric "sqm" / "sq.m" — those need ×10.764, handled by AI rule 18.
+const SQFT_PATTERN = /(\d+(?:\.\d+)?)\s*sq(?!\.?\s*m\b)(?:\.?\s*(?:ft|feet))?\b/i;
 
 // Length in mm — require the "L" marker or "x Full Height" so tile sizes
 // like "300mm x 600mm Tiles" are NOT mistaken for run lengths
@@ -75,23 +76,10 @@ export function deriveUnitFromDimensions(
   return null;
 }
 
-/**
- * Drop exact revision duplicates. Some PDFs bundle several revisions of the
- * same quotation in one file — the AI then extracts identical rows (same item
- * number, section, name, qty AND total) multiple times, inflating the sum.
- * The full key keeps legitimate repeats (same work in another room has a
- * different section or number; two identical doors have different numbers).
- */
-export function dedupeRevisionItems(items: QuotationItem[]): QuotationItem[] {
-  const seen = new Set<string>();
-  return items.filter(item => {
-    const key = [item.no, item.section, item.name, item.qty, item.total]
-      .map(v => String(v ?? '').trim().toLowerCase()).join('|');
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
+// NOTE: a dedupeRevisionItems() pass was tried here and REVERTED after eval
+// ground truth proved it wrong: quotations legitimately repeat identical rows
+// across floor/block sections (Impian Office: 3 section totals sum to the
+// grand total). Never drop "duplicate" items in code.
 
 /**
  * Post-process AI-parsed items: derive units for lump sums that carry
