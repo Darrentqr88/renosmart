@@ -226,6 +226,14 @@ RULES:
 
 17b. spec FIELD — for EVERY item, copy the size/dimension/spec column text VERBATIM into "spec" (e.g. "3750mm L x 3000mm H", "2100mm x Full Height", "539 Sqft", "1500mm L (x2)", "According Design"). If the row has no size/spec text, use "". Do NOT compute anything here — raw text only.
 
+17c. MULTI-REVISION DOCUMENTS — some PDFs bundle SEVERAL revisions of the same quotation
+    (repeated sections/items across pages, multiple TOTAL lines, RV1/RV2/Rev markers).
+    Detect this: if the same numbered items repeat on later pages with identical or slightly
+    changed prices, the document contains multiple revisions.
+    → Extract items from ONE revision only — the LATEST/FINAL one (higher RV number, later
+    date, or the version whose items reflect the most recent changes). NEVER output the same
+    item twice from different revisions. totalAmount must equal that single revision's total.
+
 18. UNIT STANDARDISATION — always output unit prices in these standard units for MY/SG:
     Area items  → use "sqft"  (NEVER "m2" or "m²" — convert: RM/m² ÷ 10.764 = RM/sqft)
     Linear items → use "ft"   (NEVER "m" or "mm"  — convert: RM/m ÷ 3.281 = RM/ft; RM/mm × 304.8 = RM/ft)

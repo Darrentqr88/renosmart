@@ -192,7 +192,14 @@ export async function POST(req: NextRequest) {
     const geminiModel = genAI.getGenerativeModel({
       model: isSecondaryCall ? 'gemini-2.5-flash-lite' : 'gemini-2.5-flash',
       ...(system ? { systemInstruction: system } : {}),
-      generationConfig: { maxOutputTokens: max_tokens || 16000, temperature: 0 },
+      generationConfig: {
+        maxOutputTokens: max_tokens || 16000,
+        temperature: 0,
+        // thinkingBudget 0: thinking tokens share the output budget and can
+        // starve/truncate the JSON items array on large quotations
+        // @ts-expect-error thinkingConfig supported by API, missing from SDK types
+        thinkingConfig: { thinkingBudget: 0 },
+      },
     });
 
     const contents = (messages as Array<{ role: string; content: string }>).map((m) => ({

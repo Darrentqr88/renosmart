@@ -10,7 +10,7 @@ import { generateGanttFromAIParams, generateGanttFromQuotation } from '@/lib/uti
 import { QuotationAnalysis, QuotationItem, AIItemStatus, SupplyType, GanttParams, ScoreBreakdown, DimensionBreakdown } from '@/types';
 import { formatCurrency, getCurrencySymbol } from '@/lib/utils';
 import { calculateHybridScores } from '@/lib/utils/score-calculator';
-import { deriveLumpSumUnits } from '@/lib/utils/item-derivation';
+import { deriveLumpSumUnits, dedupeRevisionItems } from '@/lib/utils/item-derivation';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { Button } from '@/components/ui/button';
@@ -114,12 +114,13 @@ function sanitizeAnalysis(raw: QuotationAnalysis): QuotationAnalysis {
   // Derive qty/unit for lump-sum items with dimension text (deterministic,
   // in code — the AI is unreliable at mm→ft arithmetic). Without this, every
   // no-qty-column quotation ends up 100% "nodata" (待确认).
-  const items = deriveLumpSumUnits((raw.items ?? []).map(item => ({
+  // dedupeRevisionItems drops identical rows extracted from multi-revision PDFs
+  const items = deriveLumpSumUnits(dedupeRevisionItems((raw.items ?? []).map(item => ({
     ...item,
     qty:       Number(item.qty)       || 0,
     unitPrice: Number(item.unitPrice) || 0,
     total:     Number(item.total)     || 0,
-  })));
+  }))));
   const subtotals = (raw.subtotals ?? []).map(s => ({
     ...s,
     amount: Number(s.amount) || 0,
@@ -322,7 +323,7 @@ export default function QuotationPage() {
       const res = await fetch('/api/claude/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
-        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 32000, messages: [{ role: 'user', content: prompt }] }),
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 65536, messages: [{ role: 'user', content: prompt }] }),
       });
 
       if (!res.ok) {
@@ -513,7 +514,7 @@ export default function QuotationPage() {
       const streamRes = await fetch('/api/claude/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
-        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 32000, messages: [{ role: 'user', content: prompt }] }),
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 65536, messages: [{ role: 'user', content: prompt }] }),
       });
       if (!streamRes.ok) { const e = await streamRes.json(); throw new Error(e.error || 'AI 分析失败'); }
 

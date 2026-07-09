@@ -76,6 +76,24 @@ export function deriveUnitFromDimensions(
 }
 
 /**
+ * Drop exact revision duplicates. Some PDFs bundle several revisions of the
+ * same quotation in one file — the AI then extracts identical rows (same item
+ * number, section, name, qty AND total) multiple times, inflating the sum.
+ * The full key keeps legitimate repeats (same work in another room has a
+ * different section or number; two identical doors have different numbers).
+ */
+export function dedupeRevisionItems(items: QuotationItem[]): QuotationItem[] {
+  const seen = new Set<string>();
+  return items.filter(item => {
+    const key = [item.no, item.section, item.name, item.qty, item.total]
+      .map(v => String(v ?? '').trim().toLowerCase()).join('|');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
  * Post-process AI-parsed items: derive units for lump sums that carry
  * dimension text. Genuine lump sums (e.g. "According Design", "1 Job")
  * are left untouched — "nodata" is the honest status for those.
