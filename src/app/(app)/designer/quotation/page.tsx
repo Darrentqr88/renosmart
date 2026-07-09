@@ -125,13 +125,16 @@ function sanitizeAnalysis(raw: QuotationAnalysis): QuotationAnalysis {
     amount: Number(s.amount) || 0,
   }));
 
-  // totalAmount: use AI value, or fallback to sum of subtotals, or sum of items
+  // totalAmount: use AI value, or fallback to sum of items, or sum of subtotals.
+  // Items first — subtotals may now contain SST/contingency/net-contract-sum
+  // entries (prompt rule 17d), so summing subtotals double-counts taxes.
   let totalAmount = Number(raw.totalAmount) || 0;
-  if (totalAmount === 0 && subtotals.length > 0) {
-    totalAmount = subtotals.reduce((sum, s) => sum + s.amount, 0);
-  }
   if (totalAmount === 0 && items.length > 0) {
     totalAmount = items.reduce((sum, item) => sum + item.total, 0);
+  }
+  if (totalAmount === 0 && subtotals.length > 0) {
+    const TAX_LABEL = /sst|service\s*tax|gst|contingency|provisional|net\s*contract/i;
+    totalAmount = subtotals.filter(s => !TAX_LABEL.test(s.label || '')).reduce((sum, s) => sum + s.amount, 0);
   }
 
   return {

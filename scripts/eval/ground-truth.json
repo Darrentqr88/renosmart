@@ -2,5 +2,6 @@
   "_comment": "Hand-verified ground truth per quotation file. expectedTotal = FINAL grand total (after discount). Confirmed by Darren 2026-07-09.",
   "test.pdf": { "expectedTotal": 432311, "expectedItems": 49 },
   "111.pdf": { "expectedTotal": 194350, "note": "document shows 198,275 pre-discount; has a discount line — 194,350 is final" },
-  "Impian Office RV2.pdf": { "expectedTotal": 539377, "note": "three SECTION totals (175,031 + 174,525 + 158,176 + misc) sum to grand total — repeated items across sections are legitimate, NOT revisions" }
+  "Impian Office RV2.pdf": { "expectedTotal": 539377, "note": "three SECTION totals (175,031 + 174,525 + 158,176 + misc) sum to grand total — repeated items across sections are legitimate, NOT revisions" },
+  "Legoland Quotation.pdf": { "expectedTotal": 1492953.1, "note": "GRAND TOTAL before contingency & taxes. Doc also shows Contingency 10% (149,295.31) + SST 6% (89,577.19) = Net Contract Sum 1,731,825.60 — those belong in subtotals, NOT in totalAmount" }
 }

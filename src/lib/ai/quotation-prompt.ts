@@ -234,6 +234,15 @@ RULES:
     floors/areas are LEGITIMATE separate items — never drop them as duplicates.
     DISCOUNT lines: include as subtotals entry (negative), NOT as an item; totalAmount
     must be the FINAL amount after discount.
+17d. TAX & CONTINGENCY LINES (MY B2B quotations commonly add these AFTER the works total):
+    "SST"/"Service Tax (6%)"/"GST", "Contingency Allowance/Sum (x%)", "Provisional Sum",
+    "Net Contract Sum (incl. ...)" — these are NOT work items and NOT the totalAmount base:
+    • totalAmount = the WORKS grand total BEFORE contingency & taxes (after discount)
+    • Output each tax/contingency line as a subtotals entry with its label verbatim
+      (e.g. {"label":"SST – Service Tax (6%)","amount":89577.19},
+            {"label":"Contingency Allowance (10%)","amount":149295.31},
+            {"label":"Net Contract Sum (incl. Contingency + SST)","amount":1731825.60})
+    • NEVER put SST/contingency/net-contract-sum as an item, and never sum them into totalAmount.
 
 18. UNIT STANDARDISATION — always output unit prices in these standard units for MY/SG:
     Area items  → use "sqft"  (NEVER "m2" or "m²" — convert: RM/m² ÷ 10.764 = RM/sqft)
