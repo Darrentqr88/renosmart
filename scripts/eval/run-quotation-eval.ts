@@ -201,7 +201,8 @@ async function main() {
   if (!folder) { console.error('Usage: npx tsx scripts/eval/run-quotation-eval.ts <folder> [--region SG]'); process.exit(1); }
   mkdirSync(RESULTS_DIR, { recursive: true });
 
-  const files = readdirSync(folder).filter(f => /\.(pdf|xlsx|xls|csv|txt)$/i.test(f));
+  // ~$ prefix = Excel lock files (file currently open in Excel) — skip
+  const files = readdirSync(folder).filter(f => /\.(pdf|xlsx|xls|csv|txt)$/i.test(f) && !f.startsWith('~$'));
   console.log(`Eval: ${files.length} quotation(s) | model gemini-2.5-flash @ temp 0 | region ${region}\n`);
 
   // Hand-verified ground truth (overrides regex-detected doc totals)
