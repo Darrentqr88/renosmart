@@ -193,8 +193,6 @@ export async function buildGanttWorkbook(opts: ExportGanttOptions) {
     const groupStartRow = r;
     const tradeColor = (group.tasks[0].color || '#94A3B8').replace('#', '');
     const tradeText = readableTextColor(tradeColor);
-    const groupStart = group.tasks.reduce((m, t) => t.start_date < m ? t.start_date : m, group.tasks[0].start_date);
-    const groupEnd = group.tasks.reduce((m, t) => t.end_date > m ? t.end_date : m, group.tasks[0].end_date);
 
     for (const t of group.tasks) {
       ws.getRow(r).height = 20;
@@ -262,22 +260,17 @@ export async function buildGanttWorkbook(opts: ExportGanttOptions) {
     }
 
     const groupEndRow = r - 1;
-    // ── Trade side-band (col A): merged, colored, vertical text ──
+    // ── Trade side-band (col A): merged, solid color accent strip, no text —
+    // rotated text in a 3-char-wide column was illegible; label lives in col B now ──
     ws.mergeCells(groupStartRow, 1, groupEndRow, 1);
     const bandCell = ws.getCell(groupStartRow, 1);
-    bandCell.value = group.trade;
-    bandCell.font = { bold: true, size: 9, color: { argb: tradeText } };
-    bandCell.alignment = { vertical: 'middle', horizontal: 'center', textRotation: 90, wrapText: true };
     bandCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(tradeColor) } };
 
-    // ── Trade description (col B): merged, light tint, summary text ──
+    // ── Trade name (col B): merged, light tint background, readable horizontal label ──
     ws.mergeCells(groupStartRow, 2, groupEndRow, 2);
     const descCell = ws.getCell(groupStartRow, 2);
-    const n = group.tasks.length;
-    descCell.value = zh
-      ? `${n} 项任务\n${format(parseISO(groupStart), 'dd MMM')} – ${format(parseISO(groupEnd), 'dd MMM')}`
-      : `${n} task${n > 1 ? 's' : ''}\n${format(parseISO(groupStart), 'dd MMM')} – ${format(parseISO(groupEnd), 'dd MMM')}`;
-    descCell.font = { italic: true, size: 8, color: { argb: 'FF6B7A94' } };
+    descCell.value = group.trade;
+    descCell.font = { bold: true, size: 10, color: { argb: TEXT_DARK } };
     descCell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
     descCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: tint(tradeColor, 0.85) } };
   }
